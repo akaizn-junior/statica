@@ -40,6 +40,7 @@ mod error;
 mod feeds;
 mod fragment;
 mod funnel;
+mod loc;
 mod paginate;
 pub mod parse;
 mod runtime;

@@ -54,19 +54,31 @@ pub enum Error {
     ExpectedArray { id: String },
 
     #[error(
-        "fragment `{id}` data-bind=`{prop}` is invalid (expected a JS identifier or destructure like `{{variant, href}}`)"
+        "{file}:{line}:{column}: fragment `{id}` data-bind=`{prop}` is invalid — {reason}\n{snippet}"
     )]
-    InvalidBindProp { id: String, prop: String },
+    InvalidBindProp {
+        file: String,
+        line: u32,
+        column: u32,
+        id: String,
+        prop: String,
+        reason: String,
+        snippet: String,
+    },
 
     #[error(
-        "fragment `{id}` uses `{path}` but `{name}` is not bound — declare it in data-bind (e.g. data-bind=\"{name}\" or data-bind=\"{{{name}}}\")"
+        "{file}:{line}:{column}: fragment `{id}` uses `{path}` but `{name}` is not bound — declare it in data-bind (e.g. data-bind=\"{name}\" or data-bind=\"{{{name}}}\")\n{snippet}"
     )]
     UnboundTemplateVar {
+        file: String,
+        line: u32,
+        column: u32,
         id: String,
         /// Full `${path}` or slot name as authored.
         path: String,
         /// Root name that must appear in `data-bind`.
         name: String,
+        snippet: String,
     },
 }
 

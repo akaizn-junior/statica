@@ -9,9 +9,17 @@ use oxc_span::SourceType;
 use serde_json::Value;
 
 use crate::error::{Error, Result};
+use crate::loc;
 use crate::parse::{Element, Node};
 
 use super::json::read_field;
+
+/// Source text used to attach `file:line:column` to bind diagnostics.
+#[derive(Debug, Clone, Copy)]
+pub struct BindSource<'a> {
+    pub file: &'a str,
+    pub source: &'a str,
+}
 
 /// What a fragment `<template data-bind="…">` declares into scope.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -131,24 +139,41 @@ pub fn bind_context(decl: &BindDecl, value: &Value) -> Value {
 }
 
 /// Fail the build if `${…}` / named slots reference names not declared in `data-bind`.
-pub fn validate_template_binds(fragment_id: &str, decl: &BindDecl, nodes: &[Node]) -> Result<()> {
+pub fn validate_template_binds(
+    fragment_id: &str,
+    decl: &BindDecl,
+    nodes: &[Node],
+    source: BindSource<'_>,
+) -> Result<()> {
     let scope = decl.scope_names();
-    validate_nodes(fragment_id, &scope, nodes)
+    validate_nodes(fragment_id, &scope, nodes, source)
 }
 
-fn validate_nodes(fragment_id: &str, scope: &HashSet<&str>, nodes: &[Node]) -> Result<()> {
+fn validate_nodes(
+    fragment_id: &str,
+    scope: &HashSet<&str>,
+    nodes: &[Node],
+    source: BindSource<'_>,
+) -> Result<()> {
     for node in nodes {
         if let Node::Element(el) = node {
-            validate_element(fragment_id, scope, el)?;
+            validate_element(fragment_id, scope, el, source)?;
         }
     }
     Ok(())
 }
 
-fn validate_element(fragment_id: &str, scope: &HashSet<&str>, el: &Element) -> Result<()> {
+fn validate_element(
+    fragment_id: &str,
+    scope: &HashSet<&str>,
+    el: &Element,
+    source: BindSource<'_>,
+) -> Result<()> {
     if el.is_slot() && el.attr("id").is_none() {
         if let Some(name) = el.attr("name").map(str::trim).filter(|s| !s.is_empty()) {
-            ensure_bound(fragment_id, scope, name, name)?;
+            let dq = format!("name=\"{name}\"");
+            let sq = format!("name='{name}'");
+            ensure_bound(fragment_id, scope, name, name, source, &[&dq, &sq])?;
         }
     }
     if !el.is_script() && !el.is_style() {
@@ -156,22 +181,35 @@ fn validate_element(fragment_id: &str, scope: &HashSet<&str>, el: &Element) -> R
             if v.contains("${") {
                 for path in template_paths(v) {
                     let root = path_root(&path);
-                    ensure_bound(fragment_id, scope, &format!("${{{path}}}"), root)?;
+                    let authored = format!("${{{path}}}");
+                    ensure_bound(fragment_id, scope, &authored, root, source, &[&authored])?;
                 }
             }
         }
     }
-    validate_nodes(fragment_id, scope, &el.children)
+    validate_nodes(fragment_id, scope, &el.children, source)
 }
 
-fn ensure_bound(fragment_id: &str, scope: &HashSet<&str>, path: &str, root: &str) -> Result<()> {
+fn ensure_bound(
+    fragment_id: &str,
+    scope: &HashSet<&str>,
+    path: &str,
+    root: &str,
+    source: BindSource<'_>,
+    needles: &[&str],
+) -> Result<()> {
     if scope.contains(root) {
         return Ok(());
     }
+    let (file, line, column, snippet) = loc::locate_any(source.file, source.source, needles);
     Err(Error::UnboundTemplateVar {
+        file,
+        line,
+        column,
         id: fragment_id.to_string(),
         path: path.to_string(),
         name: root.to_string(),
+        snippet,
     })
 }
 
@@ -218,6 +256,13 @@ mod tests {
         })
     }
 
+    fn src(html: &str) -> BindSource<'_> {
+        BindSource {
+            file: "ui/button.html",
+            source: html,
+        }
+    }
+
     #[test]
     fn parses_named_and_destructure() {
         assert_eq!(parse_bind_decl(None).unwrap(), BindDecl::None);
@@ -240,32 +285,49 @@ mod tests {
 
     #[test]
     fn named_bind_rejects_magic_fields() {
+        let html = r#"<a class="button ${variant}" href="${href}"><slot name="label"></slot></a>"#;
         let decl = BindDecl::Named("button".into());
         let nodes = vec![el(
             "a",
             &[("class", "button ${variant}"), ("href", "${href}")],
             vec![el("slot", &[("name", "label")], vec![])],
         )];
-        let err = validate_template_binds("button", &decl, &nodes).unwrap_err();
-        assert!(matches!(
-            err,
-            Error::UnboundTemplateVar { ref name, .. } if name == "variant"
-        ));
+        let err = validate_template_binds("button", &decl, &nodes, src(html)).unwrap_err();
+        match err {
+            Error::UnboundTemplateVar {
+                ref file,
+                line,
+                column,
+                ref name,
+                ref snippet,
+                ..
+            } => {
+                assert_eq!(name, "variant");
+                assert_eq!(file, "ui/button.html");
+                assert_eq!((line, column), (1, 18));
+                assert!(snippet.contains("${variant}"));
+                assert!(snippet.contains('^'));
+            }
+            other => panic!("unexpected: {other}"),
+        }
     }
 
     #[test]
     fn named_bind_allows_prop_paths() {
+        let html = r#"<a class="button ${button.variant}" href="${button.href}"></a>"#;
         let decl = BindDecl::Named("button".into());
         let nodes = vec![el(
             "a",
             &[("class", "button ${button.variant}"), ("href", "${button.href}")],
             vec![],
         )];
-        validate_template_binds("button", &decl, &nodes).unwrap();
+        validate_template_binds("button", &decl, &nodes, src(html)).unwrap();
     }
 
     #[test]
     fn destructure_allows_listed_names() {
+        let html =
+            r#"<a class="button ${variant}" href="${href}"><slot name="label"></slot></a>"#;
         let decl = BindDecl::Destructure(vec![
             "variant".into(),
             "href".into(),
@@ -276,22 +338,34 @@ mod tests {
             &[("class", "button ${variant}"), ("href", "${href}")],
             vec![el("slot", &[("name", "label")], vec![])],
         )];
-        validate_template_binds("button", &decl, &nodes).unwrap();
+        validate_template_binds("button", &decl, &nodes, src(html)).unwrap();
     }
 
     #[test]
     fn named_slot_must_be_bound() {
+        let html =
+            r#"<a class="button ${variant}" href="${href}"><slot name="label"></slot></a>"#;
         let decl = BindDecl::Destructure(vec!["variant".into(), "href".into()]);
         let nodes = vec![el(
             "a",
             &[("class", "button ${variant}"), ("href", "${href}")],
             vec![el("slot", &[("name", "label")], vec![])],
         )];
-        let err = validate_template_binds("button", &decl, &nodes).unwrap_err();
-        assert!(matches!(
-            err,
-            Error::UnboundTemplateVar { ref name, .. } if name == "label"
-        ));
+        let err = validate_template_binds("button", &decl, &nodes, src(html)).unwrap_err();
+        match err {
+            Error::UnboundTemplateVar {
+                line,
+                column,
+                ref name,
+                ref snippet,
+                ..
+            } => {
+                assert_eq!(name, "label");
+                assert_eq!((line, column), (1, 51));
+                assert!(snippet.contains("name=\"label\""));
+            }
+            other => panic!("unexpected: {other}"),
+        }
     }
 
     #[test]

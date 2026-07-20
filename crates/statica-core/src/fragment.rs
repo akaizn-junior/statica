@@ -81,13 +81,31 @@ impl FragmentRegistry {
                 path: path.display().to_string(),
             }
         })?;
+        let file = path.display().to_string();
+        let bind_source = funnel::BindSource {
+            file: &file,
+            source: &raw,
+        };
         let bind = match funnel::parse_bind_decl(template_el.attr("data-bind")) {
             Ok(decl) => decl,
-            Err(msg) => {
-                return Err(Error::msg(format!("fragment `{id}`: {msg}")));
+            Err(reason) => {
+                let prop = template_el.attr("data-bind").unwrap_or("").to_string();
+                let dq = format!("data-bind=\"{prop}\"");
+                let sq = format!("data-bind='{prop}'");
+                let (file, line, column, snippet) =
+                    crate::loc::locate_any(&file, &raw, &[&dq, &sq, prop.as_str()]);
+                return Err(Error::InvalidBindProp {
+                    file,
+                    line,
+                    column,
+                    id: id.to_string(),
+                    prop,
+                    reason,
+                    snippet,
+                });
             }
         };
-        funnel::validate_template_binds(id, &bind, &template_el.children)?;
+        funnel::validate_template_binds(id, &bind, &template_el.children, bind_source)?;
         let hash = short_hash(&raw);
         let scope_id = format!("{id}-{hash}");
 
