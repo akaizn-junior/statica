@@ -257,7 +257,7 @@ images = true                  # oxipng + image
 fonts = false                  # copied as-is
 
 [sitemap]
-enabled = true
+enabled = false
 filename = "sitemap.xml"
 urls_per_file = 50000          # over → sitemap-1.xml… + index
 

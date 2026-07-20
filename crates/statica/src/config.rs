@@ -201,7 +201,7 @@ impl Default for ProcessConfig {
 impl Default for SitemapConfig {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             filename: "sitemap.xml".into(),
             urls_per_file: 50_000,
         }
@@ -472,7 +472,7 @@ fonts = false
 
 # XML sitemap of every emitted page (needs site_url)
 [sitemap]
-enabled = true
+enabled = false
 filename = "sitemap.xml"
 urls_per_file = 50000          # over this → sitemap-1.xml… + index at filename
 
@@ -758,7 +758,7 @@ port = 9000
     fn default_toml_roundtrips() {
         let cfg: StaticaConfig = toml::from_str(&StaticaConfig::default_toml()).unwrap();
         assert!(cfg.emit.strip_data);
-        assert!(cfg.sitemap.enabled);
+        assert!(!cfg.sitemap.enabled);
         assert!(!cfg.rss.enabled);
         assert_eq!(cfg.preview.host, "0.0.0.0");
     }
@@ -771,7 +771,7 @@ port = 9000
         cfg.rss.title = "Blog".into();
         let opts = cfg.to_build_options(PathBuf::from("/tmp/site"));
         assert_eq!(opts.site_url, "https://example.com");
-        assert!(opts.sitemap.enabled);
+        assert!(!opts.sitemap.enabled);
         assert!(opts.rss.enabled);
         assert_eq!(opts.rss.title, "Blog");
     }

@@ -38,7 +38,7 @@ pub struct SitemapOptions {
 impl Default for SitemapOptions {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             filename: "sitemap.xml".into(),
             urls_per_file: SITEMAP_URL_LIMIT,
         }

@@ -120,7 +120,7 @@ js = true
 images = true
 
 [sitemap]
-enabled = true
+enabled = false
 urls_per_file = 50000
 
 [[pagination]]
