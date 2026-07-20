@@ -144,7 +144,7 @@ Settings live in `statica.toml` (optional; defaults apply if missing).
 - Pages are every `**/index.html` (folder = route).
 - Data via `<script type="statica/data" src id>`.
 - Fragments via `<link rel="statica/fragment" href id>` + `<template id>` + `<slot id>`.
-- Attributes use `${{field}}` declared via fragment `data-bind` (`name` or `{{a, b}}`); content uses `<slot name="field">` (not a template var).
+- Attributes use `${{field}}` declared via fragment `data-bind` (`name` or `{{a, b}}`); content uses `<slot name="field">`.
 "#
         ),
     )?;

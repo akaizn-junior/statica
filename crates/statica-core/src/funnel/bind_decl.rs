@@ -130,9 +130,7 @@ pub fn bind_context(decl: &BindDecl, value: &Value) -> Value {
     }
 }
 
-/// Fail the build if `${…}` attribute templates reference names not declared in `data-bind`.
-///
-/// Named slots (`<slot name="label">`) are not template vars — only `${…}` is checked.
+/// Fail the build if `${…}` / named slots reference names not declared in `data-bind`.
 pub fn validate_template_binds(fragment_id: &str, decl: &BindDecl, nodes: &[Node]) -> Result<()> {
     let scope = decl.scope_names();
     validate_nodes(fragment_id, &scope, nodes)
@@ -148,6 +146,11 @@ fn validate_nodes(fragment_id: &str, scope: &HashSet<&str>, nodes: &[Node]) -> R
 }
 
 fn validate_element(fragment_id: &str, scope: &HashSet<&str>, el: &Element) -> Result<()> {
+    if el.is_slot() && el.attr("id").is_none() {
+        if let Some(name) = el.attr("name").map(str::trim).filter(|s| !s.is_empty()) {
+            ensure_bound(fragment_id, scope, name, name)?;
+        }
+    }
     if !el.is_script() && !el.is_style() {
         for (_k, v) in &el.attrs {
             if v.contains("${") {
@@ -262,15 +265,33 @@ mod tests {
     }
 
     #[test]
-    fn destructure_allows_listed_names_and_ignores_slot_names() {
+    fn destructure_allows_listed_names() {
+        let decl = BindDecl::Destructure(vec![
+            "variant".into(),
+            "href".into(),
+            "label".into(),
+        ]);
+        let nodes = vec![el(
+            "a",
+            &[("class", "button ${variant}"), ("href", "${href}")],
+            vec![el("slot", &[("name", "label")], vec![])],
+        )];
+        validate_template_binds("button", &decl, &nodes).unwrap();
+    }
+
+    #[test]
+    fn named_slot_must_be_bound() {
         let decl = BindDecl::Destructure(vec!["variant".into(), "href".into()]);
         let nodes = vec![el(
             "a",
             &[("class", "button ${variant}"), ("href", "${href}")],
-            // Named slots are not `${…}` template vars — no need to list `label` in data-bind.
             vec![el("slot", &[("name", "label")], vec![])],
         )];
-        validate_template_binds("button", &decl, &nodes).unwrap();
+        let err = validate_template_binds("button", &decl, &nodes).unwrap_err();
+        assert!(matches!(
+            err,
+            Error::UnboundTemplateVar { ref name, .. } if name == "label"
+        ));
     }
 
     #[test]
