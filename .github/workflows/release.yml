@@ -1,0 +1,227 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-14
+          - target: x86_64-apple-darwin
+            os: macos-14
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-24.04
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install aarch64 Linux linker
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          mkdir -p "${HOME}/.cargo"
+          cat >> "${HOME}/.cargo/config.toml" <<'EOF'
+          [target.aarch64-unknown-linux-gnu]
+          linker = "aarch64-linux-gnu-gcc"
+          EOF
+
+      - name: Build release
+        run: cargo build -p statica --release --target ${{ matrix.target }}
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET="${{ matrix.target }}"
+          OUT="staged/${TARGET}"
+          mkdir -p "$OUT"
+          if [[ "$TARGET" == *"windows"* ]]; then
+            cp "target/${TARGET}/release/statica.exe" "${OUT}/statica.exe"
+            ASSET="statica-${TARGET}.exe"
+            cp "${OUT}/statica.exe" "${ASSET}"
+          else
+            cp "target/${TARGET}/release/statica" "${OUT}/statica"
+            if command -v strip >/dev/null 2>&1; then
+              strip "${OUT}/statica" || true
+            fi
+            ASSET="statica-${TARGET}"
+            cp "${OUT}/statica" "${ASSET}"
+          fi
+          ls -la "$OUT" "$ASSET"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: statica-${{ matrix.target }}
+          path: staged/${{ matrix.target }}/
+          if-no-files-found: error
+
+      - name: Upload release asset file
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-asset-${{ matrix.target }}
+          path: |
+            statica-${{ matrix.target }}
+            statica-${{ matrix.target }}.exe
+          if-no-files-found: ignore
+
+  publish:
+    name: Publish crates + npm
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Download staged binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: statica-*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-asset-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Normalize artifacts for pack-npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pack-artifacts
+          # download-artifact layout: artifacts/statica-<triple>/{statica,statica.exe}
+          for d in artifacts/statica-*; do
+            [[ -d "$d" ]] || continue
+            triple="$(basename "$d")"
+            triple="${triple#statica-}"
+            mkdir -p "pack-artifacts/${triple}"
+            cp -R "$d"/. "pack-artifacts/${triple}/"
+            ls -la "pack-artifacts/${triple}"
+          done
+          find pack-artifacts -type f | sort
+
+      - name: Version from tag
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Release version: ${VERSION}"
+          VERSION="${VERSION}" node <<'NODE'
+          const fs = require("fs");
+          const v = process.env.VERSION;
+          let cargo = fs.readFileSync("Cargo.toml", "utf8");
+          cargo = cargo.replace(
+            /(\[workspace\.package\][\s\S]*?^version = ")[^"]+/m,
+            `$1${v}`,
+          );
+          cargo = cargo.replace(
+            /(statica-core = \{ version = ")[^"]+/,
+            `$1${v}`,
+          );
+          fs.writeFileSync("Cargo.toml", cargo);
+          NODE
+          grep -A6 '\[workspace.package\]' Cargo.toml
+          grep 'statica-core =' Cargo.toml
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.ver.outputs.version }}"
+          shopt -s nullglob
+          ASSETS=(release-assets/statica-*)
+          if ((${#ASSETS[@]} == 0)); then
+            echo "No release assets found"
+            exit 1
+          fi
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            gh release upload "v${VERSION}" "${ASSETS[@]}" --clobber
+          else
+            gh release create "v${VERSION}" "${ASSETS[@]}" \
+              --title "v${VERSION}" \
+              --generate-notes
+          fi
+
+      - name: Publish crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo publish -p statica-core --allow-dirty
+          for i in $(seq 1 15); do
+            if cargo publish -p statica --allow-dirty; then
+              exit 0
+            fi
+            echo "Waiting for crates.io to index statica-core (attempt ${i})…"
+            sleep 20
+          done
+          echo "Failed to publish statica after retries"
+          exit 1
+
+      - name: Pack npm packages
+        run: node scripts/pack-npm.mjs --version "${{ steps.ver.outputs.version }}" --artifacts-dir ./pack-artifacts
+
+      - name: Smoke test @statica/cli
+        run: node scripts/verify-npm-cli.mjs
+
+      - name: Publish npm platform packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for pkg in \
+            cli-darwin-arm64 \
+            cli-darwin-x64 \
+            cli-linux-x64-gnu \
+            cli-linux-arm64-gnu \
+            cli-win32-x64
+          do
+            (cd "npm/@statica/${pkg}" && npm publish --access public)
+          done
+
+      - name: Publish @statica/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: cd npm/@statica/cli && npm publish --access public

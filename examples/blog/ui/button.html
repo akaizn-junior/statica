@@ -1,0 +1,21 @@
+<template id="button">
+  <style>
+    .btn {
+      background: #0f172a;
+      color: #fff;
+      border: 0;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+    .btn[data-pressed="true"] {
+      background: #0369a1;
+    }
+  </style>
+  <button class="btn" type="button"><slot>Click me</slot></button>
+  <script>
+    $.querySelector(".btn").addEventListener("click", function () {
+      $.host.setAttribute("data-pressed", "true");
+    });
+  </script>
+</template>

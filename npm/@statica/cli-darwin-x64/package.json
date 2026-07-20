@@ -1,0 +1,27 @@
+{
+  "name": "@statica/cli-darwin-x64",
+  "version": "0.1.0",
+  "description": "Prebuilt statica CLI binary for darwin-x64",
+  "license": "MIT",
+  "type": "commonjs",
+  "homepage": "https://github.com/statica/statica",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/statica/statica.git",
+    "directory": "npm/@statica/cli-darwin-x64"
+  },
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "bin",
+    "LICENSE"
+  ],
+  "preferUnplugged": true,
+  "publishConfig": {
+    "access": "public"
+  }
+}

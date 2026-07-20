@@ -1,0 +1,24 @@
+site_url = "https://example.com"
+out_dir = ".dist"
+clean = true
+copy_assets = true
+
+[sitemap]
+enabled = true
+
+[rss]
+enabled = true
+title = "statica blog"
+description = "Funnel → pages."
+collections = ["posts"]
+
+# 5 posts, newest first, 2 per page → blog/1/, blog/2/, blog/3/ (+ blog/)
+[[pagination]]
+route = "blog/[page]"
+page_size = 2
+limit = 0
+offset = 0
+sort_by = "published_at"
+sort_desc = true
+max_pages = 0
+index = true

@@ -1,0 +1,121 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH statica-serve 1  "serve 0.1.0" 
+.SH NAME
+statica\-serve \- Serve out_dir over HTTP (preview a build)
+.SH SYNOPSIS
+\fBstatica serve\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-emit\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+.SH DESCRIPTION
+Serve a previously built out_dir over HTTP.
+.PP
+Uses axum + tower\-http ServeDir: directory indexes, precompressed gzip,
+and index.html fallback. Does not rebuild — run `statica build` first
+(or use `statica watch` to build continuously).
+.SH OPTIONS
+.TP
+\fB\-v\fR, \fB\-\-version\fR
+Print the statica version (from Cargo.toml) and exit successfully.
+.TP
+\fB\-\-project\fR \fI<DIR>\fR
+Overrides `project` in statica.toml.
+Path is relative to the directory that contains `statica.toml` (found by walking up from cwd / PATH).
+Empty / omitted = that config directory is the site root.
+.TP
+\fB\-\-out\-dir\fR \fI<DIR>\fR
+Output directory (out_dir)
+.TP
+\fB\-\-site\-url\fR \fI<URL>\fR
+Site origin for sitemap/RSS (site_url)
+.TP
+\fB\-\-clean\fR
+Clean out_dir before build
+.TP
+\fB\-\-no\-clean\fR
+Do not clean out_dir before build
+.TP
+\fB\-\-copy\-assets\fR
+Copy asset_dirs into out_dir
+.TP
+\fB\-\-no\-copy\-assets\fR
+Skip copying asset directories
+.TP
+\fB\-\-asset\-dirs\fR \fI<DIRS>\fR
+Comma\-separated asset folder names
+.TP
+\fB\-\-ignore\-dirs\fR \fI<DIRS>\fR
+Comma\-separated dirs to skip when discovering pages
+.TP
+\fB\-\-emit\fR \fI<SPEC>\fR
+Override [emit]. Comma\-separated key=value:
+strip_data, strip_fragments, strip_html_data_bind, dedupe_helpers, dedupe_styles
+Example: \-\-emit strip_data=false,dedupe_styles=true
+.TP
+\fB\-\-process\fR [\fI<SPEC>\fR]
+Enable [process]. Optional SPEC:
+enabled, css, js, images, fonts
+Examples:
+\-\-process
+\-\-process css=true,js=false,images=true,fonts=false
+.TP
+\fB\-\-no\-process\fR
+Disable asset processing
+.TP
+\fB\-\-sitemap\fR [\fI<SPEC>\fR]
+Enable [sitemap]. Optional SPEC:
+enabled, filename, urls_per_file
+Examples:
+\-\-sitemap
+\-\-sitemap filename=sitemap.xml,urls_per_file=50000
+.TP
+\fB\-\-no\-sitemap\fR
+Disable sitemap generation
+.TP
+\fB\-\-rss\fR [\fI<SPEC>\fR]
+Enable [rss]. Optional SPEC:
+enabled, filename, title, description, language, limit,
+title_field, description_field, date_field, collections
+Examples:
+\-\-rss
+\-\-rss \*(Aqtitle=Blog,limit=20,collections=posts,date_field=published_at\*(Aq
+.TP
+\fB\-\-no\-rss\fR
+Disable RSS feed
+.TP
+\fB\-\-pagination\fR \fI<SPEC>\fR
+Replace all [[pagination]] entries. Repeat for multiple rules.
+SPEC is comma\-separated key=value:
+route (required), page_size|per_page, limit, offset,
+sort_by, sort_desc, max_pages, index
+Example: \-\-pagination \*(Aqroute=blog/[page],page_size=10,sort_desc=true,index=true\*(Aq
+.TP
+\fB\-\-preview\fR \fI<SPEC>\fR
+Override [preview]. Comma\-separated key=value:
+host, port, debounce_ms, poll_interval_secs
+Example: \-\-preview host=127.0.0.1,port=9000,debounce_ms=100
+`\-\-host` / `\-p` are short aliases for the same fields.
+.TP
+\fB\-\-host\fR \fI<HOST>\fR
+Preview bind address (alias for \-\-preview host=…)
+.TP
+\fB\-p\fR, \fB\-\-port\fR \fI<PORT>\fR
+Preview server port (alias for \-\-preview port=…)
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.TP
+[\fIPATH\fR] [default: .]
+Directory to start from when locating the project. Resolved against the process cwd.
+Walks up for `statica.toml`. Use `\-\-project` (or `project` in the toml) for a site subdirectory.
+.SH EXTRA
+Examples:
+  statica build && statica serve
+  statica serve examples/blog
+  statica serve . \-p 9000 \-\-host 127.0.0.1
+
+Notes:
+  \-\-host / \-\-port override [preview] from statica.toml.
+  Defaults: host 0.0.0.0, port 4321.
+  Prints Local + Network (LAN) URLs for phone testing.
+  Fails if out_dir is missing.
+.SH VERSION
+v0.1.0

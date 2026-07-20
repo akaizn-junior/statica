@@ -1,0 +1,13 @@
+out_dir = ".dist"
+clean = true
+copy_assets = false
+ignore_dirs = [".dist", "dist", "target", ".git"]
+
+[emit]
+strip_data = true
+strip_fragments = true
+strip_html_data_bind = true
+
+[preview]
+host = "127.0.0.1"
+port = 4331

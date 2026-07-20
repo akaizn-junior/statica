@@ -1,0 +1,11 @@
+/target
+**/.dist/
+**/dist/
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# npm platform binaries (packed by scripts/pack-npm.mjs); keep .gitkeep
+npm/@statica/cli-*/bin/statica
+npm/@statica/cli-*/bin/statica.exe

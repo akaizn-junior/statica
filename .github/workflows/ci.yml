@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build
+        run: cargo build -p statica --release
+      - name: crates.io dry-run (statica-core)
+        run: cargo publish -p statica-core --dry-run
+      - name: npm pack sync (no binaries)
+        run: node scripts/pack-npm.mjs --skip-binaries
+      - name: Pack smoke (linux binary from this job)
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST=x86_64-unknown-linux-gnu
+          mkdir -p "artifacts/${HOST}"
+          cp target/release/statica "artifacts/${HOST}/statica"
+          # stub other platforms so pack-npm succeeds in CI smoke
+          for t in aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-gnu; do
+            mkdir -p "artifacts/${t}"
+            cp target/release/statica "artifacts/${t}/statica"
+          done
+          mkdir -p artifacts/x86_64-pc-windows-msvc
+          cp target/release/statica artifacts/x86_64-pc-windows-msvc/statica.exe
+          node scripts/pack-npm.mjs --artifacts-dir ./artifacts
+          node scripts/verify-npm-cli.mjs

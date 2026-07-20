@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" data-bind="posts">
+  <head>
+    <meta charset="utf-8" />
+    <title>Page <slot name="page"></slot> / <slot name="total_pages"></slot></title>
+    <link
+      rel="statica/fragment"
+      type="text/html"
+      href="../../ui/post-card.html"
+      id="post-card"
+    />
+    <script type="statica/data" src="../../content/posts.json" id="posts"></script>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+      nav { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+      a { color: #0f766e; }
+      .meta { color: #64748b; font-size: 0.875rem; }
+    </style>
+  </head>
+  <body>
+    <p class="meta"><a href="/">Home</a> · page <slot name="page"></slot> of <slot name="total_pages"></slot></p>
+    <slot id="post-card" data-each="items"></slot>
+    <nav>
+      <a href="${first_href}">First</a>
+      <a href="${prev_href}">Previous</a>
+      <a href="${next_href}">Next</a>
+      <a href="${last_href}">Last</a>
+    </nav>
+  </body>
+</html>

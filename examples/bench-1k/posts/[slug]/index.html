@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en" data-bind="posts">
+  <head>
+    <meta charset="utf-8" />
+    <title><slot name="headline"></slot></title>
+    <script type="statica/data" src="../../content/posts.json" id="posts"></script>
+  </head>
+  <body>
+    <article>
+      <h1><slot name="headline"></slot></h1>
+      <time><slot name="published_at"></slot></time>
+      <p><slot name="summary"></slot></p>
+      <div><slot name="html"></slot></div>
+    </article>
+    <p><a href="/blog/">← All posts</a></p>
+  </body>
+</html>

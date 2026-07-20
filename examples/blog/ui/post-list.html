@@ -1,0 +1,14 @@
+<link rel="statica/fragment" type="text/html" href="./post-card.html" id="post-card" />
+
+<template id="post-list" data-bind="posts">
+  <style>
+    .posts {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+  </style>
+  <ul class="posts">
+    <slot id="post-card" data-each="."></slot>
+  </ul>
+</template>

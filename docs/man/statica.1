@@ -1,0 +1,165 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH statica 1  "statica 0.1.0" 
+.SH NAME
+statica \- statica — Powered HTML
+.SH SYNOPSIS
+\fBstatica\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-emit\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
+.SH DESCRIPTION
+statica — Powered HTML
+.PP
+Turns HTML pages, fragments, and local JSON funnels into a static site.
+Transforms modern CSS to browser\-ready output.
+.PP
+Flow: Funnel → Pages → output directory (default: .dist)
+.PP
+With no subcommand, statica builds PATH (default: `.`):
+  statica
+  statica examples/blog
+  statica serve examples/blog
+  statica watch examples/blog
+.PP
+End\-user settings are read from statica.toml (optional). Every key has an
+equivalent CLI flag; flags override the file.
+.PP
+Project location:
+  PATH (default `.`) is resolved against the process cwd, then statica walks
+  up for statica.toml. Site root = that directory, or `project` / `\-\-project`
+  under it.
+.SH OPTIONS
+.TP
+\fB\-v\fR, \fB\-\-version\fR
+Print the statica version (from Cargo.toml) and exit successfully.
+.TP
+\fB\-\-project\fR \fI<DIR>\fR
+Overrides `project` in statica.toml.
+Path is relative to the directory that contains `statica.toml` (found by walking up from cwd / PATH).
+Empty / omitted = that config directory is the site root.
+.TP
+\fB\-\-out\-dir\fR \fI<DIR>\fR
+Output directory (out_dir)
+.TP
+\fB\-\-site\-url\fR \fI<URL>\fR
+Site origin for sitemap/RSS (site_url)
+.TP
+\fB\-\-clean\fR
+Clean out_dir before build
+.TP
+\fB\-\-no\-clean\fR
+Do not clean out_dir before build
+.TP
+\fB\-\-copy\-assets\fR
+Copy asset_dirs into out_dir
+.TP
+\fB\-\-no\-copy\-assets\fR
+Skip copying asset directories
+.TP
+\fB\-\-asset\-dirs\fR \fI<DIRS>\fR
+Comma\-separated asset folder names
+.TP
+\fB\-\-ignore\-dirs\fR \fI<DIRS>\fR
+Comma\-separated dirs to skip when discovering pages
+.TP
+\fB\-\-emit\fR \fI<SPEC>\fR
+Override [emit]. Comma\-separated key=value:
+strip_data, strip_fragments, strip_html_data_bind, dedupe_helpers, dedupe_styles
+Example: \-\-emit strip_data=false,dedupe_styles=true
+.TP
+\fB\-\-process\fR [\fI<SPEC>\fR]
+Enable [process]. Optional SPEC:
+enabled, css, js, images, fonts
+Examples:
+\-\-process
+\-\-process css=true,js=false,images=true,fonts=false
+.TP
+\fB\-\-no\-process\fR
+Disable asset processing
+.TP
+\fB\-\-sitemap\fR [\fI<SPEC>\fR]
+Enable [sitemap]. Optional SPEC:
+enabled, filename, urls_per_file
+Examples:
+\-\-sitemap
+\-\-sitemap filename=sitemap.xml,urls_per_file=50000
+.TP
+\fB\-\-no\-sitemap\fR
+Disable sitemap generation
+.TP
+\fB\-\-rss\fR [\fI<SPEC>\fR]
+Enable [rss]. Optional SPEC:
+enabled, filename, title, description, language, limit,
+title_field, description_field, date_field, collections
+Examples:
+\-\-rss
+\-\-rss \*(Aqtitle=Blog,limit=20,collections=posts,date_field=published_at\*(Aq
+.TP
+\fB\-\-no\-rss\fR
+Disable RSS feed
+.TP
+\fB\-\-pagination\fR \fI<SPEC>\fR
+Replace all [[pagination]] entries. Repeat for multiple rules.
+SPEC is comma\-separated key=value:
+route (required), page_size|per_page, limit, offset,
+sort_by, sort_desc, max_pages, index
+Example: \-\-pagination \*(Aqroute=blog/[page],page_size=10,sort_desc=true,index=true\*(Aq
+.TP
+\fB\-\-preview\fR \fI<SPEC>\fR
+Override [preview]. Comma\-separated key=value:
+host, port, debounce_ms, poll_interval_secs
+Example: \-\-preview host=127.0.0.1,port=9000,debounce_ms=100
+`\-\-host` / `\-p` are short aliases for the same fields.
+.TP
+\fB\-\-host\fR \fI<HOST>\fR
+Preview bind address (alias for \-\-preview host=…)
+.TP
+\fB\-p\fR, \fB\-\-port\fR \fI<PORT>\fR
+Preview server port (alias for \-\-preview port=…)
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.TP
+[\fIPATH\fR] [default: .]
+Project root to start from (default: current working directory).
+statica resolves this path against cwd, then walks up looking for `statica.toml`.
+The site root is that config directory, or `project` / `\-\-project` under it.
+.SH SUBCOMMANDS
+.TP
+statica\-build(1)
+Build Funnel → pages → output directory
+.TP
+statica\-serve(1)
+Serve out_dir over HTTP (preview a build)
+.TP
+statica\-watch(1)
+Watch, rebuild, and serve a local preview
+.TP
+statica\-new(1)
+Create a new statica project scaffold
+.SH EXTRA
+Examples:
+  statica                         Build cwd (find statica.toml walking up)
+  statica build examples/blog
+  statica build \-\-project site    Use project=site under found statica.toml
+  statica build \-\-process         Optimize public/ CSS, JS, images
+  statica \-\-site\-url https://x.com \-\-rss
+  statica serve ./site            Preview .dist over HTTP
+  statica watch . \-\-port 8080     Watch, rebuild, serve on :8080
+  statica new my\-site             Scaffold my\-site/ with statica.toml
+
+Configuration:
+  Nested tables use compact SPECs (same style as pagination):
+    \-\-rss \*(Aqtitle=Blog,limit=20,collections=posts\*(Aq
+    \-\-sitemap \*(Aqfilename=sitemap.xml,urls_per_file=50000\*(Aq
+    \-\-process \*(Aqcss=true,js=false,images=true\*(Aq
+    \-\-emit strip_data=false
+    \-\-preview host=127.0.0.1,port=9000
+    \-\-pagination \*(Aqroute=blog/[page],page_size=10,sort_desc=true,index=true\*(Aq
+  (collections in \-\-rss use | as list separator)
+
+Exit status:
+  0 on success; non\-zero on build, I/O, or config errors.
+
+See also:
+  docs/guide.md, man statica(1)
+.SH VERSION
+v0.1.0

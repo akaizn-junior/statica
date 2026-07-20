@@ -1,0 +1,26 @@
+<script type="statica/data" src="../content/posts.json" id="posts"></script>
+<link rel="statica/fragment" type="text/html" href="./post-link.html" id="post-link" />
+
+<template id="related-posts">
+  <style>
+    .related {
+      border-top: 2px solid #0f172a;
+      margin-top: 2rem;
+      padding-top: 1rem;
+    }
+    .related__title {
+      font-size: 1rem;
+      color: #64748b;
+    }
+    .related__list {
+      list-style: none;
+      padding: 0;
+    }
+  </style>
+  <aside class="related">
+    <h2 class="related__title"><slot>Related posts</slot></h2>
+    <ul class="related__list">
+      <slot id="post-link" data-each="posts"></slot>
+    </ul>
+  </aside>
+</template>

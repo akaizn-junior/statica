@@ -1,0 +1,39 @@
+<template id="post-card" data-bind="post">
+  <style>
+    .card {
+      border-top: 1px solid #e2e8f0;
+      padding: 1rem 0;
+
+      & .card__title {
+        font-weight: 600;
+
+        & a {
+          color: inherit;
+          text-decoration: none;
+
+          &:hover {
+            text-decoration: underline;
+          }
+        }
+      }
+
+      & .card__meta {
+        color: #64748b;
+        font-size: 0.875rem;
+      }
+    }
+
+    @media (width >= 40rem) {
+      .card {
+        padding: 1.25rem 0;
+      }
+    }
+  </style>
+  <li class="card">
+    <h2 class="card__title">
+      <a href="/posts/${slug}/"><slot name="headline"></slot></a>
+    </h2>
+    <p class="card__meta"><slot name="published_at"></slot></p>
+    <p><slot name="summary"></slot></p>
+  </li>
+</template>

@@ -1,0 +1,30 @@
+{
+  "name": "@statica/cli-linux-arm64-gnu",
+  "version": "0.1.0",
+  "description": "Prebuilt statica CLI binary for linux-arm64-gnu",
+  "license": "MIT",
+  "type": "commonjs",
+  "homepage": "https://github.com/statica/statica",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/statica/statica.git",
+    "directory": "npm/@statica/cli-linux-arm64-gnu"
+  },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "libc": [
+    "glibc"
+  ],
+  "files": [
+    "bin",
+    "LICENSE"
+  ],
+  "preferUnplugged": true,
+  "publishConfig": {
+    "access": "public"
+  }
+}

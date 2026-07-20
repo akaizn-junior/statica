@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-bind="posts">
+  <head>
+    <meta charset="utf-8" />
+    <title>Blog — page <slot name="page"></slot></title>
+    <link
+      rel="statica/fragment"
+      type="text/html"
+      href="../../ui/post-list.html"
+      id="post-list"
+    />
+    <link
+      rel="statica/fragment"
+      type="text/html"
+      href="../../ui/post-card.html"
+      id="post-card"
+    />
+    <link
+      rel="statica/fragment"
+      type="text/html"
+      href="../../ui/page-link.html"
+      id="page-link"
+    />
+    <script type="statica/data" src="../../content/posts.json" id="posts"></script>
+  </head>
+  <body>
+    <h1>All posts</h1>
+    <p>
+      Page <slot name="page"></slot> of <slot name="total_pages"></slot>
+    </p>
+    <slot id="post-list" data-bind="items"></slot>
+    <nav>
+      <a href="${first_href}">First</a>
+      <a href="${prev_href}">Previous</a>
+      <slot id="page-link" data-each="pages"></slot>
+      <a href="${next_href}">Next</a>
+      <a href="${last_href}">Last</a>
+    </nav>
+  </body>
+</html>

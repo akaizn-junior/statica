@@ -1,0 +1,37 @@
+[
+  {
+    "slug": "hello-world",
+    "headline": "Hello world",
+    "published_at": "2026-07-01",
+    "summary": "First post from the funnel.",
+    "html": "<p>Build stamps this into static HTML.</p>"
+  },
+  {
+    "slug": "funnel-to-pages",
+    "headline": "Funnel to pages",
+    "published_at": "2026-07-10",
+    "summary": "Item count drives page count.",
+    "html": "<p>Three posts in → three folders out.</p>"
+  },
+  {
+    "slug": "slots-everywhere",
+    "headline": "Slots everywhere",
+    "published_at": "2026-07-12",
+    "summary": "Anything replaceable is a slot.",
+    "html": "<p>Named slots pull fields.</p>"
+  },
+  {
+    "slug": "typed-funnels",
+    "headline": "Typed funnels",
+    "published_at": "2026-07-14",
+    "summary": "Shape comes from the JSON.",
+    "html": "<p>Types are inferred from local JSON.</p>"
+  },
+  {
+    "slug": "statica-ssg",
+    "headline": "statica as SSG",
+    "published_at": "2026-07-17",
+    "summary": "Funnel → pages.",
+    "html": "<p>statica flows funnel data into pages.</p>"
+  }
+]
