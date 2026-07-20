@@ -2,12 +2,16 @@
 
 use std::collections::HashSet;
 
+use oxc_allocator::Allocator;
+use oxc_ast::ast::{Expression, ObjectProperty, ObjectPropertyKind, PropertyKey, PropertyKind};
+use oxc_parser::Parser;
+use oxc_span::SourceType;
 use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::parse::{Element, Node};
 
-use super::json::{is_js_identifier, read_field};
+use super::json::read_field;
 
 /// What a fragment `<template data-bind="…">` declares into scope.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,41 +36,74 @@ impl BindDecl {
 }
 
 /// Parse a fragment template `data-bind` value.
+///
+/// Accepts a JS identifier (`button`) or object literal / destructure shape
+/// (`{variant, href}` or `{variant: variant, href: href}`), parsed with oxc.
 pub fn parse_bind_decl(raw: Option<&str>) -> std::result::Result<BindDecl, String> {
     let Some(raw) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
         return Ok(BindDecl::None);
     };
-    if let Some(inner) = raw.strip_prefix('{').and_then(|s| s.strip_suffix('}')) {
-        let mut names = Vec::new();
-        for part in inner.split(',') {
-            let name = part.trim();
-            if name.is_empty() {
-                if inner.trim().is_empty() {
-                    return Err("empty destructure `data-bind=\"{}\"`".into());
+
+    let allocator = Allocator::default();
+    let expr = Parser::new(&allocator, raw, SourceType::mjs())
+        .parse_expression()
+        .map_err(|_| {
+            format!("data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`")
+        })?;
+
+    match expr {
+        Expression::Identifier(id) => Ok(BindDecl::Named(id.name.as_str().to_string())),
+        Expression::ObjectExpression(obj) => {
+            let mut names = Vec::new();
+            for prop in &obj.properties {
+                let ObjectPropertyKind::ObjectProperty(prop) = prop else {
+                    return Err(format!(
+                        "data-bind=`{raw}`: spreads are not supported in destructure"
+                    ));
+                };
+                let name = destructure_prop_name(raw, prop)?;
+                if names.iter().any(|n: &String| n == &name) {
+                    return Err(format!("data-bind=`{raw}`: duplicate name `{name}`"));
                 }
-                return Err(format!("invalid destructure entry in data-bind=`{raw}`"));
+                names.push(name);
             }
-            if !is_js_identifier(name) {
-                return Err(format!(
-                    "data-bind=`{raw}`: `{name}` is not a valid JS identifier"
-                ));
+            if names.is_empty() {
+                return Err("empty destructure `data-bind=\"{}\"`".into());
             }
-            if names.iter().any(|n: &String| n == name) {
-                return Err(format!("data-bind=`{raw}`: duplicate name `{name}`"));
-            }
-            names.push(name.to_string());
+            Ok(BindDecl::Destructure(names))
         }
-        if names.is_empty() {
-            return Err("empty destructure `data-bind=\"{}\"`".into());
-        }
-        return Ok(BindDecl::Destructure(names));
+        _ => Err(format!(
+            "data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`"
+        )),
     }
-    if is_js_identifier(raw) {
-        return Ok(BindDecl::Named(raw.to_string()));
+}
+
+fn destructure_prop_name(raw: &str, prop: &ObjectProperty<'_>) -> std::result::Result<String, String> {
+    if prop.computed || prop.method || prop.kind != PropertyKind::Init {
+        return Err(format!(
+            "data-bind=`{raw}`: only plain identifier properties are supported"
+        ));
     }
-    Err(format!(
-        "data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`"
-    ))
+    let PropertyKey::StaticIdentifier(key) = &prop.key else {
+        return Err(format!(
+            "data-bind=`{raw}`: only plain identifier properties are supported"
+        ));
+    };
+    let key_name = key.name.as_str();
+    if prop.shorthand {
+        return Ok(key_name.to_string());
+    }
+    // Longhand `{variant: variant}` — identity only (same as destructure binding).
+    match &prop.value {
+        Expression::Identifier(id) if id.name.as_str() == key_name => Ok(key_name.to_string()),
+        Expression::Identifier(id) => Err(format!(
+            "data-bind=`{raw}`: renames are not supported (`{key_name}: {}`)",
+            id.name.as_str()
+        )),
+        _ => Err(format!(
+            "data-bind=`{raw}`: `{key_name}` value must be the identifier `{key_name}`"
+        )),
+    }
 }
 
 /// Build the runtime bind context from a declaration and the bound value.
@@ -192,8 +229,13 @@ mod tests {
             parse_bind_decl(Some("{variant, href}")).unwrap(),
             BindDecl::Destructure(vec!["variant".into(), "href".into()])
         );
+        assert_eq!(
+            parse_bind_decl(Some("{variant: variant, href: href}")).unwrap(),
+            BindDecl::Destructure(vec!["variant".into(), "href".into()])
+        );
         assert!(parse_bind_decl(Some("button.variant")).is_err());
         assert!(parse_bind_decl(Some("{}")).is_err());
+        assert!(parse_bind_decl(Some("{variant: other}")).is_err());
     }
 
     #[test]

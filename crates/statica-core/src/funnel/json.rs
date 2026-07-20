@@ -76,17 +76,6 @@ pub fn read_field<'a>(value: &'a Value, field: &str) -> Option<&'a Value> {
     }
 }
 
-/// Whether `name` is a valid JS IdentifierName (ASCII subset used for `data-bind` props).
-#[must_use]
-pub fn is_js_identifier(name: &str) -> bool {
-    let mut chars = name.chars();
-    match chars.next() {
-        Some(c) if c == '$' || c == '_' || c.is_ascii_alphabetic() => {}
-        _ => return false,
-    }
-    chars.all(|c| c == '$' || c == '_' || c.is_ascii_alphanumeric())
-}
-
 /// Render a bound value for attributes / text. `null` → empty string.
 /// Objects and arrays are not stringified into attrs (empty); use slots for structure.
 /// Returns `None` only for object/array (not valid attr scalars).
@@ -293,18 +282,6 @@ fn strip_nodes(nodes: &mut Vec<Node>, opts: &crate::EmitOptions) {
 mod tests {
     use super::*;
     use serde_json::json;
-
-    #[test]
-    fn js_identifier_validation() {
-        assert!(is_js_identifier("button"));
-        assert!(is_js_identifier("_post"));
-        assert!(is_js_identifier("$el"));
-        assert!(is_js_identifier("a1"));
-        assert!(!is_js_identifier(""));
-        assert!(!is_js_identifier("1a"));
-        assert!(!is_js_identifier("button.variant"));
-        assert!(!is_js_identifier("post-card"));
-    }
 
     #[test]
     fn path_as_str_is_lenient_at_runtime() {

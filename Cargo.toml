@@ -41,6 +41,7 @@ lightningcss = { version = "1.0.0-alpha.71", default-features = false }
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 oxipng = "9"
 oxc_allocator = "0.140"
+oxc_ast = "0.140"
 oxc_codegen = "0.140"
 oxc_mangler = "0.140"
 oxc_minifier = "0.140"

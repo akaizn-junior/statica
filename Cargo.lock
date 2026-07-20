@@ -2454,6 +2454,7 @@ dependencies = [
  "lightningcss",
  "markup5ever_rcdom",
  "oxc_allocator",
+ "oxc_ast",
  "oxc_codegen",
  "oxc_mangler",
  "oxc_minifier",
