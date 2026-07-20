@@ -63,7 +63,7 @@ pub enum Error {
     )]
     UnboundTemplateVar {
         id: String,
-        /// Full `${path}` or slot name as authored.
+        /// Full `${path}` as authored.
         path: String,
         /// Root name that must appear in `data-bind`.
         name: String,

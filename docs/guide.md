@@ -158,7 +158,7 @@ Three-part `id` contract:
 
 - **Content** → `<slot name="field">` (never put slots in attributes).
 - **Attributes** → `${field}` template strings against names declared in `data-bind`.
-- **Props** → `<template data-bind="button">` binds only `button` (use `${button.variant}`). To expose fields directly, destructure: `data-bind="{variant, href}"`. No magic flattening — every `${…}` / named slot must be declared.
+- **Props** → `<template data-bind="button">` binds only `button` (use `${button.variant}`). To expose fields directly, destructure: `data-bind="{variant, href}"`. No magic flattening — every `${…}` must be declared. Named slots are not template vars.
 - Bad: `data-bind="button"` with `${variant}` → build fails (`variant` is not bound).
 - Good: `data-bind="{variant, href}"` with `${variant}`, or `data-bind="button"` with `${button.variant}`.
 
