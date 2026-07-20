@@ -158,6 +158,7 @@ Three-part `id` contract:
 
 - **Content** → `<slot name="field">` (never put slots in attributes).
 - **Attributes** → `${field}` template strings against the bind context.
+- **Props** → `<template data-bind="button">` names the prop (any JS type). Object props are destructured (`const { variant, href } = button`), so `${variant}` and `${button.variant}` both work. `null` / missing → empty.
 
 Loops:
 

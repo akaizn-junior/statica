@@ -10,22 +10,17 @@ pub fn fill_named_slots(nodes: &mut Vec<Node>, ctx: &Value) {
     while i < nodes.len() {
         let replace = match &nodes[i] {
             Node::Element(el) if el.is_slot() && el.attr("name").is_some() && el.attr("id").is_none() => {
-                let name = el.attr("name").unwrap_or("").to_string();
-                let fallback = el.children.clone();
-                Some((name, fallback))
+                Some(el.attr("name").unwrap_or("").to_string())
             }
             _ => None,
         };
-        if let Some((name, fallback)) = replace {
-            match funnel::get_field(ctx, &name) {
-                Some(v) if !v.is_null() => {
-                    let html = funnel::value_to_html(v);
-                    nodes[i] = Node::Text(html);
-                }
-                _ => {
-                    nodes.splice(i..=i, fallback);
-                }
-            }
+        if let Some(name) = replace {
+            // null / undefined (missing) → empty; only present non-null values render.
+            let html = match funnel::read_field(ctx, &name) {
+                None | Some(Value::Null) => String::new(),
+                Some(v) => funnel::value_to_html(v),
+            };
+            nodes[i] = Node::Text(html);
             i += 1;
             continue;
         }
@@ -83,5 +78,42 @@ pub fn clear_remaining_named_slots(nodes: &mut Vec<Node>) {
             clear_remaining_named_slots(&mut el.children);
         }
         i += 1;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parse::{Element, Node};
+    use indexmap::IndexMap;
+    use serde_json::json;
+
+    fn named_slot(name: &str, fallback: &str) -> Node {
+        let mut attrs = IndexMap::new();
+        attrs.insert("name".into(), name.into());
+        Node::Element(Element {
+            name: "slot".into(),
+            attrs,
+            children: vec![Node::Text(fallback.into())],
+            void: false,
+        })
+    }
+
+    #[test]
+    fn null_and_missing_slots_render_empty() {
+        let mut nodes = vec![
+            named_slot("label", "fallback"),
+            named_slot("missing", "fallback"),
+        ];
+        fill_named_slots(&mut nodes, &json!({"label": null}));
+        assert!(matches!(&nodes[0], Node::Text(t) if t.is_empty()));
+        assert!(matches!(&nodes[1], Node::Text(t) if t.is_empty()));
+    }
+
+    #[test]
+    fn present_slot_renders_value() {
+        let mut nodes = vec![named_slot("label", "fallback")];
+        fill_named_slots(&mut nodes, &json!({"label": "Go"}));
+        assert!(matches!(&nodes[0], Node::Text(t) if t == "Go"));
     }
 }

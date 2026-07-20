@@ -57,4 +57,23 @@ mod tests {
             "/posts/hello-world/"
         );
     }
+
+    #[test]
+    fn null_and_undefined_attrs_are_empty() {
+        let ctx = json!({"href": null, "variant": "primary"});
+        assert_eq!(expand_template("${href}", &ctx), "");
+        assert_eq!(expand_template("${missing}", &ctx), "");
+        assert_eq!(expand_template("button ${variant}", &ctx), "button primary");
+    }
+
+    #[test]
+    fn destructured_button_paths() {
+        let button = json!({"variant": "ghost", "href": "/x"});
+        let ctx = funnel::bind_context(Some("button"), &button);
+        assert_eq!(
+            expand_template(r#"class="button ${variant}" href="${href}""#, &ctx),
+            r#"class="button ghost" href="/x""#
+        );
+        assert_eq!(expand_template("${button.href}", &ctx), "/x");
+    }
 }

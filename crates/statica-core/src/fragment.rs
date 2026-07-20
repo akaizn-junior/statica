@@ -11,11 +11,11 @@ use crate::funnel::{self, DataSource};
 use crate::parse::{self, Document, Element, Node};
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct Fragment {
     pub id: String,
     pub path: PathBuf,
     pub template: Element,
+    /// Local prop from `<template data-bind="name">` — any JS type; objects are destructured.
     pub prop_name: Option<String>,
     pub scope_id: String,
     pub data: HashMap<String, DataSource>,
@@ -81,7 +81,16 @@ impl FragmentRegistry {
                 path: path.display().to_string(),
             }
         })?;
-        let prop_name = template_el.attr("data-bind").map(str::to_string);
+        let prop_name = match template_el.attr("data-bind").map(str::trim) {
+            None | Some("") => None,
+            Some(name) if funnel::is_js_identifier(name) => Some(name.to_string()),
+            Some(name) => {
+                return Err(Error::InvalidBindProp {
+                    id: id.to_string(),
+                    prop: name.to_string(),
+                });
+            }
+        };
         let hash = short_hash(&raw);
         let scope_id = format!("{id}-{hash}");
 

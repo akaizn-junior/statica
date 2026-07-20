@@ -142,12 +142,17 @@ fn render_fragment_nodes(
         local.insert(k.clone(), v.clone());
     }
 
+    // `data-bind="button"` → destructure object fields into magic vars (`variant`, `href`)
+    // while keeping `button.*` addressable; scalars/arrays/null live under the prop name only.
+    let ctx = funnel::bind_context(frag.prop_name.as_deref(), prop_value);
+
     let mut nodes = fragment::template_children(frag);
     scope::apply_scope_to_nodes(&mut nodes, &frag.scope_id);
-    fill_attr_templates_in_nodes(&mut nodes, prop_value);
-    fill_named_slots(&mut nodes, prop_value);
+    fill_attr_templates_in_nodes(&mut nodes, &ctx);
+    fill_named_slots(&mut nodes, &ctx);
     fill_default_slots(&mut nodes, children);
     scope::rewrite_scripts_in_nodes(&mut nodes, &frag.scope_id);
+    // Nested `data-bind` / `data-each` resolve against the raw bound value (not the wrapper).
     expand_usage_slots_in_nodes(registry, &mut nodes, Some(prop_value), &local)?;
     Ok(nodes)
 }

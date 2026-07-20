@@ -52,6 +52,11 @@ pub enum Error {
 
     #[error("data-each for `{id}` expected a JSON array")]
     ExpectedArray { id: String },
+
+    #[error(
+        "fragment `{id}` data-bind=`{prop}` is not a valid JS identifier (expected a prop name for any JS type)"
+    )]
+    InvalidBindProp { id: String, prop: String },
 }
 
 impl Error {
