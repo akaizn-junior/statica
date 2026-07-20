@@ -87,31 +87,6 @@ pub fn is_js_identifier(name: &str) -> bool {
     chars.all(|c| c == '$' || c == '_' || c.is_ascii_alphanumeric())
 }
 
-/// Build the template bind context from a declared prop name and bound value.
-///
-/// `data-bind="button"` with an object value is destructured like
-/// `const { variant, href, … } = button`, so `${variant}` works, while
-/// `${button.variant}` remains available via the nested prop. Non-object
-/// values (string, number, boolean, array, null) are exposed only under the
-/// prop name — every valid JSON / JS type is accepted.
-pub fn bind_context(prop_name: Option<&str>, value: &Value) -> Value {
-    let Some(name) = prop_name.map(str::trim).filter(|s| !s.is_empty()) else {
-        return value.clone();
-    };
-    match value {
-        Value::Object(fields) => {
-            let mut map = fields.clone();
-            map.insert(name.to_string(), value.clone());
-            Value::Object(map)
-        }
-        other => {
-            let mut map = serde_json::Map::new();
-            map.insert(name.to_string(), other.clone());
-            Value::Object(map)
-        }
-    }
-}
-
 /// Render a bound value for attributes / text. `null` → empty string.
 /// Objects and arrays are not stringified into attrs (empty); use slots for structure.
 /// Returns `None` only for object/array (not valid attr scalars).
@@ -133,6 +108,7 @@ pub fn field_as_str(value: &Value, field: &str) -> Option<String> {
     }
 }
 
+/// Resolve `${path}` for attributes. Missing / null → empty (scope is checked statically).
 pub fn path_as_str(value: &Value, path: &str) -> String {
     let path = path.trim();
     if path.is_empty() {
@@ -142,7 +118,7 @@ pub fn path_as_str(value: &Value, path: &str) -> String {
     for part in path.split('.').filter(|p| !p.is_empty()) {
         match read_field(cur, part) {
             Some(next) => cur = next,
-            None => return String::new(), // undefined
+            None => return String::new(),
         }
     }
     match cur {
@@ -319,44 +295,6 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn bind_context_destructures_object_prop() {
-        let button = json!({"variant": "primary", "href": "/go", "label": null});
-        let ctx = bind_context(Some("button"), &button);
-        assert_eq!(path_as_str(&ctx, "variant"), "primary");
-        assert_eq!(path_as_str(&ctx, "href"), "/go");
-        assert_eq!(path_as_str(&ctx, "button.variant"), "primary");
-        assert_eq!(path_as_str(&ctx, "label"), ""); // null → empty
-        assert_eq!(path_as_str(&ctx, "missing"), ""); // undefined → empty
-        assert!(matches!(read_field(&ctx, "variant"), Some(Value::String(_))));
-        assert!(matches!(read_field(&ctx, "label"), Some(Value::Null)));
-    }
-
-    #[test]
-    fn bind_context_accepts_all_js_types() {
-        assert_eq!(
-            bind_context(Some("label"), &json!("hi")),
-            json!({"label": "hi"})
-        );
-        assert_eq!(
-            bind_context(Some("n"), &json!(3)),
-            json!({"n": 3})
-        );
-        assert_eq!(
-            bind_context(Some("ok"), &json!(true)),
-            json!({"ok": true})
-        );
-        assert_eq!(
-            bind_context(Some("items"), &json!([1, 2])),
-            json!({"items": [1, 2]})
-        );
-        assert_eq!(
-            bind_context(Some("x"), &Value::Null),
-            json!({"x": null})
-        );
-        assert_eq!(path_as_str(&bind_context(Some("x"), &Value::Null), "x"), "");
-    }
-
-    #[test]
     fn js_identifier_validation() {
         assert!(is_js_identifier("button"));
         assert!(is_js_identifier("_post"));
@@ -366,6 +304,15 @@ mod tests {
         assert!(!is_js_identifier("1a"));
         assert!(!is_js_identifier("button.variant"));
         assert!(!is_js_identifier("post-card"));
+    }
+
+    #[test]
+    fn path_as_str_is_lenient_at_runtime() {
+        let ctx = json!({"href": null, "variant": "primary"});
+        assert_eq!(path_as_str(&ctx, "variant"), "primary");
+        assert_eq!(path_as_str(&ctx, "href"), "");
+        assert_eq!(path_as_str(&ctx, "missing"), "");
+        assert_eq!(path_as_str(&json!({"obj": {"a": 1}}), "obj"), "");
     }
 
     #[test]

@@ -1,4 +1,4 @@
-<template id="post-card" data-bind="post">
+<template id="post-card" data-bind="{slug, headline, published_at, summary, html}">
   <article>
     <h1><slot name="headline"></slot></h1>
     <p class="meta"><slot name="published_at"></slot> · <code><slot name="slug"></slot></code></p>

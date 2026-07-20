@@ -54,9 +54,20 @@ pub enum Error {
     ExpectedArray { id: String },
 
     #[error(
-        "fragment `{id}` data-bind=`{prop}` is not a valid JS identifier (expected a prop name for any JS type)"
+        "fragment `{id}` data-bind=`{prop}` is invalid (expected a JS identifier or destructure like `{{variant, href}}`)"
     )]
     InvalidBindProp { id: String, prop: String },
+
+    #[error(
+        "fragment `{id}` uses `{path}` but `{name}` is not bound — declare it in data-bind (e.g. data-bind=\"{name}\" or data-bind=\"{{{name}}}\")"
+    )]
+    UnboundTemplateVar {
+        id: String,
+        /// Full `${path}` or slot name as authored.
+        path: String,
+        /// Root name that must appear in `data-bind`.
+        name: String,
+    },
 }
 
 impl Error {

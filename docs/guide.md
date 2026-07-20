@@ -89,7 +89,7 @@ Supported authoring (compiled when needed): nesting, custom media, range `@media
 <script type="statica/data" src="../content/posts.json" id="posts"></script>
 ```
 
-Look up with `data-bind="posts"` / `data-each="posts"`. Types are inferred from JSON. Missing fields render empty.
+Look up with `data-bind="posts"` / `data-each="posts"`. Types are inferred from JSON. Missing JSON fields render empty.
 
 ### Collection page
 
@@ -149,7 +149,7 @@ Three-part `id` contract:
 ```
 
 ```html
-<template id="post-card" data-bind="post">
+<template id="post-card" data-bind="{slug, headline}">
   <h2>
     <a href="/posts/${slug}/"><slot name="headline"></slot></a>
   </h2>
@@ -157,8 +157,10 @@ Three-part `id` contract:
 ```
 
 - **Content** → `<slot name="field">` (never put slots in attributes).
-- **Attributes** → `${field}` template strings against the bind context.
-- **Props** → `<template data-bind="button">` names the prop (any JS type). Object props are destructured (`const { variant, href } = button`), so `${variant}` and `${button.variant}` both work. `null` / missing → empty.
+- **Attributes** → `${field}` template strings against names declared in `data-bind`.
+- **Props** → `<template data-bind="button">` binds only `button` (use `${button.variant}`). To expose fields directly, destructure: `data-bind="{variant, href}"`. No magic flattening — every `${…}` / named slot must be declared.
+- Bad: `data-bind="button"` with `${variant}` → build fails (`variant` is not bound).
+- Good: `data-bind="{variant, href}"` with `${variant}`, or `data-bind="button"` with `${button.variant}`.
 
 Loops:
 

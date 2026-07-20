@@ -142,9 +142,8 @@ fn render_fragment_nodes(
         local.insert(k.clone(), v.clone());
     }
 
-    // `data-bind="button"` → destructure object fields into magic vars (`variant`, `href`)
-    // while keeping `button.*` addressable; scalars/arrays/null live under the prop name only.
-    let ctx = funnel::bind_context(frag.prop_name.as_deref(), prop_value);
+    // `data-bind="button"` → only `button` in scope; `data-bind="{a,b}"` → those fields.
+    let ctx = funnel::bind_context(&frag.bind, prop_value);
 
     let mut nodes = fragment::template_children(frag);
     scope::apply_scope_to_nodes(&mut nodes, &frag.scope_id);

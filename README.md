@@ -162,8 +162,8 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 <slot id="post-card" data-bind="."></slot>
 ```
 
-- Content → `<slot name="field">`
-- Attributes → `${field}`
+- Content → `<slot name="field">` (field must be declared in the fragment `data-bind`)
+- Attributes → `${field}` (same — no magic vars; use `data-bind="{a, b}"` or `${prop.field}`)
 - Collection: `<html data-bind="posts">` + `[slug]`
 - Pagination: `<html data-bind="posts">` + `[page]` + `data-bind="items"` for the chunk
 

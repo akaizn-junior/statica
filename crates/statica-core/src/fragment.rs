@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use sha2::{Digest, Sha256};
 
 use crate::error::{Error, Result};
-use crate::funnel::{self, DataSource};
+use crate::funnel::{self, BindDecl, DataSource};
 use crate::parse::{self, Document, Element, Node};
 
 #[derive(Debug, Clone)]
@@ -15,8 +15,8 @@ pub struct Fragment {
     pub id: String,
     pub path: PathBuf,
     pub template: Element,
-    /// Local prop from `<template data-bind="name">` — any JS type; objects are destructured.
-    pub prop_name: Option<String>,
+    /// Bind scope from `<template data-bind="name">` or `data-bind="{a, b}"`.
+    pub bind: BindDecl,
     pub scope_id: String,
     pub data: HashMap<String, DataSource>,
 }
@@ -81,16 +81,13 @@ impl FragmentRegistry {
                 path: path.display().to_string(),
             }
         })?;
-        let prop_name = match template_el.attr("data-bind").map(str::trim) {
-            None | Some("") => None,
-            Some(name) if funnel::is_js_identifier(name) => Some(name.to_string()),
-            Some(name) => {
-                return Err(Error::InvalidBindProp {
-                    id: id.to_string(),
-                    prop: name.to_string(),
-                });
+        let bind = match funnel::parse_bind_decl(template_el.attr("data-bind")) {
+            Ok(decl) => decl,
+            Err(msg) => {
+                return Err(Error::msg(format!("fragment `{id}`: {msg}")));
             }
         };
+        funnel::validate_template_binds(id, &bind, &template_el.children)?;
         let hash = short_hash(&raw);
         let scope_id = format!("{id}-{hash}");
 
@@ -98,7 +95,7 @@ impl FragmentRegistry {
             id: id.to_string(),
             path,
             template: template_el.clone(),
-            prop_name,
+            bind,
             scope_id,
             data,
         };

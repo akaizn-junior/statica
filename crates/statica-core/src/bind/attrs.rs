@@ -47,6 +47,7 @@ fn expand_template(raw: &str, ctx: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::funnel::{bind_context, BindDecl};
     use serde_json::json;
 
     #[test]
@@ -59,21 +60,22 @@ mod tests {
     }
 
     #[test]
-    fn null_and_undefined_attrs_are_empty() {
-        let ctx = json!({"href": null, "variant": "primary"});
-        assert_eq!(expand_template("${href}", &ctx), "");
-        assert_eq!(expand_template("${missing}", &ctx), "");
-        assert_eq!(expand_template("button ${variant}", &ctx), "button primary");
+    fn named_prop_no_magic_flatten() {
+        let button = json!({"variant": "ghost", "href": "/x"});
+        let ctx = bind_context(&BindDecl::Named("button".into()), &button);
+        assert_eq!(expand_template("${button.href}", &ctx), "/x");
+        assert_eq!(expand_template("${variant}", &ctx), ""); // not in context
     }
 
     #[test]
-    fn destructured_button_paths() {
-        let button = json!({"variant": "ghost", "href": "/x"});
-        let ctx = funnel::bind_context(Some("button"), &button);
+    fn destructure_exposes_listed_fields() {
+        let ctx = bind_context(
+            &BindDecl::Destructure(vec!["variant".into(), "href".into()]),
+            &json!({"variant": "ghost", "href": "/x"}),
+        );
         assert_eq!(
             expand_template(r#"class="button ${variant}" href="${href}""#, &ctx),
             r#"class="button ghost" href="/x""#
         );
-        assert_eq!(expand_template("${button.href}", &ctx), "/x");
     }
 }

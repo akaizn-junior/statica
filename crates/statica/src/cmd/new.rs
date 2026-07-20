@@ -45,7 +45,7 @@ pub fn run(name: &str) -> Result<()> {
     )?;
     write(
         &root.join("ui/post-card.html"),
-        r#"<template id="post-card" data-bind="post">
+        r#"<template id="post-card" data-bind="{slug, headline, summary}">
   <style>
     .card { border-top: 1px solid #e2e8f0; padding: 1rem 0; }
     .card__title { font-weight: 600; }
@@ -144,7 +144,7 @@ Settings live in `statica.toml` (optional; defaults apply if missing).
 - Pages are every `**/index.html` (folder = route).
 - Data via `<script type="statica/data" src id>`.
 - Fragments via `<link rel="statica/fragment" href id>` + `<template id>` + `<slot id>`.
-- Attributes use `${{field}}`; content uses `<slot name="field">`.
+- Attributes use `${{field}}` declared via fragment `data-bind` (`name` or `{{a, b}}`); content uses `<slot name="field">`.
 "#
         ),
     )?;

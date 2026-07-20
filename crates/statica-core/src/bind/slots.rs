@@ -15,7 +15,7 @@ pub fn fill_named_slots(nodes: &mut Vec<Node>, ctx: &Value) {
             _ => None,
         };
         if let Some(name) = replace {
-            // null / undefined (missing) → empty; only present non-null values render.
+            // Scope is validated statically; missing/null at runtime → empty.
             let html = match funnel::read_field(ctx, &name) {
                 None | Some(Value::Null) => String::new(),
                 Some(v) => funnel::value_to_html(v),
