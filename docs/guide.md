@@ -2,7 +2,7 @@
 
 **statica** — **Powered HTML**
 
-Write valid HTML. statica resolves fragments, runs local JSON funnels, expands collections / pagination, scopes components, transforms CSS to browser-ready output, and emits a static site.
+Write valid HTML. statica resolves fragments, runs local JS funnels, expands collections / pagination, scopes components, transforms CSS to browser-ready output, and emits a static site.
 
 > Always lowercase **statica**.
 
@@ -24,7 +24,7 @@ npx statica build .
 
 | Concept | Role |
 | ------- | ---- |
-| **Funnel** | Build-time local JSON via `<script type="statica/data" src id>` |
+| **Funnel** | Build-time local JS value literals via `<script type="statica/data" src id>` |
 | **Pages** | Every `folder/index.html` — folder path is the route |
 
 Flow: **Funnel → Pages → static HTML** (default out dir: `.dist`)
@@ -59,7 +59,7 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …   (with [[pagination]
 ```
 
 - **Static page** — no `[param]` in the path; one output.
-- **Collection** — `[param]` + `<html data-bind="id">` over a JSON array; one output per item using `item[param]` as the folder name.
+- **Collection** — `[param]` + `<html data-bind="id">` over a JS array; one output per item using `item[param]` as the folder name.
 - **Pagination** — `[page]` (or any single param) + `[[pagination]]` in config; array is chunked into page objects.
 
 ## CSS
@@ -89,7 +89,7 @@ Supported authoring (compiled when needed): nesting, custom media, range `@media
 <script type="statica/data" src="../content/posts.json" id="posts"></script>
 ```
 
-Look up with `data-bind="posts"` / `data-each="posts"`. Types are inferred from JSON. Missing JSON fields render empty.
+Look up with `data-bind="posts"` / `data-each="posts"`. Funnel files are static JS value literals (JSON still works). Missing fields render empty.
 
 ### Collection page
 
@@ -158,7 +158,7 @@ Three-part `id` contract:
 
 - **Content** → `<slot name="field">` (never put slots in attributes).
 - **Attributes** → `${field}` template strings against names declared in `data-bind`.
-- **Props** → `<template data-bind="button">` binds only `button` (use `${button.variant}`). To expose fields directly, destructure: `data-bind="{variant, href}"`. No magic flattening — every `${…}` / named slot must be declared.
+- **Props** → `<template data-bind="button">` binds only `button` (use `${button.variant}`). To expose fields directly, destructure: `data-bind="{variant, href}"` (nested objects allowed: `data-bind="{tag, summary: { foo, bar }}"`). No magic flattening — every `${…}` / named slot must be declared.
 - Bad: `data-bind="button"` with `${variant}` → build fails (`variant` is not bound).
 - Good: `data-bind="{variant, href}"` with `${variant}`, or `data-bind="button"` with `${button.variant}`.
 

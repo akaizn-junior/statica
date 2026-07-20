@@ -26,6 +26,9 @@ pub enum Error {
         source: serde_json::Error,
     },
 
+    #[error("invalid JS value in `{path}`: {message}")]
+    InvalidJsValue { path: String, message: String },
+
     #[error("{0}")]
     Msg(String),
 
@@ -50,7 +53,7 @@ pub enum Error {
     #[error("duplicate collection value for `[{field}]`: `{value}`")]
     DuplicateRouteValue { field: String, value: String },
 
-    #[error("data-each for `{id}` expected a JSON array")]
+    #[error("data-each for `{id}` expected an array")]
     ExpectedArray { id: String },
 
     #[error(
@@ -105,6 +108,13 @@ impl Error {
         Self::InvalidJson {
             path: path.into(),
             source,
+        }
+    }
+
+    pub fn invalid_js_value(path: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::InvalidJsValue {
+            path: path.into(),
+            message: message.into(),
         }
     }
 }

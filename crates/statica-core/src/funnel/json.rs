@@ -1,15 +1,16 @@
-//! Local JSON funnel sources via `<script type="statica/data" src id>`.
+//! Local JS funnel sources via `<script type="statica/data" src id>`.
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
 use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::parse::escape_text;
 use crate::parse::{Document, Element, Node};
+
+use super::js_value::parse_js_value;
 
 use std::path::Component;
 
@@ -20,11 +21,6 @@ pub struct DataSource {
     pub path: PathBuf,
     pub value: Value,
 }
-
-/// Opaque JSON payload — shape inferred by serde_json (TS-native style).
-#[derive(Debug, Deserialize)]
-#[serde(transparent)]
-struct JsonFile(Value);
 
 pub fn load_data_from_document(
     doc: &Document,
@@ -46,10 +42,11 @@ pub fn load_data_from_document(
         } else {
             let text = fs::read_to_string(&path)
                 .map_err(|e| Error::read(path.display().to_string(), e))?;
-            let parsed: JsonFile = serde_json::from_str(&text)
-                .map_err(|e| Error::invalid_json(path.display().to_string(), e))?;
-            cache.insert(path.clone(), parsed.0.clone());
-            parsed.0
+            let parsed = parse_js_value(&text).map_err(|message| {
+                Error::invalid_js_value(path.display().to_string(), message)
+            })?;
+            cache.insert(path.clone(), parsed.clone());
+            parsed
         };
         out.insert(
             id.clone(),

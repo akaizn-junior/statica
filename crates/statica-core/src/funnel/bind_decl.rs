@@ -3,7 +3,9 @@
 use std::collections::HashSet;
 
 use oxc_allocator::Allocator;
-use oxc_ast::ast::{Expression, ObjectProperty, ObjectPropertyKind, PropertyKey, PropertyKind};
+use oxc_ast::ast::{
+    BindingPattern, BindingProperty, ObjectPattern, PropertyKey, Statement,
+};
 use oxc_parser::Parser;
 use oxc_span::SourceType;
 use serde_json::Value;
@@ -21,6 +23,16 @@ pub struct BindSource<'a> {
     pub source: &'a str,
 }
 
+/// One binding from a destructure `data-bind` (leaf name + path into the value).
+///
+/// Flat `{variant}` → `name = "variant"`, `path = ["variant"]`.
+/// Nested `{summary: { foo }}` → `name = "foo"`, `path = ["summary", "foo"]`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DestructureBind {
+    pub name: String,
+    pub path: Vec<String>,
+}
+
 /// What a fragment `<template data-bind="…">` declares into scope.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BindDecl {
@@ -28,8 +40,9 @@ pub enum BindDecl {
     None,
     /// `data-bind="button"` — only `button` / `button.*` are in scope.
     Named(String),
-    /// `data-bind="{variant, href}"` — those names are in scope (taken from the bound object).
-    Destructure(Vec<String>),
+    /// `data-bind="{variant, href}"` or nested `{tag, summary: { foo, bar }}`.
+    /// Leaf binding names are in scope (taken from the bound object along `path`).
+    Destructure(Vec<DestructureBind>),
 }
 
 impl BindDecl {
@@ -38,56 +51,113 @@ impl BindDecl {
         match self {
             Self::None => HashSet::new(),
             Self::Named(name) => HashSet::from([name.as_str()]),
-            Self::Destructure(names) => names.iter().map(String::as_str).collect(),
+            Self::Destructure(binds) => binds.iter().map(|b| b.name.as_str()).collect(),
         }
+    }
+
+    /// Flat destructure helper for tests / call sites: `{a, b}` → paths `[a]`, `[b]`.
+    #[must_use]
+    pub fn destructure_flat(names: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self::Destructure(
+            names
+                .into_iter()
+                .map(|n| {
+                    let name = n.into();
+                    DestructureBind {
+                        path: vec![name.clone()],
+                        name,
+                    }
+                })
+                .collect(),
+        )
     }
 }
 
 /// Parse a fragment template `data-bind` value.
 ///
-/// Accepts a JS identifier (`button`) or object literal / destructure shape
-/// (`{variant, href}` or `{variant: variant, href: href}`), parsed with oxc.
+/// Accepts a JS identifier (`button`) or object binding pattern
+/// (`{variant, href}`, `{variant: variant}`, or nested `{summary: { foo, bar }}`).
+/// Validated by oxc as a real binding pattern via `const <decl> = null;`.
 pub fn parse_bind_decl(raw: Option<&str>) -> std::result::Result<BindDecl, String> {
     let Some(raw) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
         return Ok(BindDecl::None);
     };
 
+    let wrapped = format!("const {raw} = null;");
     let allocator = Allocator::default();
-    let expr = Parser::new(&allocator, raw, SourceType::mjs())
-        .parse_expression()
-        .map_err(|_| {
-            format!("data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`")
-        })?;
+    let ret = Parser::new(&allocator, &wrapped, SourceType::mjs()).parse();
+    if ret.panicked || !ret.diagnostics.is_empty() || ret.program.body.len() != 1 {
+        return Err(format!(
+            "data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`"
+        ));
+    }
 
-    match expr {
-        Expression::Identifier(id) => Ok(BindDecl::Named(id.name.as_str().to_string())),
-        Expression::ObjectExpression(obj) => {
-            let mut names = Vec::new();
-            for prop in &obj.properties {
-                let ObjectPropertyKind::ObjectProperty(prop) = prop else {
-                    return Err(format!(
-                        "data-bind=`{raw}`: spreads are not supported in destructure"
-                    ));
-                };
-                let name = destructure_prop_name(raw, prop)?;
-                if names.iter().any(|n: &String| n == &name) {
-                    return Err(format!("data-bind=`{raw}`: duplicate name `{name}`"));
-                }
-                names.push(name);
-            }
-            if names.is_empty() {
+    let Statement::VariableDeclaration(decl) = &ret.program.body[0] else {
+        return Err(format!(
+            "data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`"
+        ));
+    };
+    if decl.declarations.len() != 1 {
+        return Err(format!(
+            "data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`"
+        ));
+    }
+
+    match &decl.declarations[0].id {
+        BindingPattern::BindingIdentifier(id) => {
+            Ok(BindDecl::Named(id.name.as_str().to_string()))
+        }
+        BindingPattern::ObjectPattern(obj) => {
+            let mut binds = Vec::new();
+            collect_object_pattern(raw, obj, &[], &mut binds)?;
+            if binds.is_empty() {
                 return Err("empty destructure `data-bind=\"{}\"`".into());
             }
-            Ok(BindDecl::Destructure(names))
+            Ok(BindDecl::Destructure(binds))
         }
-        _ => Err(format!(
-            "data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`"
+        BindingPattern::ArrayPattern(_) => Err(format!(
+            "data-bind=`{raw}`: array destructure is not supported"
+        )),
+        BindingPattern::AssignmentPattern(_) => Err(format!(
+            "data-bind=`{raw}`: default values are not supported"
         )),
     }
 }
 
-fn destructure_prop_name(raw: &str, prop: &ObjectProperty<'_>) -> std::result::Result<String, String> {
-    if prop.computed || prop.method || prop.kind != PropertyKind::Init {
+fn collect_object_pattern(
+    raw: &str,
+    obj: &ObjectPattern<'_>,
+    path_prefix: &[String],
+    out: &mut Vec<DestructureBind>,
+) -> std::result::Result<(), String> {
+    if obj.rest.is_some() {
+        return Err(format!(
+            "data-bind=`{raw}`: rest bindings are not supported"
+        ));
+    }
+    if obj.properties.is_empty() {
+        return Err(if path_prefix.is_empty() {
+            "empty destructure `data-bind=\"{}\"`".into()
+        } else {
+            format!(
+                "data-bind=`{raw}`: empty nested destructure for `{}`",
+                path_prefix.last().unwrap()
+            )
+        });
+    }
+    for prop in &obj.properties {
+        collect_binding_property(raw, prop, path_prefix, out)?;
+    }
+    Ok(())
+}
+
+fn collect_binding_property(
+    raw: &str,
+    prop: &BindingProperty<'_>,
+    path_prefix: &[String],
+    out: &mut Vec<DestructureBind>,
+) -> std::result::Result<(), String> {
+    if prop.computed {
         return Err(format!(
             "data-bind=`{raw}`: only plain identifier properties are supported"
         ));
@@ -98,26 +168,65 @@ fn destructure_prop_name(raw: &str, prop: &ObjectProperty<'_>) -> std::result::R
         ));
     };
     let key_name = key.name.as_str();
-    if prop.shorthand {
-        return Ok(key_name.to_string());
-    }
-    // Longhand `{variant: variant}` — identity only (same as destructure binding).
+    let mut path = path_prefix.to_vec();
+    path.push(key_name.to_string());
+
     match &prop.value {
-        Expression::Identifier(id) if id.name.as_str() == key_name => Ok(key_name.to_string()),
-        Expression::Identifier(id) => Err(format!(
-            "data-bind=`{raw}`: renames are not supported (`{key_name}: {}`)",
-            id.name.as_str()
+        BindingPattern::BindingIdentifier(id) => {
+            let bind_name = id.name.as_str();
+            if bind_name != key_name {
+                return Err(format!(
+                    "data-bind=`{raw}`: renames are not supported (`{key_name}: {bind_name}`)"
+                ));
+            }
+            push_bind(
+                raw,
+                out,
+                DestructureBind {
+                    name: bind_name.to_string(),
+                    path,
+                },
+            )
+        }
+        BindingPattern::ObjectPattern(nested) => {
+            collect_object_pattern(raw, nested, &path, out)
+        }
+        BindingPattern::ArrayPattern(_) => Err(format!(
+            "data-bind=`{raw}`: array destructure is not supported"
         )),
-        _ => Err(format!(
-            "data-bind=`{raw}`: `{key_name}` value must be the identifier `{key_name}`"
+        BindingPattern::AssignmentPattern(_) => Err(format!(
+            "data-bind=`{raw}`: default values are not supported"
         )),
     }
+}
+
+fn push_bind(
+    raw: &str,
+    out: &mut Vec<DestructureBind>,
+    bind: DestructureBind,
+) -> std::result::Result<(), String> {
+    if out.iter().any(|b| b.name == bind.name) {
+        return Err(format!(
+            "data-bind=`{raw}`: duplicate name `{}`",
+            bind.name
+        ));
+    }
+    out.push(bind);
+    Ok(())
+}
+
+fn read_path<'a>(value: &'a Value, path: &[String]) -> Option<&'a Value> {
+    let mut cur = value;
+    for part in path {
+        cur = read_field(cur, part)?;
+    }
+    Some(cur)
 }
 
 /// Build the runtime bind context from a declaration and the bound value.
 ///
 /// - `Named("button")` → `{ "button": value }` only (no field flattening).
-/// - `Destructure(["variant","href"])` → pick those keys from an object value.
+/// - `Destructure([…])` → pick each binding along its path from an object value.
 /// - `None` → empty object.
 pub fn bind_context(decl: &BindDecl, value: &Value) -> Value {
     match decl {
@@ -127,11 +236,13 @@ pub fn bind_context(decl: &BindDecl, value: &Value) -> Value {
             map.insert(name.clone(), value.clone());
             Value::Object(map)
         }
-        BindDecl::Destructure(names) => {
+        BindDecl::Destructure(binds) => {
             let mut map = serde_json::Map::new();
-            for name in names {
-                let v = read_field(value, name).cloned().unwrap_or(Value::Null);
-                map.insert(name.clone(), v);
+            for bind in binds {
+                let v = read_path(value, &bind.path)
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                map.insert(bind.name.clone(), v);
             }
             Value::Object(map)
         }
@@ -272,15 +383,38 @@ mod tests {
         );
         assert_eq!(
             parse_bind_decl(Some("{variant, href}")).unwrap(),
-            BindDecl::Destructure(vec!["variant".into(), "href".into()])
+            BindDecl::destructure_flat(["variant", "href"])
         );
         assert_eq!(
             parse_bind_decl(Some("{variant: variant, href: href}")).unwrap(),
-            BindDecl::Destructure(vec!["variant".into(), "href".into()])
+            BindDecl::destructure_flat(["variant", "href"])
+        );
+        assert_eq!(
+            parse_bind_decl(Some("{tag, title, summary: { foo, bar }}")).unwrap(),
+            BindDecl::Destructure(vec![
+                DestructureBind {
+                    name: "tag".into(),
+                    path: vec!["tag".into()],
+                },
+                DestructureBind {
+                    name: "title".into(),
+                    path: vec!["title".into()],
+                },
+                DestructureBind {
+                    name: "foo".into(),
+                    path: vec!["summary".into(), "foo".into()],
+                },
+                DestructureBind {
+                    name: "bar".into(),
+                    path: vec!["summary".into(), "bar".into()],
+                },
+            ])
         );
         assert!(parse_bind_decl(Some("button.variant")).is_err());
         assert!(parse_bind_decl(Some("{}")).is_err());
         assert!(parse_bind_decl(Some("{variant: other}")).is_err());
+        assert!(parse_bind_decl(Some("{summary: {}}")).is_err());
+        assert!(parse_bind_decl(Some("{foo, nested: { foo }}")).is_err());
     }
 
     #[test]
@@ -328,11 +462,7 @@ mod tests {
     fn destructure_allows_listed_names() {
         let html =
             r#"<a class="button ${variant}" href="${href}"><slot name="label"></slot></a>"#;
-        let decl = BindDecl::Destructure(vec![
-            "variant".into(),
-            "href".into(),
-            "label".into(),
-        ]);
+        let decl = BindDecl::destructure_flat(["variant", "href", "label"]);
         let nodes = vec![el(
             "a",
             &[("class", "button ${variant}"), ("href", "${href}")],
@@ -345,7 +475,7 @@ mod tests {
     fn named_slot_must_be_bound() {
         let html =
             r#"<a class="button ${variant}" href="${href}"><slot name="label"></slot></a>"#;
-        let decl = BindDecl::Destructure(vec!["variant".into(), "href".into()]);
+        let decl = BindDecl::destructure_flat(["variant", "href"]);
         let nodes = vec![el(
             "a",
             &[("class", "button ${variant}"), ("href", "${href}")],
@@ -374,9 +504,22 @@ mod tests {
         let ctx = bind_context(&BindDecl::Named("button".into()), &button);
         assert_eq!(ctx, json!({"button": button}));
         let destructured = bind_context(
-            &BindDecl::Destructure(vec!["variant".into(), "href".into()]),
+            &BindDecl::destructure_flat(["variant", "href"]),
             &json!({"variant": "ghost", "href": "/x", "extra": 1}),
         );
         assert_eq!(destructured, json!({"variant": "ghost", "href": "/x"}));
+
+        let nested = bind_context(
+            &parse_bind_decl(Some("{tag, title, summary: { foo, bar }}")).unwrap(),
+            &json!({
+                "tag": "news",
+                "title": "Hello",
+                "summary": { "foo": 1, "bar": 2, "extra": 3 },
+            }),
+        );
+        assert_eq!(
+            nested,
+            json!({"tag": "news", "title": "Hello", "foo": 1, "bar": 2})
+        );
     }
 }

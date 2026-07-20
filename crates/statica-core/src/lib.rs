@@ -3,7 +3,7 @@
 //! # Pipeline
 //!
 //! 1. **Discover** — every `**/index.html` under the site root (`[param]` → collection).
-//! 2. **Funnel** — load `<script type="statica/data">` JSON.
+//! 2. **Funnel** — load `<script type="statica/data">` JS value literals (oxc).
 //! 3. **Expand** — static (1:1), collection (1:N items), or pagination (1:N page chunks).
 //! 4. **Bind** — slots + `${…}` attrs + fragment/`data-each` expansion.
 //! 5. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).

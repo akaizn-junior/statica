@@ -70,7 +70,7 @@ mod tests {
     #[test]
     fn destructure_exposes_listed_fields() {
         let ctx = bind_context(
-            &BindDecl::Destructure(vec!["variant".into(), "href".into()]),
+            &BindDecl::destructure_flat(["variant", "href"]),
             &json!({"variant": "ghost", "href": "/x"}),
         );
         assert_eq!(

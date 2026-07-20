@@ -2,7 +2,7 @@
 
 **Powered HTML**
 
-statica turns valid HTML into a static site: fragments, local JSON funnels, collections, pagination, scoped components, and browser-ready CSS — then emits files.
+statica turns valid HTML into a static site: fragments, local JS funnels, collections, pagination, scoped components, and browser-ready CSS — then emits files.
 
 > Always lowercase **statica**.
 
@@ -12,7 +12,7 @@ Full reference: [docs/guide.md](docs/guide.md) · Man pages: [docs/man/](docs/ma
 
 | Concept | Role |
 | ------- | ---- |
-| **Funnel** | Build-time local JSON via `<script type="statica/data" src id>` |
+| **Funnel** | Build-time local JS value literals via `<script type="statica/data" src id>` |
 | **Pages** | Every `**/index.html` — folder path is the route (incl. `[slug]` / `[page]`) |
 
 Flow: **Funnel → Pages → static HTML**

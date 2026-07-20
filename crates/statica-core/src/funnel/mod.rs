@@ -1,6 +1,7 @@
-//! Build-time data funnel (serde JSON).
+//! Build-time data funnel (JS value literals via oxc → `serde_json::Value`).
 
 mod bind_decl;
+mod js_value;
 mod json;
 
 pub use bind_decl::{

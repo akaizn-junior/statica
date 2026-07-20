@@ -259,7 +259,7 @@ fn emit_paginated(
         other => {
             return Err(Error::page(
                 page.source.path.display().to_string(),
-                format!("pagination `{collection_id}` must be a JSON array, got {other}"),
+                format!("pagination `{collection_id}` must be an array, got {other}"),
             ));
         }
     };
@@ -340,7 +340,7 @@ fn emit_collection(
         other => {
             return Err(Error::page(
                 page.source.path.display().to_string(),
-                format!("collection `{collection_id}` must be a JSON array, got {other}"),
+                format!("collection `{collection_id}` must be an array, got {other}"),
             ));
         }
     };
