@@ -6,7 +6,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 license = "MIT"
 authors = ["statica"]
@@ -47,4 +47,4 @@ oxc_mangler = "0.140"
 oxc_minifier = "0.140"
 oxc_parser = "0.140"
 oxc_span = "0.140"
-statica-core = { version = "0.3.2", path = "crates/statica-core" }
+statica-core = { version = "0.3.3", path = "crates/statica-core" }
