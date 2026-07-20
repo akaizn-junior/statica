@@ -22,6 +22,7 @@ use sitemap_rs::url_set::UrlSet;
 use crate::discover::{PageKind, PageSource};
 use crate::error::{Error, Result};
 use crate::funnel::{self, DataSource};
+use crate::loc::Diagnostic;
 
 /// Protocol max URLs (or nested sitemaps) per file.
 pub const SITEMAP_URL_LIMIT: usize = 50_000;
@@ -93,16 +94,16 @@ pub fn write_feeds(
     rss: &RssOptions,
     page_outputs: &[PathBuf],
     feed_pages: &[FeedPage<'_>],
-) -> Result<Vec<String>> {
+) -> Result<Vec<Diagnostic>> {
     let mut warnings = Vec::new();
     let base = site_url.trim().trim_end_matches('/');
 
     if sitemap.enabled {
         if base.is_empty() {
-            warnings.push(
-                "sitemap enabled but site_url is empty — skipped (set site_url in statica.toml)"
-                    .into(),
-            );
+            warnings.push(Diagnostic::at_file(
+                "statica.toml",
+                "sitemap enabled but site_url is empty — skipped (set site_url in statica.toml)",
+            ));
         } else {
             write_sitemap(out_dir, base, sitemap, page_outputs)?;
         }
@@ -110,9 +111,10 @@ pub fn write_feeds(
 
     if rss.enabled {
         if base.is_empty() {
-            warnings.push(
-                "rss enabled but site_url is empty — skipped (set site_url in statica.toml)".into(),
-            );
+            warnings.push(Diagnostic::at_file(
+                "statica.toml",
+                "rss enabled but site_url is empty — skipped (set site_url in statica.toml)",
+            ));
         } else {
             let mut items = collect_rss_items(base, rss, feed_pages);
             // Newest first when date looks sortable (ISO / YYYY-MM-DD).
@@ -185,19 +187,19 @@ fn write_sitemap(
 }
 
 fn render_urlset(urls: Vec<SitemapUrl>) -> Result<Vec<u8>> {
-    let set = UrlSet::new(urls).map_err(|e| Error::msg(e.to_string()))?;
+    let set = UrlSet::new(urls).map_err(|e| Error::at_file("sitemap.xml", e.to_string()))?;
     let mut buf = Vec::new();
     set.write(&mut buf)
-        .map_err(|e| Error::msg(format!("sitemap write: {e}")))?;
+        .map_err(|e| Error::at_file("sitemap.xml", format!("sitemap write: {e}")))?;
     Ok(buf)
 }
 
 fn render_sitemap_index(sitemaps: Vec<Sitemap>) -> Result<Vec<u8>> {
-    let index = SitemapIndex::new(sitemaps).map_err(|e| Error::msg(e.to_string()))?;
+    let index = SitemapIndex::new(sitemaps).map_err(|e| Error::at_file("sitemap.xml", e.to_string()))?;
     let mut buf = Vec::new();
     index
         .write(&mut buf)
-        .map_err(|e| Error::msg(format!("sitemap index write: {e}")))?;
+        .map_err(|e| Error::at_file("sitemap.xml", format!("sitemap index write: {e}")))?;
     Ok(buf)
 }
 

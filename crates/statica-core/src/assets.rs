@@ -24,6 +24,7 @@ use oxc_span::SourceType;
 use rayon::prelude::*;
 
 use crate::error::{Error, Result};
+use crate::loc::Diagnostic;
 
 /// Which asset kinds to optimize when processing is on.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,7 +95,7 @@ impl AssetKind {
 pub struct ProcessReport {
     pub processed: usize,
     pub copied: usize,
-    pub warnings: Vec<String>,
+    pub warnings: Vec<Diagnostic>,
 }
 
 /// Copy `asset_dirs` into `out_dir`, optionally processing selected asset kinds.
@@ -123,7 +124,7 @@ fn copy_tree(src: &Path, dst: &Path, process: &AssetProcessOptions) -> Result<Pr
     let mut files = Vec::new();
     collect_files(src, dst, &mut files)?;
 
-    let results: Vec<(bool, Option<String>)> = files
+    let results: Vec<(bool, Option<Diagnostic>)> = files
         .par_iter()
         .map(|(from, to)| {
             if let Some(parent) = to.parent() {
@@ -132,20 +133,23 @@ fn copy_tree(src: &Path, dst: &Path, process: &AssetProcessOptions) -> Result<Pr
             match emit_file(from, to, process) {
                 Ok(did_process) => (did_process, None),
                 Err(e) => {
-                    let warn = format!(
-                        "asset process failed for {} ({e}); copied raw",
-                        from.display()
-                    );
+                    let file = from.display().to_string();
                     if let Err(copy_err) = fs::copy(from, to) {
                         return (
                             false,
-                            Some(format!(
-                                "asset copy failed for {}: {copy_err}",
-                                from.display()
+                            Some(Diagnostic::at_file(
+                                file.clone(),
+                                format!("asset copy failed: {copy_err}"),
                             )),
                         );
                     }
-                    (false, Some(warn))
+                    (
+                        false,
+                        Some(Diagnostic::at_file(
+                            file,
+                            format!("asset process failed ({e}); copied raw"),
+                        )),
+                    )
                 }
             }
         })
@@ -202,31 +206,31 @@ fn emit_file(from: &Path, to: &Path, process: &AssetProcessOptions) -> Result<bo
     match (kind, ext.as_str()) {
         (AssetKind::Css, _) => {
             let css = fs::read_to_string(from)?;
-            let out = crate::css::transform_css(&css, true).map_err(Error::msg)?;
+            let out = crate::css::transform_css(&css, true).map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
             Ok(true)
         }
         (AssetKind::Js, _) => {
             let js = fs::read_to_string(from)?;
-            let out = minify_js(from, &js).map_err(Error::msg)?;
+            let out = minify_js(from, &js).map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
             Ok(true)
         }
         (AssetKind::Image, "png") => {
             let bytes = fs::read(from)?;
-            let out = optimize_png(&bytes).map_err(Error::msg)?;
+            let out = optimize_png(&bytes).map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
             Ok(true)
         }
         (AssetKind::Image, "jpg" | "jpeg") => {
             let bytes = fs::read(from)?;
-            let out = optimize_jpeg(&bytes).map_err(Error::msg)?;
+            let out = optimize_jpeg(&bytes).map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
             Ok(true)
         }
         (AssetKind::Image, "webp") => {
             let bytes = fs::read(from)?;
-            let out = optimize_webp(&bytes).map_err(Error::msg)?;
+            let out = optimize_webp(&bytes).map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
             Ok(true)
         }

@@ -11,7 +11,6 @@ use oxc_span::SourceType;
 use serde_json::Value;
 
 use crate::error::{Error, Result};
-use crate::loc;
 use crate::parse::{Element, Node};
 
 use super::json::read_field;
@@ -312,16 +311,14 @@ fn ensure_bound(
     if scope.contains(root) {
         return Ok(());
     }
-    let (file, line, column, snippet) = loc::locate_any(source.file, source.source, needles);
-    Err(Error::UnboundTemplateVar {
-        file,
-        line,
-        column,
-        id: fragment_id.to_string(),
-        path: path.to_string(),
-        name: root.to_string(),
-        snippet,
-    })
+    Err(Error::at(
+        source.file,
+        source.source,
+        needles,
+        format!(
+            "fragment `{fragment_id}` uses `{path}` but `{root}` is not bound — declare it in data-bind (e.g. data-bind=\"{root}\" or data-bind=\"{{{root}}}\")"
+        ),
+    ))
 }
 
 fn path_root(path: &str) -> &str {
@@ -428,19 +425,12 @@ mod tests {
         )];
         let err = validate_template_binds("button", &decl, &nodes, src(html)).unwrap_err();
         match err {
-            Error::UnboundTemplateVar {
-                ref file,
-                line,
-                column,
-                ref name,
-                ref snippet,
-                ..
-            } => {
-                assert_eq!(name, "variant");
-                assert_eq!(file, "ui/button.html");
-                assert_eq!((line, column), (1, 18));
-                assert!(snippet.contains("${variant}"));
-                assert!(snippet.contains('^'));
+            Error::Diag(d) => {
+                assert!(d.message.contains("`variant` is not bound"));
+                assert_eq!(d.file, "ui/button.html");
+                assert_eq!((d.line, d.column), (1, 18));
+                assert!(d.snippet.contains("${variant}"));
+                assert!(d.snippet.contains('^'));
             }
             other => panic!("unexpected: {other}"),
         }
@@ -483,16 +473,10 @@ mod tests {
         )];
         let err = validate_template_binds("button", &decl, &nodes, src(html)).unwrap_err();
         match err {
-            Error::UnboundTemplateVar {
-                line,
-                column,
-                ref name,
-                ref snippet,
-                ..
-            } => {
-                assert_eq!(name, "label");
-                assert_eq!((line, column), (1, 51));
-                assert!(snippet.contains("name=\"label\""));
+            Error::Diag(d) => {
+                assert!(d.message.contains("`label` is not bound"));
+                assert_eq!((d.line, d.column), (1, 51));
+                assert!(d.snippet.contains("name=\"label\""));
             }
             other => panic!("unexpected: {other}"),
         }

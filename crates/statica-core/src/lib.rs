@@ -52,6 +52,7 @@ pub use css::{transform_and_scope, transform_css};
 pub use discover::PageKind;
 pub use emit_opts::EmitOptions;
 pub use error::{Error, Result};
+pub use loc::Diagnostic;
 pub use feeds::{RssOptions, SitemapOptions};
 pub use paginate::PaginationRule;
 pub use parse::Document;

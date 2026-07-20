@@ -15,7 +15,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use statica_core::{build, rebuild_paths, BuildOptions, BuildReport};
+use statica_core::{build, rebuild_paths, BuildOptions, BuildReport, Diagnostic};
 
 use crate::cli::ConfigCli;
 use crate::config::{StaticaConfig, CONFIG_FILE};
@@ -103,7 +103,7 @@ pub fn find_config_dir(start: &Path) -> Option<PathBuf> {
     }
 }
 
-pub fn print_warnings(warnings: &[String]) {
+pub fn print_warnings(warnings: &[Diagnostic]) {
     for w in warnings {
         eprintln!("{} {w}", style::warn("warning:"));
     }

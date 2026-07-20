@@ -1,5 +1,60 @@
 //! Byte-offset → line/column helpers for authoring diagnostics.
 
+use std::fmt;
+
+/// Authoring diagnostic: `file:line:column: message` + optional rustc-style snippet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Diagnostic {
+    pub file: String,
+    pub line: u32,
+    pub column: u32,
+    pub message: String,
+    pub snippet: String,
+}
+
+impl Diagnostic {
+    /// Locate via needle search in `source`, or fall back to `file:1:1` with no snippet.
+    #[must_use]
+    pub fn at(file: &str, source: &str, needles: &[&str], message: impl Into<String>) -> Self {
+        let (file, line, column, snippet) = locate_any(file, source, needles);
+        Self {
+            file,
+            line,
+            column,
+            message: message.into(),
+            snippet,
+        }
+    }
+
+    /// Path known, no useful source span (still emits `file:1:1:`).
+    #[must_use]
+    pub fn at_file(file: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            file: file.into(),
+            line: 1,
+            column: 1,
+            message: message.into(),
+            snippet: String::new(),
+        }
+    }
+}
+
+impl fmt::Display for Diagnostic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}:{}:{}: {}",
+            self.file, self.line, self.column, self.message
+        )?;
+        if !self.snippet.is_empty() {
+            write!(f, "\n{}", self.snippet)?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for Diagnostic {}
+
 /// 1-based line and column for a byte offset into `source`.
 #[must_use]
 pub fn offset_to_line_col(source: &str, byte_offset: usize) -> (u32, u32) {
@@ -92,5 +147,14 @@ mod tests {
         let snip = snippet(src, line, col, 4);
         assert!(snip.contains("2 | bc${x}"));
         assert!(snip.contains("^^^"));
+    }
+
+    #[test]
+    fn diagnostic_display() {
+        let d = Diagnostic::at("ui/x.html", "<a href=\"${href}\">", &["${href}"], "not bound");
+        let s = d.to_string();
+        assert!(s.starts_with("ui/x.html:1:"));
+        assert!(s.contains("not bound"));
+        assert!(s.contains("${href}"));
     }
 }

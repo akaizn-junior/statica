@@ -24,13 +24,14 @@ pub fn render_page_document(
     current: Option<&Value>,
     page_data: &HashMap<String, DataSource>,
     emit: &EmitOptions,
+    site: Option<(&str, &str)>,
 ) -> Result<String> {
     let mut doc = doc.clone();
     if let Some(ctx) = current {
         fill_attr_templates_in_nodes(&mut doc.children, ctx);
         fill_named_slots(&mut doc.children, ctx);
     }
-    expand_usage_slots_in_nodes(registry, &mut doc.children, current, page_data)?;
+    expand_usage_slots_in_nodes(registry, &mut doc.children, current, page_data, site)?;
     funnel::strip_authoring(&mut doc, emit);
     clear_remaining_named_slots(&mut doc.children);
     transform_page_styles(&mut doc.children);
@@ -69,6 +70,7 @@ pub fn expand_usage_slots_in_nodes(
     nodes: &mut Vec<Node>,
     current: Option<&Value>,
     data_map: &HashMap<String, DataSource>,
+    site: Option<(&str, &str)>,
 ) -> Result<()> {
     let mut i = 0;
     while i < nodes.len() {
@@ -85,14 +87,16 @@ pub fn expand_usage_slots_in_nodes(
 
         if let Some((id, children_nodes, each, bind)) = replace {
             let rendered = if let Some(each_expr) = each {
-                let list = funnel::resolve_expr(&each_expr, current, data_map, data_map)?;
-                render_each(registry, &id, &list, data_map, &children_nodes)?
+                let list = funnel::resolve_expr(&each_expr, current, data_map, data_map)
+                    .map_err(|e| relocate_data_err(e, site, &each_expr))?;
+                render_each(registry, &id, &list, data_map, &children_nodes, site, &each_expr)?
             } else {
                 let value = match bind.as_deref() {
                     None | Some("") => Value::Null,
-                    Some(b) => funnel::resolve_expr(b, current, data_map, data_map)?,
+                    Some(b) => funnel::resolve_expr(b, current, data_map, data_map)
+                        .map_err(|e| relocate_data_err(e, site, b))?,
                 };
-                render_fragment_nodes(registry, &id, &value, data_map, &children_nodes)?
+                render_fragment_nodes(registry, &id, &value, data_map, &children_nodes, site)?
             };
             nodes.splice(i..=i, rendered.iter().cloned());
             i += rendered.len().max(1);
@@ -100,11 +104,24 @@ pub fn expand_usage_slots_in_nodes(
         }
 
         if let Node::Element(el) = &mut nodes[i] {
-            expand_usage_slots_in_nodes(registry, &mut el.children, current, data_map)?;
+            expand_usage_slots_in_nodes(registry, &mut el.children, current, data_map, site)?;
         }
         i += 1;
     }
     Ok(())
+}
+
+fn relocate_data_err(err: Error, site: Option<(&str, &str)>, expr: &str) -> Error {
+    match site {
+        Some((file, source)) => {
+            let dq = format!("data-bind=\"{expr}\"");
+            let sq = format!("data-bind='{expr}'");
+            let each_dq = format!("data-each=\"{expr}\"");
+            let each_sq = format!("data-each='{expr}'");
+            err.in_file_at(file, source, &[&dq, &sq, &each_dq, &each_sq, expr])
+        }
+        None => err,
+    }
 }
 
 fn render_each(
@@ -113,15 +130,29 @@ fn render_each(
     list: &Value,
     data_map: &HashMap<String, DataSource>,
     children: &[Node],
+    site: Option<(&str, &str)>,
+    each_expr: &str,
 ) -> Result<Vec<Node>> {
     let arr = match list {
         Value::Array(a) => a,
         Value::Null => return Ok(Vec::new()),
-        _ => return Err(Error::ExpectedArray { id: id.to_string() }),
+        _ => {
+            let msg = format!("data-each for `{id}` expected an array");
+            return Err(match site {
+                Some((file, source)) => {
+                    let dq = format!("data-each=\"{each_expr}\"");
+                    let sq = format!("data-each='{each_expr}'");
+                    Error::at(file, source, &[&dq, &sq], msg)
+                }
+                None => Error::at_file("<page>", msg),
+            });
+        }
     };
     let mut out = Vec::new();
     for item in arr {
-        out.extend(render_fragment_nodes(registry, id, item, data_map, children)?);
+        out.extend(render_fragment_nodes(
+            registry, id, item, data_map, children, site,
+        )?);
     }
     Ok(out)
 }
@@ -132,10 +163,21 @@ fn render_fragment_nodes(
     prop_value: &Value,
     parent_data: &HashMap<String, DataSource>,
     children: &[Node],
+    site: Option<(&str, &str)>,
 ) -> Result<Vec<Node>> {
-    let frag = registry
-        .get(id)
-        .ok_or_else(|| Error::MissingFragment { id: id.to_string() })?;
+    let frag = registry.get(id).ok_or_else(|| {
+        let msg = format!(
+            "missing fragment id `{id}` (no <link rel=\"statica/fragment\" id=\"{id}\">)"
+        );
+        match site {
+            Some((file, source)) => {
+                let dq = format!("id=\"{id}\"");
+                let sq = format!("id='{id}'");
+                Error::at(file, source, &[&dq, &sq], msg)
+            }
+            None => Error::at_file("<page>", msg),
+        }
+    })?;
 
     let mut local = parent_data.clone();
     for (k, v) in &frag.data {
@@ -152,6 +194,6 @@ fn render_fragment_nodes(
     fill_default_slots(&mut nodes, children);
     scope::rewrite_scripts_in_nodes(&mut nodes, &frag.scope_id);
     // Nested `data-bind` / `data-each` resolve against the raw bound value (not the wrapper).
-    expand_usage_slots_in_nodes(registry, &mut nodes, Some(prop_value), &local)?;
+    expand_usage_slots_in_nodes(registry, &mut nodes, Some(prop_value), &local, site)?;
     Ok(nodes)
 }

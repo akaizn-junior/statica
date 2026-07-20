@@ -52,12 +52,18 @@ pub fn discover_pages(root: &Path, ignore_dirs: &[String]) -> Result<Vec<PageSou
             continue;
         }
         let path = entry.path().to_path_buf();
-        let parent = path
-            .parent()
-            .ok_or_else(|| Error::msg(format!("orphan index.html at {}", path.display())))?;
-        let rel = parent
-            .strip_prefix(root)
-            .map_err(|_| Error::msg(format!("path outside root: {}", path.display())))?;
+        let parent = path.parent().ok_or_else(|| {
+            Error::at_file(
+                path.display().to_string(),
+                format!("orphan index.html at {}", path.display()),
+            )
+        })?;
+        let rel = parent.strip_prefix(root).map_err(|_| {
+            Error::at_file(
+                path.display().to_string(),
+                format!("path outside root: {}", path.display()),
+            )
+        })?;
         let route = if rel.as_os_str().is_empty() {
             String::new()
         } else {

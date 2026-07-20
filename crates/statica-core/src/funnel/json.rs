@@ -26,17 +26,32 @@ pub fn load_data_from_document(
     doc: &Document,
     base_dir: &Path,
     cache: &mut HashMap<PathBuf, Value>,
+    site: Option<(&str, &str)>,
 ) -> Result<HashMap<String, DataSource>> {
     let mut out = HashMap::new();
     for el in doc.find(|e| is_data_script(e)) {
-        let id = el
-            .attr("id")
-            .ok_or_else(|| Error::msg("statica/data script missing id"))?
-            .to_string();
-        let src = el
-            .attr("src")
-            .ok_or_else(|| Error::msg(format!("statica/data#{id} missing src")))?;
-        let path = resolve_path(base_dir, src)?;
+        let id = match el.attr("id").map(str::trim).filter(|s| !s.is_empty()) {
+            Some(id) => id.to_string(),
+            None => {
+                return Err(site_err(
+                    site,
+                    &["type=\"statica/data\"", "type='statica/data'"],
+                    "statica/data script missing id",
+                ));
+            }
+        };
+        let src = match el.attr("src").map(str::trim).filter(|s| !s.is_empty()) {
+            Some(src) => src,
+            None => {
+                let id_dq = format!("id=\"{id}\"");
+                return Err(site_err(
+                    site,
+                    &["type=\"statica/data\"", id_dq.as_str()],
+                    format!("statica/data#{id} missing src"),
+                ));
+            }
+        };
+        let path = resolve_path(base_dir, src, site, src)?;
         let value = if let Some(v) = cache.get(&path) {
             v.clone()
         } else {
@@ -58,6 +73,17 @@ pub fn load_data_from_document(
         );
     }
     Ok(out)
+}
+
+fn site_err(
+    site: Option<(&str, &str)>,
+    needles: &[&str],
+    message: impl Into<String>,
+) -> Error {
+    match site {
+        Some((file, source)) => Error::at(file, source, needles, message),
+        None => Error::at_file("<unknown>", message),
+    }
 }
 
 fn is_data_script(el: &Element) -> bool {
@@ -145,7 +171,7 @@ pub fn resolve_expr(
     let mut parts = expr.split('.').filter(|p| !p.is_empty());
     let first = parts
         .next()
-        .ok_or_else(|| Error::msg("empty data expression"))?;
+        .ok_or_else(|| Error::at_file("<data>", "empty data expression"))?;
 
     let mut value = if first == "this" {
         current.cloned().unwrap_or(Value::Null)
@@ -157,15 +183,21 @@ pub fn resolve_expr(
         match read_field(cur, first) {
             Some(v) => v.clone(),
             None => {
-                return Err(Error::MissingData {
-                    id: first.to_string(),
-                })
+                return Err(Error::at_file(
+                    "<data>",
+                    format!(
+                        "missing data source id `{first}` (no <script type=\"statica/data\" id=\"{first}\">)"
+                    ),
+                ))
             }
         }
     } else {
-        return Err(Error::MissingData {
-            id: first.to_string(),
-        });
+        return Err(Error::at_file(
+            "<data>",
+            format!(
+                "missing data source id `{first}` (no <script type=\"statica/data\" id=\"{first}\">)"
+            ),
+        ));
     };
 
     for part in parts {
@@ -178,7 +210,12 @@ pub fn resolve_expr(
     Ok(value)
 }
 
-fn resolve_path(base_dir: &Path, rel: &str) -> Result<PathBuf> {
+fn resolve_path(
+    base_dir: &Path,
+    rel: &str,
+    site: Option<(&str, &str)>,
+    src: &str,
+) -> Result<PathBuf> {
     let joined = if Path::new(rel).is_absolute() {
         PathBuf::from(rel)
     } else {
@@ -194,9 +231,14 @@ fn resolve_path(base_dir: &Path, rel: &str) -> Result<PathBuf> {
     if joined.exists() {
         return Ok(joined);
     }
-    Err(Error::PathNotFound {
-        path: joined.display().to_string(),
-    })
+    let path = joined.display().to_string();
+    let dq = format!("src=\"{src}\"");
+    let sq = format!("src='{src}'");
+    Err(site_err(
+        site,
+        &[&dq, &sq, src],
+        format!("path not found: {path}"),
+    ))
 }
 
 fn normalize(path: &Path) -> PathBuf {

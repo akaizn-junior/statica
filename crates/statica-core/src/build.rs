@@ -21,6 +21,7 @@ use crate::error::{Error, Result};
 use crate::feeds::{self, FeedPage, RssOptions, SitemapOptions};
 use crate::fragment::FragmentRegistry;
 use crate::funnel::{self, DataSource};
+use crate::loc::Diagnostic;
 use crate::paginate::{self, PaginationRule};
 use crate::parse::{self, Document};
 use crate::EmitOptions;
@@ -81,15 +82,48 @@ impl BuildOptions {
 pub struct BuildReport {
     pub pages_written: usize,
     pub assets_processed: usize,
-    pub warnings: Vec<String>,
+    pub warnings: Vec<Diagnostic>,
     pub duration_ms: u128,
     pub outputs: Vec<PathBuf>,
 }
 
 struct PreparedPage {
     source: PageSource,
+    html: String,
     doc: Document,
     data: std::collections::HashMap<String, DataSource>,
+}
+
+impl PreparedPage {
+    fn file(&self) -> String {
+        self.source.path.display().to_string()
+    }
+
+    fn render(
+        &self,
+        registry: &FragmentRegistry,
+        current: Option<&Value>,
+        emit: &EmitOptions,
+    ) -> Result<String> {
+        let file = self.file();
+        bind::render_page_document(
+            registry,
+            &self.doc,
+            current,
+            &self.data,
+            emit,
+            Some((file.as_str(), self.html.as_str())),
+        )
+        .map_err(|e| e.in_file(&file, &self.html))
+    }
+
+    fn at(&self, needles: &[&str], message: impl Into<String>) -> Error {
+        Error::at(&self.file(), &self.html, needles, message)
+    }
+
+    fn warn(&self, needles: &[&str], message: impl Into<String>) -> Diagnostic {
+        Diagnostic::at(&self.file(), &self.html, needles, message)
+    }
 }
 
 pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
@@ -117,7 +151,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
 
     let mut warnings = warnings
         .into_inner()
-        .map_err(|_| Error::msg("warnings mutex poisoned"))?;
+        .map_err(|_| Error::at_file("<build>", "warnings mutex poisoned"))?;
 
     let mut assets_processed = 0;
     if opts.copy_assets {
@@ -162,15 +196,20 @@ fn prepare_pages(pages: &[PageSource]) -> Result<(FragmentRegistry, Vec<Prepared
     let mut prepared = Vec::with_capacity(pages.len());
 
     for page in pages {
-        let html = fs::read_to_string(&page.path)
-            .map_err(|e| Error::page(page.path.display().to_string(), e.to_string()))?;
-        let doc = parse::parse_document(&html)
-            .map_err(|e| Error::page(page.path.display().to_string(), e.to_string()))?;
+        let file = page.path.display().to_string();
+        let html = fs::read_to_string(&page.path).map_err(|e| Error::read(file.clone(), e))?;
+        let doc = parse::parse_document(&html).map_err(|e| e.in_file(&file, &html))?;
         let dir = page.path.parent().unwrap_or_else(|| Path::new("."));
-        let data = funnel::load_data_from_document(&doc, dir, registry.data_cache_mut())?;
-        registry.load_links_from_document(&doc, dir)?;
+        let data = funnel::load_data_from_document(
+            &doc,
+            dir,
+            registry.data_cache_mut(),
+            Some((&file, &html)),
+        )?;
+        registry.load_links_from_document(&doc, dir, Some((&file, &html)))?;
         prepared.push(PreparedPage {
             source: page.clone(),
+            html,
             doc,
             data,
         });
@@ -182,18 +221,14 @@ fn emit_prepared(
     opts: &BuildOptions,
     page: &PreparedPage,
     registry: &FragmentRegistry,
-    warnings: &Mutex<Vec<String>>,
+    warnings: &Mutex<Vec<Diagnostic>>,
 ) -> Result<Vec<PathBuf>> {
     if let Some(rule) = opts.pagination_for(&page.source.route) {
         return emit_paginated(opts, page, registry, rule, warnings);
     }
     match page.source.kind() {
         PageKind::Static => {
-            let rendered =
-                bind::render_page_document(registry, &page.doc, None, &page.data, &opts.emit)
-                    .map_err(|e| {
-                        Error::page(page.source.path.display().to_string(), e.to_string())
-                    })?;
+            let rendered = page.render(registry, None, &opts.emit)?;
             let out = emit::out_path_for_route(&opts.out_dir, &page.source.route, None);
             emit::write_html(&out, &rendered)?;
             Ok(vec![out])
@@ -211,27 +246,37 @@ fn html_data_bind(doc: &Document) -> Option<String> {
     })
 }
 
+fn html_bind_needles(id: &str) -> [String; 2] {
+    [
+        format!("data-bind=\"{id}\""),
+        format!("data-bind='{id}'"),
+    ]
+}
+
 fn emit_paginated(
     opts: &BuildOptions,
     page: &PreparedPage,
     registry: &FragmentRegistry,
     rule: &PaginationRule,
-    warnings: &Mutex<Vec<String>>,
+    warnings: &Mutex<Vec<Diagnostic>>,
 ) -> Result<Vec<PathBuf>> {
     let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
-        Error::page(
-            page.source.path.display().to_string(),
+        page.at(
+            &["<html", "data-bind"],
             "paginated page needs data-bind on <html> pointing at a statica/data id",
         )
     })?;
+
+    let needles = html_bind_needles(&collection_id);
+    let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
 
     let param = page
         .source
         .params
         .first()
         .ok_or_else(|| {
-            Error::page(
-                page.source.path.display().to_string(),
+            page.at(
+                &needle_refs,
                 format!(
                     "pagination route `{}` needs a [param] segment (e.g. blog/[page])",
                     page.source.route
@@ -241,24 +286,26 @@ fn emit_paginated(
         .clone();
 
     if page.source.params.len() > 1 {
-        return Err(Error::page(
-            page.source.path.display().to_string(),
+        return Err(page.at(
+            &needle_refs,
             "pagination routes support a single [param] (the page number folder)",
         ));
     }
 
-    let list = page
-        .data
-        .get(&collection_id)
-        .ok_or_else(|| Error::MissingData {
-            id: collection_id.clone(),
-        })?;
+    let list = page.data.get(&collection_id).ok_or_else(|| {
+        page.at(
+            &needle_refs,
+            format!(
+                "missing data source id `{collection_id}` (no <script type=\"statica/data\" id=\"{collection_id}\">)"
+            ),
+        )
+    })?;
 
     let items = match &list.value {
         Value::Array(a) => a.as_slice(),
         other => {
-            return Err(Error::page(
-                page.source.path.display().to_string(),
+            return Err(page.at(
+                &needle_refs,
                 format!("pagination `{collection_id}` must be an array, got {other}"),
             ));
         }
@@ -268,24 +315,17 @@ fn emit_paginated(
     if chunks.is_empty() {
         let mut w = warnings
             .lock()
-            .map_err(|_| Error::msg("warnings mutex poisoned"))?;
-        w.push(format!(
-            "{}: pagination `{collection_id}` is empty — 0 pages emitted",
-            page.source.route
+            .map_err(|_| Error::at_file("<build>", "warnings mutex poisoned"))?;
+        w.push(page.warn(
+            &needle_refs,
+            format!("pagination `{collection_id}` is empty — 0 pages emitted"),
         ));
         return Ok(Vec::new());
     }
 
     let mut outs = Vec::with_capacity(chunks.len() + usize::from(rule.index));
     for chunk in &chunks {
-        let rendered = bind::render_page_document(
-            registry,
-            &page.doc,
-            Some(&chunk.value),
-            &page.data,
-            &opts.emit,
-        )
-        .map_err(|e| Error::page(page.source.path.display().to_string(), e.to_string()))?;
+        let rendered = page.render(registry, Some(&chunk.value), &opts.emit)?;
         let out = emit::out_path_for_route(
             &opts.out_dir,
             &page.source.route,
@@ -297,14 +337,7 @@ fn emit_paginated(
 
     if rule.index {
         if let Some(first) = chunks.first() {
-            let rendered = bind::render_page_document(
-                registry,
-                &page.doc,
-                Some(&first.value),
-                &page.data,
-                &opts.emit,
-            )
-            .map_err(|e| Error::page(page.source.path.display().to_string(), e.to_string()))?;
+            let rendered = page.render(registry, Some(&first.value), &opts.emit)?;
             let index_route = paginate::index_route(&page.source.route, &param);
             let out = emit::out_path_for_route(&opts.out_dir, &index_route, None);
             emit::write_html(&out, &rendered)?;
@@ -319,27 +352,32 @@ fn emit_collection(
     opts: &BuildOptions,
     page: &PreparedPage,
     registry: &FragmentRegistry,
-    warnings: &Mutex<Vec<String>>,
+    warnings: &Mutex<Vec<Diagnostic>>,
 ) -> Result<Vec<PathBuf>> {
     let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
-        Error::page(
-            page.source.path.display().to_string(),
+        page.at(
+            &["<html", "data-bind"],
             "collection page needs data-bind on <html> pointing at a statica/data id",
         )
     })?;
 
-    let list = page
-        .data
-        .get(&collection_id)
-        .ok_or_else(|| Error::MissingData {
-            id: collection_id.clone(),
-        })?;
+    let needles = html_bind_needles(&collection_id);
+    let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
+
+    let list = page.data.get(&collection_id).ok_or_else(|| {
+        page.at(
+            &needle_refs,
+            format!(
+                "missing data source id `{collection_id}` (no <script type=\"statica/data\" id=\"{collection_id}\">)"
+            ),
+        )
+    })?;
 
     let items = match &list.value {
         Value::Array(a) => a,
         other => {
-            return Err(Error::page(
-                page.source.path.display().to_string(),
+            return Err(page.at(
+                &needle_refs,
                 format!("collection `{collection_id}` must be an array, got {other}"),
             ));
         }
@@ -348,36 +386,35 @@ fn emit_collection(
     if items.is_empty() {
         let mut w = warnings
             .lock()
-            .map_err(|_| Error::msg("warnings mutex poisoned"))?;
-        w.push(format!(
-            "{}: collection `{collection_id}` is empty — 0 pages emitted",
-            page.source.route
+            .map_err(|_| Error::at_file("<build>", "warnings mutex poisoned"))?;
+        w.push(page.warn(
+            &needle_refs,
+            format!("collection `{collection_id}` is empty — 0 pages emitted"),
         ));
         return Ok(Vec::new());
     }
 
-    let param = page
-        .source
-        .params
-        .first()
-        .ok_or_else(|| Error::msg("collection without params"))?;
+    let param = page.source.params.first().ok_or_else(|| {
+        page.at(&needle_refs, "collection without params")
+    })?;
 
     let mut seen = HashSet::with_capacity(items.len());
     let mut outs = Vec::with_capacity(items.len());
 
     for item in items {
-        let folder = funnel::field_as_str(item, param).ok_or_else(|| Error::MissingRouteField {
-            field: param.clone(),
+        let folder = funnel::field_as_str(item, param).ok_or_else(|| {
+            page.at(
+                &needle_refs,
+                format!("collection item missing field `{param}` required by route `[{param}]`"),
+            )
         })?;
         if !seen.insert(folder.clone()) {
-            return Err(Error::DuplicateRouteValue {
-                field: param.clone(),
-                value: folder,
-            });
+            return Err(page.at(
+                &needle_refs,
+                format!("duplicate collection value for `[{param}]`: `{folder}`"),
+            ));
         }
-        let rendered =
-            bind::render_page_document(registry, &page.doc, Some(item), &page.data, &opts.emit)
-                .map_err(|e| Error::page(page.source.path.display().to_string(), e.to_string()))?;
+        let rendered = page.render(registry, Some(item), &opts.emit)?;
         let out =
             emit::out_path_for_route(&opts.out_dir, &page.source.route, Some((param, &folder)));
         emit::write_html(&out, &rendered)?;
