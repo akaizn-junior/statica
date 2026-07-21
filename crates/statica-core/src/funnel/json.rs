@@ -45,14 +45,16 @@ pub fn data_script_has_locale_token(doc: &Document, id: &str) -> bool {
 
 pub fn load_data_from_document(
     doc: &Document,
-    base_dir: &Path,
+    site_root: &Path,
+    page_dir: &Path,
     cache: &mut HashMap<PathBuf, Value>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
 ) -> Result<HashMap<String, DataSource>> {
     load_data_scripts(
         doc,
-        base_dir,
+        site_root,
+        page_dir,
         cache,
         aliases,
         site,
@@ -63,7 +65,8 @@ pub fn load_data_from_document(
 /// Load funnel sources whose `src` contains `${locale}` for the active locale.
 pub fn load_locale_data_from_document(
     doc: &Document,
-    base_dir: &Path,
+    site_root: &Path,
+    page_dir: &Path,
     cache: &mut HashMap<PathBuf, Value>,
     aliases: &AliasOptions,
     locale: &str,
@@ -71,7 +74,8 @@ pub fn load_locale_data_from_document(
 ) -> Result<HashMap<String, DataSource>> {
     load_data_scripts(
         doc,
-        base_dir,
+        site_root,
+        page_dir,
         cache,
         aliases,
         site,
@@ -86,7 +90,8 @@ enum DataScriptFilter<'a> {
 
 fn load_data_scripts(
     doc: &Document,
-    base_dir: &Path,
+    site_root: &Path,
+    page_dir: &Path,
     cache: &mut HashMap<PathBuf, Value>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
@@ -126,11 +131,11 @@ fn load_data_scripts(
             DataScriptFilter::WithLocaleTokenOnly { locale } => i18n::interpolate_locale(&src, locale),
             DataScriptFilter::WithoutLocaleToken => src,
         };
-        let cache_key = content_cache_key(base_dir, &src);
+        let cache_key = content_cache_key(site_root, page_dir, &src);
         let value = if let Some(v) = cache.get(&cache_key) {
             v.clone()
         } else {
-            let parsed = content::load_content(base_dir, &src).map_err(|e| match site {
+            let parsed = content::load_content(site_root, page_dir, &src).map_err(|e| match site {
                 Some((file, source)) => {
                     let dq = format!("src=\"{src}\"");
                     let sq = format!("src='{src}'");
@@ -288,11 +293,11 @@ pub fn resolve_expr(
     Ok(value)
 }
 
-fn content_cache_key(base_dir: &Path, src: &str) -> PathBuf {
+fn content_cache_key(site_root: &Path, page_dir: &Path, src: &str) -> PathBuf {
     if Path::new(src).is_absolute() {
         normalize(&PathBuf::from(src))
     } else {
-        normalize(&base_dir.join(src))
+        normalize(&aliases::resolve_local_href(site_root, page_dir, src))
     }
 }
 

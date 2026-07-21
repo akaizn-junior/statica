@@ -26,14 +26,16 @@ pub struct Fragment {
 }
 
 pub struct FragmentRegistry {
+    site_root: PathBuf,
     fragments: HashMap<String, Fragment>,
     data_cache: HashMap<PathBuf, serde_json::Value>,
 }
 
 impl FragmentRegistry {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(site_root: impl Into<PathBuf>) -> Self {
         Self {
+            site_root: site_root.into(),
             fragments: HashMap::new(),
             data_cache: HashMap::new(),
         }
@@ -81,7 +83,7 @@ impl FragmentRegistry {
         }
 
         let href = aliases::resolve_path(href, aliases, page, "href")?;
-        let path = resolve_local_path(from_dir, &href, page, &href)?;
+        let path = resolve_local_path(&self.site_root, from_dir, &href, page, &href)?;
         let raw = fs::read_to_string(&path)
             .map_err(|e| Error::read(path.display().to_string(), e))?;
         let file = path.display().to_string();
@@ -90,6 +92,7 @@ impl FragmentRegistry {
 
         let data = funnel::load_data_from_document(
             &file_doc,
+            &self.site_root,
             base_dir,
             &mut self.data_cache,
             aliases,
@@ -172,6 +175,7 @@ impl FragmentRegistry {
         let base_dir = frag.path.parent().unwrap_or_else(|| Path::new("."));
         let locale_data = funnel::load_locale_data_from_document(
             &file_doc,
+            &self.site_root,
             base_dir,
             data_cache,
             aliases,
@@ -187,7 +191,7 @@ impl FragmentRegistry {
 
 impl Default for FragmentRegistry {
     fn default() -> Self {
-        Self::new()
+        Self::new(".")
     }
 }
 
@@ -198,16 +202,13 @@ fn short_hash(s: &str) -> String {
 }
 
 fn resolve_local_path(
-    base_dir: &Path,
+    site_root: &Path,
+    page_dir: &Path,
     rel: &str,
     page: Option<(&str, &str)>,
     href: &str,
 ) -> Result<PathBuf> {
-    let joined = if Path::new(rel).is_absolute() {
-        PathBuf::from(rel)
-    } else {
-        base_dir.join(rel)
-    };
+    let joined = aliases::resolve_local_href(site_root, page_dir, rel);
     if let Ok(canon) = joined.canonicalize() {
         return Ok(canon);
     }

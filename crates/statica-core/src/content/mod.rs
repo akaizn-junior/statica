@@ -8,6 +8,7 @@ use std::path::{Component, Path, PathBuf};
 use glob::glob;
 use serde_json::Value;
 
+use crate::aliases;
 use crate::error::{Error, Result};
 use crate::funnel::parse_js_value;
 
@@ -18,12 +19,12 @@ use crate::funnel::parse_js_value;
 /// - `.md` / `.markdown` — YAML frontmatter + Markdown body → object with `html`
 /// - directories — all content files in the directory (non-recursive), as an array
 /// - glob patterns in `src` (e.g. `../content/posts/*.md`) — matched files as an array
-pub fn load_content(base_dir: &Path, src: &str) -> Result<Value> {
+pub fn load_content(site_root: &Path, page_dir: &Path, src: &str) -> Result<Value> {
     if src.contains('*') || src.contains('?') {
-        return load_glob(base_dir, src);
+        return load_glob(site_root, page_dir, src);
     }
 
-    let path = resolve_path(base_dir, src)?;
+    let path = resolve_path(site_root, page_dir, src)?;
     if path.is_dir() {
         return load_dir(&path);
     }
@@ -65,11 +66,17 @@ fn load_dir(dir: &Path) -> Result<Value> {
     Ok(Value::Array(items))
 }
 
-fn load_glob(base_dir: &Path, pattern: &str) -> Result<Value> {
+fn load_glob(site_root: &Path, page_dir: &Path, pattern: &str) -> Result<Value> {
     let pattern_path = if Path::new(pattern).is_absolute() {
         PathBuf::from(pattern)
+    } else if let Some(rest) = pattern.strip_prefix("./") {
+        if rest.contains('/') {
+            site_root.join(rest)
+        } else {
+            page_dir.join(pattern)
+        }
     } else {
-        base_dir.join(pattern)
+        page_dir.join(pattern)
     };
     let pattern = normalize(&pattern_path).to_string_lossy().to_string();
     let mut paths: Vec<PathBuf> = glob(&pattern)
@@ -91,12 +98,8 @@ fn load_glob(base_dir: &Path, pattern: &str) -> Result<Value> {
     Ok(Value::Array(items))
 }
 
-fn resolve_path(base_dir: &Path, rel: &str) -> Result<PathBuf> {
-    let joined = if Path::new(rel).is_absolute() {
-        PathBuf::from(rel)
-    } else {
-        base_dir.join(rel)
-    };
+fn resolve_path(site_root: &Path, page_dir: &Path, rel: &str) -> Result<PathBuf> {
+    let joined = aliases::resolve_local_href(site_root, page_dir, rel);
     if let Ok(canon) = joined.canonicalize() {
         return Ok(canon);
     }
@@ -153,7 +156,7 @@ mod tests {
             r#"[{"slug":"a","headline":"A"}]"#,
         )
         .unwrap();
-        let value = load_content(&dir, "posts.json").unwrap();
+        let value = load_content(&dir, &dir, "posts.json").unwrap();
         assert_eq!(value, json!([{"slug": "a", "headline": "A"}]));
     }
 
@@ -173,7 +176,7 @@ Build stamps this into **static HTML**.
 "#,
         )
         .unwrap();
-        let value = load_content(&dir, "hello-world.md").unwrap();
+        let value = load_content(&dir, &dir, "hello-world.md").unwrap();
         let obj = value.as_object().unwrap();
         assert_eq!(obj["slug"], "hello-world");
         assert_eq!(obj["headline"], "Hello world");
@@ -184,7 +187,7 @@ Build stamps this into **static HTML**.
     fn markdown_slug_defaults_to_filename() {
         let dir = temp_dir();
         fs::write(dir.join("my-post.md"), "# Title\n").unwrap();
-        let value = load_content(&dir, "my-post.md").unwrap();
+        let value = load_content(&dir, &dir, "my-post.md").unwrap();
         assert_eq!(value["slug"], "my-post");
         assert!(value["html"].as_str().unwrap().contains("<h1>Title</h1>"));
     }
@@ -204,7 +207,7 @@ Build stamps this into **static HTML**.
             "---\nslug: a\nheadline: A\n---\n\nBody A.",
         )
         .unwrap();
-        let value = load_content(&dir, "posts").unwrap();
+        let value = load_content(&dir, &dir, "posts").unwrap();
         let arr = value.as_array().unwrap();
         assert_eq!(arr.len(), 2);
         assert_eq!(arr[0]["slug"], "a");
@@ -227,7 +230,7 @@ Build stamps this into **static HTML**.
         )
         .unwrap();
         let pattern = posts.join("*.md").to_string_lossy().to_string();
-        let value = load_content(&dir, &pattern).unwrap();
+        let value = load_content(&dir, &dir, &pattern).unwrap();
         assert_eq!(value.as_array().unwrap().len(), 2);
     }
 }

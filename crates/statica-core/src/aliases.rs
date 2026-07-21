@@ -4,6 +4,7 @@
 //! symbol (default `@`) plus a `/`-separated tail — e.g. `@Google/?family=Outfit&display=swap`.
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
 use crate::parse::{Document, Node};
@@ -171,6 +172,28 @@ pub fn join_alias(base: &str, tail: &str) -> String {
     }
 }
 
+/// Resolve a local href/src after alias expansion.
+///
+/// Paths from `[aliases.paths]` use a `./dir/…` prefix and are site-root-relative.
+/// `./file.ext` (no slash) resolves from `page_dir` (sibling fragment imports).
+/// Other relative paths resolve from `page_dir` (e.g. `../ui/foo.html`).
+#[must_use]
+pub fn resolve_local_href(site_root: &Path, page_dir: &Path, rel: &str) -> PathBuf {
+    if Path::new(rel).is_absolute() {
+        PathBuf::from(rel)
+    } else if let Some(rest) = rel.strip_prefix("./") {
+        if rest.contains('/') {
+            site_root.join(rest)
+        } else {
+            page_dir.join(rel)
+        }
+    } else if rel.starts_with("../") {
+        page_dir.join(rel)
+    } else {
+        site_root.join(rel)
+    }
+}
+
 /// Google Fonts css2 URLs benefit from preconnect hints (once per page).
 #[must_use]
 pub fn is_google_fonts_css(url: &str) -> bool {
@@ -195,6 +218,7 @@ fn alias_err(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn resolves_google_alias_with_query_path() {
@@ -207,6 +231,32 @@ mod tests {
         assert_eq!(
             join_alias(r.base, r.tail),
             "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap"
+        );
+    }
+
+    #[test]
+    fn resolve_local_href_alias_paths() {
+        let site = Path::new("/site");
+        let page = Path::new("/site/[locale]");
+        assert_eq!(
+            resolve_local_href(site, page, "ui/button.html"),
+            PathBuf::from("/site/ui/button.html")
+        );
+        assert_eq!(
+            resolve_local_href(site, page, "./post-card.html"),
+            PathBuf::from("/site/[locale]/post-card.html")
+        );
+        let mut paths = std::collections::HashMap::new();
+        paths.insert("ui".into(), "ui".into());
+        let aliases = AliasOptions {
+            symbol: "@".into(),
+            paths,
+        };
+        let resolved = resolve_path("@ui/button.html", &aliases, None, "href").unwrap();
+        assert_eq!(resolved, "ui/button.html");
+        assert_eq!(
+            resolve_local_href(site, page, &resolved),
+            PathBuf::from("/site/ui/button.html")
         );
     }
 

@@ -190,6 +190,7 @@ impl PreparedPage {
 
     fn resolve_page_data(
         &self,
+        site_root: &Path,
         data_cache: &mut std::collections::HashMap<PathBuf, Value>,
         aliases: &AliasOptions,
         locale: Option<&str>,
@@ -212,6 +213,7 @@ impl PreparedPage {
             let file = self.file();
             let locale_data = funnel::load_locale_data_from_document(
                 &self.doc,
+                site_root,
                 self.base_dir(),
                 data_cache,
                 aliases,
@@ -231,6 +233,7 @@ impl PreparedPage {
     fn render(
         &self,
         registry: &FragmentRegistry,
+        site_root: &Path,
         current: Option<&Value>,
         emit: &EmitOptions,
         aliases: &AliasOptions,
@@ -247,7 +250,7 @@ impl PreparedPage {
         if let Some(loc) = active_locale {
             i18n::set_html_lang(&mut doc, loc);
         }
-        let page_data = self.resolve_page_data(data_cache, aliases, locale, i18n_catalogs, i18n)?;
+        let page_data = self.resolve_page_data(site_root, data_cache, aliases, locale, i18n_catalogs, i18n)?;
         bind::render_page_document(
             registry,
             &doc,
@@ -356,7 +359,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     log.step(&format!("discover  {sources} sources ({discover_ms}ms)"));
 
     let t = Instant::now();
-    let (registry, prepared, data_sources) = prepare_pages(&pages, &opts.aliases)?;
+    let (registry, prepared, data_sources) = prepare_pages(&pages, &opts.root, &opts.aliases)?;
     let i18n_catalogs = I18nCatalogs::load(&opts.root, &opts.i18n)?;
     let prepare_ms = t.elapsed().as_millis();
     let fragments = registry.len();
@@ -490,8 +493,12 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     })
 }
 
-fn prepare_pages(pages: &[PageSource], aliases: &AliasOptions) -> Result<(FragmentRegistry, Vec<PreparedPage>, usize)> {
-    let mut registry = FragmentRegistry::new();
+fn prepare_pages(
+    pages: &[PageSource],
+    site_root: &Path,
+    aliases: &AliasOptions,
+) -> Result<(FragmentRegistry, Vec<PreparedPage>, usize)> {
+    let mut registry = FragmentRegistry::new(site_root);
     let mut prepared = Vec::with_capacity(pages.len());
     let mut data_ids = HashSet::new();
 
@@ -502,6 +509,7 @@ fn prepare_pages(pages: &[PageSource], aliases: &AliasOptions) -> Result<(Fragme
         let dir = page.path.parent().unwrap_or_else(|| Path::new("."));
         let data = funnel::load_data_from_document(
             &doc,
+            site_root,
             dir,
             registry.data_cache_mut(),
             aliases,
@@ -545,6 +553,7 @@ fn emit_prepared(
                 let mut data_cache = std::collections::HashMap::new();
                 let rendered = page.render(
                     registry,
+                    &opts.root,
                     None,
                     &opts.emit,
                     &opts.aliases,
@@ -584,6 +593,7 @@ fn emit_locales(
         let ctx = i18n::locale_bind_context(loc);
         let rendered = page.render(
             registry,
+            &opts.root,
             Some(&ctx),
             &opts.emit,
             &opts.aliases,
@@ -660,6 +670,7 @@ fn emit_locale_paginated(
         for loc in &opts.i18n.locales {
             let items = pagination_items_for_locale(
                 page,
+                &opts.root,
                 &collection_id,
                 &needle_refs,
                 &mut data_cache,
@@ -756,6 +767,7 @@ fn pagination_param(page: &PreparedPage, needle_refs: &[&str]) -> Result<String>
 
 fn pagination_items_for_locale(
     page: &PreparedPage,
+    site_root: &Path,
     collection_id: &str,
     needle_refs: &[&str],
     data_cache: &mut std::collections::HashMap<PathBuf, Value>,
@@ -764,7 +776,7 @@ fn pagination_items_for_locale(
     i18n_catalogs: &I18nCatalogs,
     i18n: &I18nOptions,
 ) -> Result<Vec<Value>> {
-    let page_data = page.resolve_page_data(data_cache, aliases, locale, i18n_catalogs, i18n)?;
+    let page_data = page.resolve_page_data(site_root, data_cache, aliases, locale, i18n_catalogs, i18n)?;
     let list = page_data.get(collection_id).ok_or_else(|| {
         page.at(
             needle_refs,
@@ -814,6 +826,7 @@ fn emit_pagination_chunks(
         let ctx = locale.map(|loc| i18n::merge_locale_into(&chunk.value, loc));
         let rendered = page.render(
             registry,
+            &opts.root,
             ctx.as_ref().or(Some(&chunk.value)),
             &opts.emit,
             &opts.aliases,
@@ -846,6 +859,7 @@ fn emit_pagination_chunks(
             let index_route = paginate::index_route(&page.source.route, param);
             let rendered = page.render(
                 registry,
+                &opts.root,
                 ctx.as_ref().or(Some(&first.value)),
                 &opts.emit,
                 &opts.aliases,
@@ -894,6 +908,7 @@ fn emit_paginated(
     let items = if locale.is_some() || page.collection_varies_by_locale(&collection_id, i18n_catalogs, &opts.i18n) {
         pagination_items_for_locale(
             page,
+            &opts.root,
             &collection_id,
             &needle_refs,
             &mut data_cache,
@@ -956,6 +971,7 @@ fn emit_collection(
 
     let mut data_cache = std::collections::HashMap::new();
     let page_data = page.resolve_page_data(
+        &opts.root,
         &mut data_cache,
         &opts.aliases,
         None,
@@ -1017,6 +1033,7 @@ fn emit_collection(
         }
         let rendered = page.render(
             registry,
+            &opts.root,
             Some(item),
             &opts.emit,
             &opts.aliases,
@@ -1069,6 +1086,7 @@ fn emit_locale_collection(
     if varies {
         for loc in &opts.i18n.locales {
             let page_data = page.resolve_page_data(
+                &opts.root,
                 &mut data_cache,
                 &opts.aliases,
                 Some(loc.as_str()),
@@ -1187,6 +1205,7 @@ fn emit_locale_collection_items(
         let ctx = i18n::merge_locale_into(item, loc);
         let rendered = page.render(
             registry,
+            &opts.root,
             Some(&ctx),
             &opts.emit,
             &opts.aliases,
