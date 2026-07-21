@@ -193,6 +193,47 @@ Browsers reject `<slot>` inside `<select>`; statica’s **pre** pass rewrites th
 
 Works inside `<optgroup>` too. Emitted HTML is a normal `<select>` with `<option>` children.
 
+## Forms
+
+Mark forms with the `statica` attribute. At build time statica wires `action` and `method="POST"` from `[forms]` in `statica.toml` — provider-agnostic HTML, mapping in config only. No client JS is injected; the browser submits normally.
+
+```html
+<form name="contact" statica>
+  <input type="email" name="email" required />
+  <button type="submit">Send</button>
+</form>
+```
+
+```toml
+[forms]
+enabled = true
+provider = "formspree"   # or "custom"
+endpoint = "https://formspree.io/f/{id}"
+
+[forms.ids]
+contact = "xyzabc"
+```
+
+Lookup uses the form's `name` (or `id` if `name` is missing) as the key into `[forms.ids]`. Emitted HTML:
+
+```html
+<form name="contact" action="https://formspree.io/f/xyzabc" method="POST">
+  …
+</form>
+```
+
+For `provider = "custom"`, `endpoint` is the POST URL for every statica form (no `{id}`).
+
+Build-time env (optional) — set in `statica.toml`, `.env`, or `.dev.vars` (process env always wins):
+
+```toml
+[env]
+FORMS_CONTACT_ID = "xyzabc"
+FORMS_ENDPOINT = "https://formspree.io/f/{id}"
+```
+
+Priority: `[env]` in config → `.env` → `.dev.vars`. Set `load_files = false` under `[env]` to skip dotenv files.
+
 ## Aliases
 
 Path aliases are defined in `statica.toml`. The symbol defaults to `@`. Reference them with regular path syntax: `@Name/tail`.

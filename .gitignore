@@ -3,6 +3,8 @@
 **/dist/
 .DS_Store
 *.swp
+.env
+.dev.vars
 .idea/
 .vscode/
 

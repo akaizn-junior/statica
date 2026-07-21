@@ -12,8 +12,7 @@ use crate::fragment::{self, FragmentRegistry};
 use crate::funnel::{self, DataSource};
 use crate::parse::{Document, Node};
 use crate::scope;
-use crate::EmitOptions;
-use crate::AliasOptions;
+use crate::{AliasOptions, EmitOptions, FormsOptions};
 
 pub use attrs::fill_attr_templates_in_nodes;
 pub use slots::{clear_remaining_named_slots, fill_default_slots, fill_named_slots};
@@ -26,6 +25,7 @@ pub fn render_page_document(
     page_data: &HashMap<String, DataSource>,
     emit: &EmitOptions,
     aliases: &AliasOptions,
+    forms: &FormsOptions,
     site: Option<(&str, &str)>,
 ) -> Result<String> {
     let mut doc = doc.clone();
@@ -36,6 +36,7 @@ pub fn render_page_document(
     expand_usage_slots_in_nodes(registry, &mut doc.children, current, page_data, site)?;
     crate::aliases::resolve_paths_in_document(&mut doc, aliases, site)?;
     crate::font::expand_font_links(&mut doc, aliases, site)?;
+    crate::forms::wire_forms_in_document(&mut doc, forms, site)?;
     funnel::strip_authoring(&mut doc, emit);
     clear_remaining_named_slots(&mut doc.children);
     transform_page_styles(&mut doc.children);

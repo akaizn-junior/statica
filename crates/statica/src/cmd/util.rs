@@ -29,6 +29,7 @@ pub fn load_project(dir: &Path, overrides: &ConfigCli) -> Result<(PathBuf, Stati
     let start = resolve_against_cwd(dir)?;
     let config_dir = find_config_dir(&start).unwrap_or_else(|| start.clone());
     let mut config = StaticaConfig::load(&config_dir)?;
+    config.apply_env(&config_dir)?;
     config.apply_cli(overrides)?;
     let root = site_root(&config_dir, &config)?;
     Ok((root, config))

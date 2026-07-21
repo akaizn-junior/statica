@@ -13,6 +13,7 @@
 //! See [`crate::cmd::util::load_project`]: cwd → walk up for this file → optional
 //! [`StaticaConfig::project`] subdirectory.
 
+use std::collections::HashMap;
 use std::fs;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
@@ -21,8 +22,8 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use statica_core::{
-    AliasOptions, AssetProcessOptions, BuildOptions, EmitOptions, PaginationRule, RssOptions,
-    SitemapOptions,
+    AliasOptions, AssetProcessOptions, BuildOptions, EmitOptions, FormsOptions, PaginationRule,
+    RssOptions, SitemapOptions,
 };
 
 /// Canonical config file name in a statica project root.
@@ -55,6 +56,10 @@ pub struct StaticaConfig {
     pub preview: PreviewConfig,
     /// Path / URL aliases for authoring (`@Name:tail` in hrefs).
     pub aliases: AliasesConfig,
+    /// Static form wiring (`[forms]`).
+    pub forms: FormsConfig,
+    /// Build-time env vars and optional `.env` / `.dev.vars` loading.
+    pub env: crate::env::EnvConfig,
 }
 
 /// `[aliases]` — `@Name:tail` → resolved URL or path (see `docs/guide.md`).
@@ -88,6 +93,66 @@ impl AliasesConfig {
         AliasOptions {
             symbol: self.symbol.clone(),
             paths: self.paths.clone(),
+        }
+    }
+}
+
+/// `[forms]` — wire `<form statica>` to a provider endpoint at build time.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct FormsConfig {
+    pub enabled: bool,
+    /// `formspree` (default) or `custom`.
+    pub provider: String,
+    /// Formspree: URL template with `{id}`. Custom: single POST URL.
+    pub endpoint: String,
+    /// Logical form name → provider form id.
+    #[serde(default)]
+    pub ids: HashMap<String, String>,
+    /// Env var name that overrides `endpoint` when set (default `FORMS_ENDPOINT`).
+    pub endpoint_env: String,
+}
+
+impl Default for FormsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            provider: "formspree".into(),
+            endpoint: "https://formspree.io/f/{id}".into(),
+            ids: HashMap::new(),
+            endpoint_env: "FORMS_ENDPOINT".into(),
+        }
+    }
+}
+
+impl FormsConfig {
+    /// Apply build-time env overrides (`FORMS_ENDPOINT`, `FORMS_{NAME}_ID`).
+    pub fn resolve_env(&mut self) {
+        if let Ok(v) = std::env::var(&self.endpoint_env) {
+            if !v.is_empty() {
+                self.endpoint = v;
+            }
+        }
+        for (key, id) in &mut self.ids {
+            let env_key = format!(
+                "FORMS_{}_ID",
+                key.to_ascii_uppercase().replace('-', "_")
+            );
+            if let Ok(v) = std::env::var(&env_key) {
+                if !v.is_empty() {
+                    *id = v;
+                }
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn to_core(&self) -> FormsOptions {
+        FormsOptions {
+            enabled: self.enabled,
+            provider: FormsOptions::provider_from_str(&self.provider),
+            endpoint: self.endpoint.clone(),
+            ids: self.ids.clone(),
         }
     }
 }
@@ -209,6 +274,8 @@ impl Default for StaticaConfig {
             pagination: Vec::new(),
             preview: PreviewConfig::default(),
             aliases: AliasesConfig::default(),
+            forms: FormsConfig::default(),
+            env: crate::env::EnvConfig::default(),
         }
     }
 }
@@ -366,6 +433,13 @@ impl StaticaConfig {
             .with_context(|| format!("invalid {} ({})", CONFIG_FILE, path.display()))
     }
 
+    /// Apply `[env]` files/vars, then resolve form env placeholders.
+    pub fn apply_env(&mut self, config_dir: &Path) -> Result<()> {
+        crate::env::apply(config_dir, &self.env)?;
+        self.forms.resolve_env();
+        Ok(())
+    }
+
     #[must_use]
     pub fn out_dir_path(&self, root: &Path) -> PathBuf {
         if Path::new(&self.out_dir).is_absolute() {
@@ -396,6 +470,7 @@ impl StaticaConfig {
             process: self.process.to_core(),
             emit: self.emit.to_core(),
             aliases: self.aliases.to_core(),
+            forms: self.forms.to_core(),
             clean: self.clean,
             asset_dirs: self.asset_dirs.clone(),
             ignore_dirs,
@@ -800,6 +875,66 @@ port = 9000
         .unwrap();
         let cfg = StaticaConfig::load(&dir).unwrap();
         assert_eq!(cfg.preview.port, 9000);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn loads_forms() {
+        let dir = temp_dir();
+        fs::write(
+            dir.join(CONFIG_FILE),
+            r#"
+[forms]
+enabled = true
+provider = "formspree"
+
+[forms.ids]
+contact = "xyzabc"
+"#,
+        )
+        .unwrap();
+        let mut cfg = StaticaConfig::load(&dir).unwrap();
+        cfg.apply_env(&dir).unwrap();
+        assert!(cfg.forms.enabled);
+        assert_eq!(cfg.forms.provider, "formspree");
+        assert_eq!(cfg.forms.ids.get("contact").map(String::as_str), Some("xyzabc"));
+        let core = cfg.forms.to_core();
+        assert!(core.enabled);
+        assert_eq!(core.ids.get("contact").map(String::as_str), Some("xyzabc"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn env_files_override_forms_ids() {
+        let dir = temp_dir();
+        fs::write(
+            dir.join(CONFIG_FILE),
+            r#"
+[forms]
+enabled = true
+
+[forms.ids]
+contact = "from-config"
+"#,
+        )
+        .unwrap();
+        fs::write(
+            dir.join(".env"),
+            "FORMS_CONTACT_ID=from-dotenv\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.join(".dev.vars"),
+            "FORMS_CONTACT_ID=from-devvars\n",
+        )
+        .unwrap();
+
+        let mut cfg = StaticaConfig::load(&dir).unwrap();
+        cfg.apply_env(&dir).unwrap();
+        assert_eq!(
+            cfg.forms.ids.get("contact").map(String::as_str),
+            Some("from-devvars")
+        );
         let _ = fs::remove_dir_all(dir);
     }
 

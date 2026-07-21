@@ -26,7 +26,7 @@ use crate::funnel::{self, DataSource};
 use crate::loc::Diagnostic;
 use crate::paginate::{self, PaginationRule};
 use crate::parse::{self, Document};
-use crate::EmitOptions;
+use crate::{EmitOptions, FormsOptions};
 
 /// Inputs for a build. The CLI maps `statica.toml` into this; core does not read config files.
 #[derive(Debug, Clone)]
@@ -46,6 +46,8 @@ pub struct BuildOptions {
     pub emit: EmitOptions,
     /// Path / URL aliases for authoring (`[aliases]` in statica.toml).
     pub aliases: AliasOptions,
+    /// Static form wiring (`[forms]` in statica.toml).
+    pub forms: FormsOptions,
     pub clean: bool,
     pub asset_dirs: Vec<String>,
     pub ignore_dirs: Vec<String>,
@@ -68,6 +70,7 @@ impl BuildOptions {
             process: AssetProcessOptions::default(),
             emit: EmitOptions::default(),
             aliases: AliasOptions::default(),
+            forms: FormsOptions::default(),
             clean: true,
             asset_dirs: vec!["public".into(), "assets".into(), "static".into()],
             ignore_dirs: vec![
@@ -145,6 +148,7 @@ impl PreparedPage {
         current: Option<&Value>,
         emit: &EmitOptions,
         aliases: &AliasOptions,
+        forms: &FormsOptions,
     ) -> Result<String> {
         let file = self.file();
         bind::render_page_document(
@@ -154,6 +158,7 @@ impl PreparedPage {
             &self.data,
             emit,
             aliases,
+            forms,
             Some((file.as_str(), self.html.as_str())),
         )
         .map_err(|e| e.in_file(&file, &self.html))
@@ -360,7 +365,7 @@ fn emit_prepared(
     } else {
         match page.source.kind() {
             PageKind::Static => {
-                let rendered = page.render(registry, None, &opts.emit, &opts.aliases)?;
+                let rendered = page.render(registry, None, &opts.emit, &opts.aliases, &opts.forms)?;
                 let out = emit::out_path_for_route(&opts.out_dir, &page.source.route, None);
                 emit::write_html(&out, &rendered)?;
                 Ok(EmitResult {
@@ -469,7 +474,7 @@ fn emit_paginated(
 
     let mut outs = Vec::with_capacity(chunks.len() + usize::from(rule.index));
     for chunk in &chunks {
-        let rendered = page.render(registry, Some(&chunk.value), &opts.emit, &opts.aliases)?;
+        let rendered = page.render(registry, Some(&chunk.value), &opts.emit, &opts.aliases, &opts.forms)?;
         let out = emit::out_path_for_route(
             &opts.out_dir,
             &page.source.route,
@@ -481,7 +486,7 @@ fn emit_paginated(
 
     if rule.index {
         if let Some(first) = chunks.first() {
-            let rendered = page.render(registry, Some(&first.value), &opts.emit, &opts.aliases)?;
+            let rendered = page.render(registry, Some(&first.value), &opts.emit, &opts.aliases, &opts.forms)?;
             let index_route = paginate::index_route(&page.source.route, &param);
             let out = emit::out_path_for_route(&opts.out_dir, &index_route, None);
             emit::write_html(&out, &rendered)?;
@@ -568,7 +573,7 @@ fn emit_collection(
                 format!("duplicate collection value for `[{param}]`: `{folder}`"),
             ));
         }
-        let rendered = page.render(registry, Some(item), &opts.emit, &opts.aliases)?;
+        let rendered = page.render(registry, Some(item), &opts.emit, &opts.aliases, &opts.forms)?;
         let out =
             emit::out_path_for_route(&opts.out_dir, &page.source.route, Some((param, &folder)));
         emit::write_html(&out, &rendered)?;

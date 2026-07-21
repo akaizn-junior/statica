@@ -133,6 +133,40 @@ fn select_slot_expands_to_options() {
 }
 
 #[test]
+fn statica_form_wires_formspree_action() {
+    let dir = tempfile_dir();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <body>
+    <form name="contact" statica>
+      <input type="email" name="email" required />
+      <button type="submit">Send</button>
+    </form>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.forms = statica_core::FormsOptions {
+        enabled: true,
+        provider: statica_core::FormProvider::Formspree,
+        endpoint: "https://formspree.io/f/{id}".into(),
+        ids: [("contact".into(), "xyzabc".into())].into(),
+    };
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("https://formspree.io/f/xyzabc"));
+    assert!(html.contains("method=\"POST\"") || html.contains("method='POST'"));
+    assert!(!html.contains("statica"));
+}
+
+#[test]
 fn font_link_expands_in_build() {
     let dir = tempfile_dir();
     std::fs::write(

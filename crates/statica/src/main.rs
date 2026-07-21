@@ -8,6 +8,7 @@ mod cli;
 mod cli_config;
 mod cmd;
 mod config;
+mod env;
 mod style;
 
 use anyhow::Result;

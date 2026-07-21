@@ -7,7 +7,7 @@
 //! 3. **Parse** — html5ever → owned AST; post-parse authoring lower (carriers → slots).
 //! 4. **Funnel** — load `<script type="statica/data">` JS value literals (oxc).
 //! 5. **Expand** — static (1:1), collection (1:N items), or pagination (1:N page chunks).
-//! 6. **Bind** — slots + `${…}` attrs + fragment/`data-each` expansion.
+//! 6. **Bind** — slots + `${…}` attrs + fragment/`data-each` expansion + form wiring.
 //! 7. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).
 //! 8. **Emit** — write HTML; transform CSS to browser-ready; optional asset process; sitemap / RSS.
 //!
@@ -43,6 +43,7 @@ mod emit_opts;
 mod error;
 mod feeds;
 mod font;
+mod forms;
 mod fragment;
 mod funnel;
 mod loc;
@@ -61,6 +62,7 @@ pub use emit_opts::EmitOptions;
 pub use error::{Error, Result};
 pub use loc::Diagnostic;
 pub use feeds::{RssOptions, SitemapOptions};
+pub use forms::{FormProvider, FormsOptions};
 pub use paginate::PaginationRule;
 pub use parse::Document;
 pub use runtime::STATICA_JS;
