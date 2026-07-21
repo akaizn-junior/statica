@@ -1,6 +1,6 @@
 {
   "name": "@statica/cli-darwin-arm64",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Prebuilt statica CLI binary for darwin-arm64",
   "license": "MIT",
   "type": "commonjs",
