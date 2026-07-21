@@ -1,6 +1,6 @@
 {
   "name": "@statica/cli-darwin-x64",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "Prebuilt statica CLI binary for darwin-x64",
   "license": "MIT",
   "type": "commonjs",
