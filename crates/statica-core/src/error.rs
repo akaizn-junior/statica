@@ -71,4 +71,12 @@ impl Error {
             format!("invalid JS value: {}", message.into()),
         ))
     }
+
+    pub fn invalid_content(path: impl Into<String>, message: impl Into<String>) -> Self {
+        let path = path.into();
+        Self::Diag(Diagnostic::at_file(
+            path,
+            format!("invalid content: {}", message.into()),
+        ))
+    }
 }

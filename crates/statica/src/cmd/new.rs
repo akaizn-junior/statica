@@ -13,7 +13,7 @@ pub fn run(name: &str) -> Result<()> {
     }
 
     for dir in [
-        root.join("content"),
+        root.join("content").join("posts"),
         root.join("ui"),
         root.join("blog"),
         root.join("posts").join("[slug]"),
@@ -24,23 +24,27 @@ pub fn run(name: &str) -> Result<()> {
     write(&root.join(CONFIG_FILE), &StaticaConfig::default_toml())?;
 
     write(
-        &root.join("content/posts.json"),
-        r#"[
-  {
-    "slug": "hello-world",
-    "headline": "Hello world",
-    "published_at": "2026-07-01",
-    "summary": "First post from the funnel.",
-    "html": "<p>Build stamps this into static HTML.</p>"
-  },
-  {
-    "slug": "funnel-to-pages",
-    "headline": "Funnel to pages",
-    "published_at": "2026-07-10",
-    "summary": "Item count drives page count.",
-    "html": "<p>Two posts in → two folders out.</p>"
-  }
-]
+        &root.join("content/posts/hello-world.md"),
+        r#"---
+slug: hello-world
+headline: Hello world
+published_at: 2026-07-01
+summary: First post from the funnel.
+---
+
+Build stamps this into static HTML.
+"#,
+    )?;
+    write(
+        &root.join("content/posts/funnel-to-pages.md"),
+        r#"---
+slug: funnel-to-pages
+headline: Funnel to pages
+published_at: 2026-07-10
+summary: Item count drives page count.
+---
+
+Two posts in → two folders out.
 "#,
     )?;
     write(
@@ -95,7 +99,7 @@ pub fn run(name: &str) -> Result<()> {
     <title>Blog</title>
     <link rel="statica/fragment" type="text/html" href="../ui/post-list.html" id="post-list" />
     <link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
-    <script type="statica/data" src="../content/posts.json" id="posts"></script>
+    <script type="statica/data" src="../content/posts" id="posts"></script>
   </head>
   <body>
     <h1>All posts</h1>
@@ -111,7 +115,7 @@ pub fn run(name: &str) -> Result<()> {
   <head>
     <meta charset="utf-8" />
     <title><slot name="headline"></slot></title>
-    <script type="statica/data" src="../../content/posts.json" id="posts"></script>
+    <script type="statica/data" src="../../content/posts" id="posts"></script>
   </head>
   <body>
     <article>

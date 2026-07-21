@@ -1,17 +1,15 @@
 //! Local JS funnel sources via `<script type="statica/data" src id>`.
 
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
 use crate::aliases::{self, AliasOptions};
+use crate::content;
 use crate::error::{Error, Result};
 use crate::parse::escape_text;
 use crate::parse::{Document, Element, Node};
-
-use super::js_value::parse_js_value;
 
 use std::path::Component;
 
@@ -54,23 +52,26 @@ pub fn load_data_from_document(
             }
         };
         let src = aliases::resolve_path(src, aliases, site, "src")?;
-        let path = resolve_local_path(base_dir, &src, site, &src)?;
-        let value = if let Some(v) = cache.get(&path) {
+        let cache_key = content_cache_key(base_dir, &src);
+        let value = if let Some(v) = cache.get(&cache_key) {
             v.clone()
         } else {
-            let text = fs::read_to_string(&path)
-                .map_err(|e| Error::read(path.display().to_string(), e))?;
-            let parsed = parse_js_value(&text).map_err(|message| {
-                Error::invalid_js_value(path.display().to_string(), message)
+            let parsed = content::load_content(base_dir, &src).map_err(|e| match site {
+                Some((file, source)) => {
+                    let dq = format!("src=\"{src}\"");
+                    let sq = format!("src='{src}'");
+                    Error::at(file, source, &[&dq, &sq, src.as_str()], e.to_string())
+                }
+                None => e,
             })?;
-            cache.insert(path.clone(), parsed.clone());
+            cache.insert(cache_key.clone(), parsed.clone());
             parsed
         };
         out.insert(
             id.clone(),
             DataSource {
                 id,
-                path,
+                path: cache_key,
                 value,
             },
         );
@@ -213,35 +214,12 @@ pub fn resolve_expr(
     Ok(value)
 }
 
-fn resolve_local_path(
-    base_dir: &Path,
-    rel: &str,
-    site: Option<(&str, &str)>,
-    src: &str,
-) -> Result<PathBuf> {
-    let joined = if Path::new(rel).is_absolute() {
-        PathBuf::from(rel)
+fn content_cache_key(base_dir: &Path, src: &str) -> PathBuf {
+    if Path::new(src).is_absolute() {
+        normalize(&PathBuf::from(src))
     } else {
-        base_dir.join(rel)
-    };
-    if let Ok(canon) = joined.canonicalize() {
-        return Ok(canon);
+        normalize(&base_dir.join(src))
     }
-    let normalized = normalize(&joined);
-    if normalized.exists() {
-        return Ok(normalized);
-    }
-    if joined.exists() {
-        return Ok(joined);
-    }
-    let path = joined.display().to_string();
-    let dq = format!("src=\"{src}\"");
-    let sq = format!("src='{src}'");
-    Err(site_err(
-        site,
-        &[&dq, &sq, src],
-        format!("path not found: {path}"),
-    ))
 }
 
 fn normalize(path: &Path) -> PathBuf {

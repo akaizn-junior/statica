@@ -46,6 +46,111 @@ fn builds_blog_fixture() {
 }
 
 #[test]
+fn builds_blog_from_markdown_content() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("content/posts")).unwrap();
+    std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
+    std::fs::write(
+        dir.join("content/posts/hello-world.md"),
+        r#"---
+slug: hello-world
+headline: Hello world
+published_at: 2026-07-01
+summary: First post from markdown.
+---
+
+Build stamps this into **static HTML**.
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/posts/second-post.md"),
+        r#"---
+slug: second-post
+headline: Second post
+published_at: 2026-07-10
+summary: Another markdown post.
+---
+
+More **content** here.
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("posts/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="posts">
+  <head>
+    <script type="statica/data" src="../../content/posts" id="posts"></script>
+    <title><slot name="headline"></slot></title>
+  </head>
+  <body>
+    <h1><slot name="headline"></slot></h1>
+    <div><slot name="html"></slot></div>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    build(&opts).expect("build");
+
+    let post = std::fs::read_to_string(dir.join("dist/posts/hello-world/index.html")).unwrap();
+    assert!(post.contains("<title>Hello world</title>") || post.contains("Hello world"));
+    assert!(post.contains("<strong>static HTML</strong>"));
+
+    let post2 = std::fs::read_to_string(dir.join("dist/posts/second-post/index.html")).unwrap();
+    assert!(post2.contains("Second post"));
+    assert!(post2.contains("<strong>content</strong>"));
+}
+
+#[test]
+fn builds_blog_from_markdown_glob() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("content/posts")).unwrap();
+    std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
+    std::fs::write(
+        dir.join("content/posts/hello-world.md"),
+        r#"---
+slug: hello-world
+headline: Hello world
+published_at: 2026-07-01
+summary: From glob.
+---
+
+Glob **works**.
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("posts/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="posts">
+  <head>
+    <script type="statica/data" src="../../content/posts/*.md" id="posts"></script>
+    <title><slot name="headline"></slot></title>
+  </head>
+  <body>
+    <h1><slot name="headline"></slot></h1>
+    <div><slot name="html"></slot></div>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    build(&opts).expect("build");
+
+    let post = std::fs::read_to_string(dir.join("dist/posts/hello-world/index.html")).unwrap();
+    assert!(post.contains("Hello world"));
+    assert!(post.contains("<strong>works</strong>"));
+}
+
+#[test]
 fn duplicate_slug_errors() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
