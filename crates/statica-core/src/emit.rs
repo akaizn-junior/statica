@@ -20,20 +20,48 @@ pub fn out_path_for_route(
     route: &str,
     replace: Option<(&str, &str)>,
 ) -> PathBuf {
+    match replace {
+        Some(pair) => out_path_for_route_replacements(out_dir, route, &[pair]),
+        None => out_path_for_route_replacements(out_dir, route, &[]),
+    }
+}
+
+#[must_use]
+pub fn out_path_for_route_replacements(
+    out_dir: &Path,
+    route: &str,
+    replacements: &[(&str, &str)],
+) -> PathBuf {
     let mut path = out_dir.to_path_buf();
     if !route.is_empty() {
-        for mut part in route.split('/') {
-            if let Some((param, value)) = replace {
-                let key = format!("[{param}]");
-                if part == key {
-                    part = value;
+        for part in route.split('/') {
+            let mut segment = part;
+            for (param, value) in replacements {
+                if segment == format!("[{param}]") {
+                    segment = value;
+                    break;
                 }
             }
-            path.push(part);
+            path.push(segment);
         }
     }
     path.push("index.html");
     path
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn replaces_multiple_params() {
+        let out = out_path_for_route_replacements(
+            Path::new("/dist"),
+            "[locale]/posts/[slug]",
+            &[("locale", "pt"), ("slug", "hello")],
+        );
+        assert_eq!(out, Path::new("/dist/pt/posts/hello/index.html"));
+    }
 }
 
 pub fn copy_static_assets(

@@ -23,6 +23,7 @@ use crate::error::{Error, Result};
 use crate::feeds::{self, FeedPage, RssOptions, SitemapOptions};
 use crate::fragment::FragmentRegistry;
 use crate::funnel::{self, DataSource};
+use crate::i18n::{self, I18nCatalogs, I18nOptions};
 use crate::loc::Diagnostic;
 use crate::paginate::{self, PaginationRule};
 use crate::parse::{self, Document};
@@ -48,6 +49,8 @@ pub struct BuildOptions {
     pub aliases: AliasOptions,
     /// Static form wiring (`[forms]` in statica.toml).
     pub forms: FormsOptions,
+    /// Locale catalogs (`[i18n]` in statica.toml).
+    pub i18n: I18nOptions,
     pub clean: bool,
     pub asset_dirs: Vec<String>,
     pub ignore_dirs: Vec<String>,
@@ -71,6 +74,7 @@ impl BuildOptions {
             emit: EmitOptions::default(),
             aliases: AliasOptions::default(),
             forms: FormsOptions::default(),
+            i18n: I18nOptions::default(),
             clean: true,
             asset_dirs: vec!["public".into(), "assets".into(), "static".into()],
             ignore_dirs: vec![
@@ -149,19 +153,43 @@ impl PreparedPage {
         emit: &EmitOptions,
         aliases: &AliasOptions,
         forms: &FormsOptions,
+        locale: Option<&str>,
+        i18n_catalogs: &I18nCatalogs,
+        i18n: &I18nOptions,
     ) -> Result<String> {
         let file = self.file();
+        let mut doc = self.doc.clone();
+        let active_locale = locale.or_else(|| {
+            if i18n.enabled {
+                Some(i18n.default_locale.as_str())
+            } else {
+                None
+            }
+        });
+        let catalog = active_locale.map(|loc| i18n_catalogs.for_locale(loc, i18n));
+        if let Some(loc) = active_locale {
+            i18n::set_html_lang(&mut doc, loc);
+        }
         bind::render_page_document(
             registry,
-            &self.doc,
+            &doc,
             current,
             &self.data,
             emit,
             aliases,
             forms,
+            catalog.as_ref(),
             Some((file.as_str(), self.html.as_str())),
         )
         .map_err(|e| e.in_file(&file, &self.html))
+    }
+
+    fn has_locale_param(&self, i18n: &I18nOptions) -> bool {
+        i18n.route_has_locale(self.source.params.iter().map(String::as_str))
+    }
+
+    fn locale_only(&self, i18n: &I18nOptions) -> bool {
+        self.has_locale_param(i18n) && self.source.params.len() == 1
     }
 
     fn at(&self, needles: &[&str], message: impl Into<String>) -> Error {
@@ -206,6 +234,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
 
     let t = Instant::now();
     let (registry, prepared, data_sources) = prepare_pages(&pages, &opts.aliases)?;
+    let i18n_catalogs = I18nCatalogs::load(&opts.root, &opts.i18n)?;
     let prepare_ms = t.elapsed().as_millis();
     let fragments = registry.len();
     phases.push(BuildPhase {
@@ -224,7 +253,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     let t = Instant::now();
     let results: Vec<Result<EmitResult>> = prepared
         .par_iter()
-        .map(|page| emit_prepared(opts, page, &registry, &warnings, &route_rows))
+        .map(|page| emit_prepared(opts, page, &registry, &i18n_catalogs, &warnings, &route_rows))
         .collect();
     let emit_ms = t.elapsed().as_millis();
 
@@ -357,15 +386,33 @@ fn emit_prepared(
     opts: &BuildOptions,
     page: &PreparedPage,
     registry: &FragmentRegistry,
+    i18n_catalogs: &I18nCatalogs,
     warnings: &Mutex<Vec<Diagnostic>>,
     route_rows: &Mutex<Vec<BuildRouteRow>>,
 ) -> Result<EmitResult> {
-    let result = if let Some(rule) = opts.pagination_for(&page.source.route) {
-        emit_paginated(opts, page, registry, rule, warnings)
+    let result = if page.locale_only(&opts.i18n) {
+        emit_locales(opts, page, registry, i18n_catalogs)
+    } else if let Some(rule) = opts.pagination_for(&page.source.route) {
+        if page.has_locale_param(&opts.i18n) {
+            emit_locale_paginated(opts, page, registry, i18n_catalogs, rule, warnings)
+        } else {
+            emit_paginated(opts, page, registry, i18n_catalogs, rule, warnings, None)
+        }
+    } else if page.has_locale_param(&opts.i18n) && page.source.kind() == PageKind::Collection {
+        emit_locale_collection(opts, page, registry, i18n_catalogs, warnings)
     } else {
         match page.source.kind() {
             PageKind::Static => {
-                let rendered = page.render(registry, None, &opts.emit, &opts.aliases, &opts.forms)?;
+                let rendered = page.render(
+                    registry,
+                    None,
+                    &opts.emit,
+                    &opts.aliases,
+                    &opts.forms,
+                    None,
+                    i18n_catalogs,
+                    &opts.i18n,
+                )?;
                 let out = emit::out_path_for_route(&opts.out_dir, &page.source.route, None);
                 emit::write_html(&out, &rendered)?;
                 Ok(EmitResult {
@@ -373,7 +420,7 @@ fn emit_prepared(
                     route: page.route_row(1, PageKind::Static, false),
                 })
             }
-            PageKind::Collection => emit_collection(opts, page, registry, warnings),
+            PageKind::Collection => emit_collection(opts, page, registry, i18n_catalogs, warnings),
         }
     }?;
     route_rows
@@ -381,6 +428,53 @@ fn emit_prepared(
         .map_err(|_| Error::at_file("<build>", "route summary mutex poisoned"))?
         .push(result.route.clone());
     Ok(result)
+}
+
+fn emit_locales(
+    opts: &BuildOptions,
+    page: &PreparedPage,
+    registry: &FragmentRegistry,
+    i18n_catalogs: &I18nCatalogs,
+) -> Result<EmitResult> {
+    let locales = &opts.i18n.locales;
+    let mut outs = Vec::with_capacity(locales.len());
+    for loc in locales {
+        let ctx = i18n::locale_bind_context(loc);
+        let rendered = page.render(
+            registry,
+            Some(&ctx),
+            &opts.emit,
+            &opts.aliases,
+            &opts.forms,
+            Some(loc.as_str()),
+            i18n_catalogs,
+            &opts.i18n,
+        )?;
+        let out = emit::out_path_for_route(
+            &opts.out_dir,
+            &page.source.route,
+            Some((i18n::LOCALE_PARAM, loc)),
+        );
+        emit::write_html(&out, &rendered)?;
+        outs.push(out);
+    }
+    Ok(EmitResult {
+        outputs: outs,
+        route: page.route_row(locales.len(), PageKind::Static, false),
+    })
+}
+
+fn collection_param<'a>(params: &'a [String]) -> Result<&'a str> {
+    params
+        .iter()
+        .find(|p| *p != i18n::LOCALE_PARAM)
+        .map(String::as_str)
+        .ok_or_else(|| {
+            Error::at_file(
+                "<build>",
+                "locale collection route needs a param besides [locale] (e.g. [locale]/posts/[slug])",
+            )
+        })
 }
 
 fn html_data_bind(doc: &Document) -> Option<String> {
@@ -399,12 +493,43 @@ fn html_bind_needles(id: &str) -> [String; 2] {
     ]
 }
 
+fn emit_locale_paginated(
+    opts: &BuildOptions,
+    page: &PreparedPage,
+    registry: &FragmentRegistry,
+    i18n_catalogs: &I18nCatalogs,
+    rule: &PaginationRule,
+    warnings: &Mutex<Vec<Diagnostic>>,
+) -> Result<EmitResult> {
+    let mut outs = Vec::new();
+    let mut total = 0;
+    for loc in &opts.i18n.locales {
+        let result = emit_paginated(
+            opts,
+            page,
+            registry,
+            i18n_catalogs,
+            rule,
+            warnings,
+            Some(loc.as_str()),
+        )?;
+        total += result.route.pages;
+        outs.extend(result.outputs);
+    }
+    Ok(EmitResult {
+        outputs: outs,
+        route: page.route_row(total, PageKind::Collection, true),
+    })
+}
+
 fn emit_paginated(
     opts: &BuildOptions,
     page: &PreparedPage,
     registry: &FragmentRegistry,
+    i18n_catalogs: &I18nCatalogs,
     rule: &PaginationRule,
     warnings: &Mutex<Vec<Diagnostic>>,
+    locale: Option<&str>,
 ) -> Result<EmitResult> {
     let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
         page.at(
@@ -419,7 +544,8 @@ fn emit_paginated(
     let param = page
         .source
         .params
-        .first()
+        .iter()
+        .find(|p| *p != i18n::LOCALE_PARAM)
         .ok_or_else(|| {
             page.at(
                 &needle_refs,
@@ -431,10 +557,16 @@ fn emit_paginated(
         })?
         .clone();
 
-    if page.source.params.len() > 1 {
+    let pagination_params: Vec<_> = page
+        .source
+        .params
+        .iter()
+        .filter(|p| *p != i18n::LOCALE_PARAM)
+        .collect();
+    if pagination_params.len() > 1 {
         return Err(page.at(
             &needle_refs,
-            "pagination routes support a single [param] (the page number folder)",
+            "pagination routes support a single [param] besides [locale] (the page number folder)",
         ));
     }
 
@@ -474,21 +606,57 @@ fn emit_paginated(
 
     let mut outs = Vec::with_capacity(chunks.len() + usize::from(rule.index));
     for chunk in &chunks {
-        let rendered = page.render(registry, Some(&chunk.value), &opts.emit, &opts.aliases, &opts.forms)?;
-        let out = emit::out_path_for_route(
-            &opts.out_dir,
-            &page.source.route,
-            Some((&param, &chunk.page)),
-        );
+        let ctx = locale.map(|loc| i18n::merge_locale_into(&chunk.value, loc));
+        let rendered = page.render(
+            registry,
+            ctx.as_ref().or(Some(&chunk.value)),
+            &opts.emit,
+            &opts.aliases,
+            &opts.forms,
+            locale,
+            i18n_catalogs,
+            &opts.i18n,
+        )?;
+        let out = if let Some(loc) = locale {
+            emit::out_path_for_route_replacements(
+                &opts.out_dir,
+                &page.source.route,
+                &[(i18n::LOCALE_PARAM, loc), (param.as_str(), &chunk.page)],
+            )
+        } else {
+            emit::out_path_for_route(
+                &opts.out_dir,
+                &page.source.route,
+                Some((&param, &chunk.page)),
+            )
+        };
         emit::write_html(&out, &rendered)?;
         outs.push(out);
     }
 
     if rule.index {
         if let Some(first) = chunks.first() {
-            let rendered = page.render(registry, Some(&first.value), &opts.emit, &opts.aliases, &opts.forms)?;
+            let ctx = locale.map(|loc| i18n::merge_locale_into(&first.value, loc));
+            let rendered = page.render(
+                registry,
+                ctx.as_ref().or(Some(&first.value)),
+                &opts.emit,
+                &opts.aliases,
+                &opts.forms,
+                locale,
+                i18n_catalogs,
+                &opts.i18n,
+            )?;
             let index_route = paginate::index_route(&page.source.route, &param);
-            let out = emit::out_path_for_route(&opts.out_dir, &index_route, None);
+            let out = if let Some(loc) = locale {
+                emit::out_path_for_route_replacements(
+                    &opts.out_dir,
+                    &index_route,
+                    &[(i18n::LOCALE_PARAM, loc)],
+                )
+            } else {
+                emit::out_path_for_route(&opts.out_dir, &index_route, None)
+            };
             emit::write_html(&out, &rendered)?;
             outs.push(out);
         }
@@ -508,6 +676,7 @@ fn emit_collection(
     opts: &BuildOptions,
     page: &PreparedPage,
     registry: &FragmentRegistry,
+    i18n_catalogs: &I18nCatalogs,
     warnings: &Mutex<Vec<Diagnostic>>,
 ) -> Result<EmitResult> {
     let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
@@ -573,11 +742,123 @@ fn emit_collection(
                 format!("duplicate collection value for `[{param}]`: `{folder}`"),
             ));
         }
-        let rendered = page.render(registry, Some(item), &opts.emit, &opts.aliases, &opts.forms)?;
+        let rendered = page.render(
+            registry,
+            Some(item),
+            &opts.emit,
+            &opts.aliases,
+            &opts.forms,
+            None,
+            i18n_catalogs,
+            &opts.i18n,
+        )?;
         let out =
             emit::out_path_for_route(&opts.out_dir, &page.source.route, Some((param, &folder)));
         emit::write_html(&out, &rendered)?;
         outs.push(out);
+    }
+    let count = outs.len();
+    Ok(EmitResult {
+        outputs: outs,
+        route: page.route_row(count, PageKind::Collection, false),
+    })
+}
+
+fn emit_locale_collection(
+    opts: &BuildOptions,
+    page: &PreparedPage,
+    registry: &FragmentRegistry,
+    i18n_catalogs: &I18nCatalogs,
+    warnings: &Mutex<Vec<Diagnostic>>,
+) -> Result<EmitResult> {
+    let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
+        page.at(
+            &["<html", "data-bind"],
+            "collection page needs data-bind on <html> pointing at a statica/data id",
+        )
+    })?;
+
+    let needles = html_bind_needles(&collection_id);
+    let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
+
+    let list = page.data.get(&collection_id).ok_or_else(|| {
+        page.at(
+            &needle_refs,
+            format!(
+                "missing data source id `{collection_id}` (no <script type=\"statica/data\" id=\"{collection_id}\">)"
+            ),
+        )
+    })?;
+
+    let items = match &list.value {
+        Value::Array(a) => a,
+        other => {
+            return Err(page.at(
+                &needle_refs,
+                format!("collection `{collection_id}` must be an array, got {other}"),
+            ));
+        }
+    };
+
+    if items.is_empty() {
+        let mut w = warnings
+            .lock()
+            .map_err(|_| Error::at_file("<build>", "warnings mutex poisoned"))?;
+        w.push(page.warn(
+            &needle_refs,
+            format!("collection `{collection_id}` is empty — 0 pages emitted"),
+        ));
+        return Ok(EmitResult {
+            outputs: Vec::new(),
+            route: page.route_row(0, PageKind::Collection, false),
+        });
+    }
+
+    let param = collection_param(&page.source.params).map_err(|e| {
+        page.at(
+            &needle_refs,
+            e.to_string(),
+        )
+    })?;
+
+    let mut outs = Vec::new();
+    for loc in &opts.i18n.locales {
+        let mut seen = HashSet::new();
+        for item in items {
+            let folder = funnel::field_as_str(item, param).ok_or_else(|| {
+                page.at(
+                    &needle_refs,
+                    format!(
+                        "collection item missing field `{param}` required by route `[{param}]`"
+                    ),
+                )
+            })?;
+            let key = format!("{loc}:{folder}");
+            if !seen.insert(key) {
+                return Err(page.at(
+                    &needle_refs,
+                    format!("duplicate collection value for `[{param}]`: `{folder}`"),
+                ));
+            }
+            let ctx = i18n::merge_locale_into(item, loc);
+            let rendered = page.render(
+                registry,
+                Some(&ctx),
+                &opts.emit,
+                &opts.aliases,
+                &opts.forms,
+                Some(loc.as_str()),
+                i18n_catalogs,
+                &opts.i18n,
+            )?;
+            let out = emit::out_path_for_route_replacements(
+                &opts.out_dir,
+                &page.source.route,
+                &[(i18n::LOCALE_PARAM, loc), (param, &folder)],
+            );
+            emit::write_html(&out, &rendered)?;
+            outs.push(out);
+        }
     }
     let count = outs.len();
     Ok(EmitResult {

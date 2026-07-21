@@ -157,6 +157,24 @@ Example: --preview host=127.0.0.1,port=9000,debounce_ms=100\n\
     #[arg(short = 'p', long = "port", value_name = "PORT", global = true, help = "Preview server port (alias for --preview port=…)")]
     pub port: Option<u16>,
 
+    // ── [i18n] SPEC ────────────────────────────────────────────
+    #[arg(
+        long = "i18n",
+        value_name = "SPEC",
+        num_args = 0..=1,
+        default_missing_value = "",
+        global = true,
+        help = "Enable i18n; optional key=value SPEC",
+        long_help = "Enable [i18n]. Optional SPEC:\n\
+  enabled, default, locales, dir, fallback\n\
+Examples:\n\
+  --i18n\n\
+  --i18n 'locales=en|pt,default=en'"
+    )]
+    pub i18n: Option<String>,
+    #[arg(long = "no-i18n", action = ArgAction::SetTrue, global = true, help = "Disable i18n")]
+    pub no_i18n: bool,
+
     /// Show build step logs and a route summary (silent by default on build).
     #[arg(
         long = "verbose",

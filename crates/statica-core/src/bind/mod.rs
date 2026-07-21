@@ -13,6 +13,7 @@ use crate::funnel::{self, DataSource};
 use crate::parse::{Document, Node};
 use crate::scope;
 use crate::{AliasOptions, EmitOptions, FormsOptions};
+use crate::i18n;
 
 pub use attrs::fill_attr_templates_in_nodes;
 pub use slots::{clear_remaining_named_slots, fill_default_slots, fill_named_slots};
@@ -26,6 +27,7 @@ pub fn render_page_document(
     emit: &EmitOptions,
     aliases: &AliasOptions,
     forms: &FormsOptions,
+    i18n_catalog: Option<&Value>,
     site: Option<(&str, &str)>,
 ) -> Result<String> {
     let mut doc = doc.clone();
@@ -33,7 +35,17 @@ pub fn render_page_document(
         fill_attr_templates_in_nodes(&mut doc.children, ctx);
         fill_named_slots(&mut doc.children, ctx);
     }
-    expand_usage_slots_in_nodes(registry, &mut doc.children, current, page_data, site)?;
+    expand_usage_slots_in_nodes(
+        registry,
+        &mut doc.children,
+        current,
+        page_data,
+        i18n_catalog,
+        site,
+    )?;
+    if let Some(catalog) = i18n_catalog {
+        i18n::apply_data_t(&mut doc.children, catalog);
+    }
     crate::aliases::resolve_paths_in_document(&mut doc, aliases, site)?;
     crate::font::expand_font_links(&mut doc, aliases, site)?;
     crate::forms::wire_forms_in_document(&mut doc, forms, site)?;
@@ -75,6 +87,7 @@ pub fn expand_usage_slots_in_nodes(
     nodes: &mut Vec<Node>,
     current: Option<&Value>,
     data_map: &HashMap<String, DataSource>,
+    i18n_catalog: Option<&Value>,
     site: Option<(&str, &str)>,
 ) -> Result<()> {
     let mut i = 0;
@@ -94,14 +107,22 @@ pub fn expand_usage_slots_in_nodes(
             let rendered = if let Some(each_expr) = each {
                 let list = funnel::resolve_expr(&each_expr, current, data_map, data_map)
                     .map_err(|e| relocate_data_err(e, site, &each_expr))?;
-                render_each(registry, &id, &list, data_map, &children_nodes, site, &each_expr)?
+                render_each(registry, &id, &list, data_map, &children_nodes, i18n_catalog, site, &each_expr)?
             } else {
                 let value = match bind.as_deref() {
                     None | Some("") => Value::Null,
                     Some(b) => funnel::resolve_expr(b, current, data_map, data_map)
                         .map_err(|e| relocate_data_err(e, site, b))?,
                 };
-                render_fragment_nodes(registry, &id, &value, data_map, &children_nodes, site)?
+                render_fragment_nodes(
+                    registry,
+                    &id,
+                    &value,
+                    data_map,
+                    &children_nodes,
+                    i18n_catalog,
+                    site,
+                )?
             };
             nodes.splice(i..=i, rendered.iter().cloned());
             i += rendered.len().max(1);
@@ -109,7 +130,14 @@ pub fn expand_usage_slots_in_nodes(
         }
 
         if let Node::Element(el) = &mut nodes[i] {
-            expand_usage_slots_in_nodes(registry, &mut el.children, current, data_map, site)?;
+            expand_usage_slots_in_nodes(
+                registry,
+                &mut el.children,
+                current,
+                data_map,
+                i18n_catalog,
+                site,
+            )?;
         }
         i += 1;
     }
@@ -135,6 +163,7 @@ fn render_each(
     list: &Value,
     data_map: &HashMap<String, DataSource>,
     children: &[Node],
+    i18n_catalog: Option<&Value>,
     site: Option<(&str, &str)>,
     each_expr: &str,
 ) -> Result<Vec<Node>> {
@@ -156,7 +185,7 @@ fn render_each(
     let mut out = Vec::new();
     for item in arr {
         out.extend(render_fragment_nodes(
-            registry, id, item, data_map, children, site,
+            registry, id, item, data_map, children, i18n_catalog, site,
         )?);
     }
     Ok(out)
@@ -168,6 +197,7 @@ fn render_fragment_nodes(
     prop_value: &Value,
     parent_data: &HashMap<String, DataSource>,
     children: &[Node],
+    i18n_catalog: Option<&Value>,
     site: Option<(&str, &str)>,
 ) -> Result<Vec<Node>> {
     let frag = registry.get(id).ok_or_else(|| {
@@ -198,7 +228,16 @@ fn render_fragment_nodes(
     fill_named_slots(&mut nodes, &ctx);
     fill_default_slots(&mut nodes, children);
     scope::rewrite_scripts_in_nodes(&mut nodes, &frag.scope_id);
-    // Nested `data-bind` / `data-each` resolve against the raw bound value (not the wrapper).
-    expand_usage_slots_in_nodes(registry, &mut nodes, Some(prop_value), &local, site)?;
+    expand_usage_slots_in_nodes(
+        registry,
+        &mut nodes,
+        Some(prop_value),
+        &local,
+        i18n_catalog,
+        site,
+    )?;
+    if let Some(catalog) = i18n_catalog {
+        i18n::apply_data_t(&mut nodes, catalog);
+    }
     Ok(nodes)
 }

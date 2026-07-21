@@ -282,6 +282,45 @@ Local fonts — point at a CSS file with your own `@font-face` rules (plain path
 
 Both expand to `<link rel="stylesheet" href="…">`. Font files are copied via `asset_dirs` as usual.
 
+## Internationalization (`[i18n]`)
+
+Author **one page template** with a `[locale]` route segment. statica expands it once per entry in `[i18n].locales`:
+
+```text
+[locale]/about/index.html   → .dist/en/about/, .dist/pt/about/, …
+[locale]/index.html         → .dist/en/, .dist/pt/, …
+[locale]/posts/[slug]/…     → locale × collection items
+```
+
+Translation catalogs live in `content/i18n/{locale}.json`:
+
+```toml
+[i18n]
+enabled = true
+default = "en"
+locales = ["en", "pt"]   # expanded for every [locale]/… template
+dir = "content/i18n"
+fallback = ""
+```
+
+Mark translatable text with `data-t` (inner text is the fallback when a key is missing):
+
+```html
+<!-- [locale]/about/index.html -->
+<span data-t="label">hello</span>
+<title data-t="page.title">About</title>
+<a href="/${locale}/">home</a>
+```
+
+At build time statica replaces element content from the catalog, sets `<html lang="…">`, strips `data-t`, and supports `${locale}` in attributes. Use `${…}` only in **attributes** — not in text nodes.
+
+CLI:
+
+```bash
+statica build --i18n 'locales=en|pt,default=en'
+statica build --no-i18n
+```
+
 ## Actions (`$`)
 
 ```html
@@ -317,6 +356,7 @@ statica build --sitemap 'filename=sitemap.xml,urls_per_file=50000'
 statica build --process 'css=true,js=false,images=true'
 statica build --emit strip_data=false
 statica build --pagination 'route=blog/[page],page_size=10,sort_desc=true,index=true'
+statica build --i18n 'locales=en|pt,default=en'
 statica watch --preview host=127.0.0.1,port=9000
 # short aliases: -p / --port, --host
 ```
@@ -405,6 +445,13 @@ host = "0.0.0.0"
 port = 4321
 debounce_ms = 80
 poll_interval_secs = 2
+
+[i18n]
+enabled = false
+default = "en"
+locales = ["en"]
+dir = "content/i18n"
+fallback = ""
 ```
 
 Sitemap pagination (many URLs) is separate from UI pagination: when URL count exceeds `urls_per_file`, statica writes part files and a sitemap index at `filename`.

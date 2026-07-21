@@ -22,8 +22,8 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use statica_core::{
-    AliasOptions, AssetProcessOptions, BuildOptions, EmitOptions, FormsOptions, PaginationRule,
-    RssOptions, SitemapOptions,
+    AliasOptions, AssetProcessOptions, BuildOptions, EmitOptions, FormsOptions, I18nOptions,
+    PaginationRule, RssOptions, SitemapOptions,
 };
 
 /// Canonical config file name in a statica project root.
@@ -60,6 +60,8 @@ pub struct StaticaConfig {
     pub forms: FormsConfig,
     /// Build-time env vars and optional `.env` / `.dev.vars` loading.
     pub env: crate::env::EnvConfig,
+    /// Locale catalogs and prefixed routes (`[i18n]`).
+    pub i18n: I18nConfig,
 }
 
 /// `[aliases]` — `@Name:tail` → resolved URL or path (see `docs/guide.md`).
@@ -252,6 +254,68 @@ pub struct PreviewConfig {
     pub poll_interval_secs: u64,
 }
 
+/// `[i18n]` — `[locale]/…` route expansion + `data-t` translation catalogs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct I18nConfig {
+    /// Enable translation catalogs and `data-t` binding.
+    pub enabled: bool,
+    /// Default locale for routes without a locale prefix (must appear in `locales`).
+    #[serde(default = "default_i18n_locale")]
+    pub default: String,
+    /// Locale codes expanded for `[locale]/…` page templates.
+    pub locales: Vec<String>,
+    /// Catalog directory under the site root: `{dir}/{locale}.json`.
+    #[serde(default = "default_i18n_dir")]
+    pub dir: String,
+    /// Fallback catalog for missing keys (empty → `default`).
+    #[serde(default)]
+    pub fallback: String,
+}
+
+fn default_i18n_locale() -> String {
+    "en".into()
+}
+
+fn default_i18n_dir() -> String {
+    "content/i18n".into()
+}
+
+impl Default for I18nConfig {
+    fn default() -> Self {
+        I18nOptions::default().into()
+    }
+}
+
+impl From<I18nOptions> for I18nConfig {
+    fn from(opts: I18nOptions) -> Self {
+        Self {
+            enabled: opts.enabled,
+            default: opts.default_locale,
+            locales: opts.locales,
+            dir: opts.dir,
+            fallback: opts.fallback,
+        }
+    }
+}
+
+impl I18nConfig {
+    #[must_use]
+    pub fn to_core(&self) -> I18nOptions {
+        I18nOptions {
+            enabled: self.enabled,
+            default_locale: self.default.clone(),
+            locales: if self.locales.is_empty() {
+                vec![self.default.clone()]
+            } else {
+                self.locales.clone()
+            },
+            dir: self.dir.clone(),
+            fallback: self.fallback.clone(),
+        }
+    }
+}
+
 impl Default for StaticaConfig {
     fn default() -> Self {
         Self {
@@ -276,6 +340,7 @@ impl Default for StaticaConfig {
             aliases: AliasesConfig::default(),
             forms: FormsConfig::default(),
             env: crate::env::EnvConfig::default(),
+            i18n: I18nConfig::default(),
         }
     }
 }
@@ -471,6 +536,7 @@ impl StaticaConfig {
             emit: self.emit.to_core(),
             aliases: self.aliases.to_core(),
             forms: self.forms.to_core(),
+            i18n: self.i18n.to_core(),
             clean: self.clean,
             asset_dirs: self.asset_dirs.clone(),
             ignore_dirs,
@@ -549,6 +615,15 @@ impl StaticaConfig {
         }
         if let Some(v) = cli.port {
             self.preview.port = v;
+        }
+
+        if cli.no_i18n {
+            self.i18n.enabled = false;
+        } else if let Some(spec) = &cli.i18n {
+            self.i18n.enabled = true;
+            if !spec.is_empty() {
+                apply_i18n_spec(&mut self.i18n, spec)?;
+            }
         }
 
         Ok(())
@@ -630,6 +705,14 @@ host = "0.0.0.0"
 port = 4321
 debounce_ms = 80
 poll_interval_secs = 2
+
+# Internationalization — locale from folder structure + content/i18n/{locale}.json
+# [i18n]
+# enabled = false
+# default = "en"
+# locales = ["en", "pt"]     # expanded for every [locale]/… template
+# dir = "content/i18n"
+# fallback = ""             # empty → default locale catalog
 "#
         .into()
     }
@@ -809,6 +892,27 @@ fn parse_pagination_spec(spec: &str) -> Result<PaginationConfig> {
         anyhow::bail!("pagination SPEC requires route=…");
     }
     Ok(cfg)
+}
+
+fn apply_i18n_spec(cfg: &mut I18nConfig, spec: &str) -> Result<()> {
+    for_each_kv(spec, |key, value| {
+        match key {
+            "enabled" => cfg.enabled = parse_bool(value)?,
+            "default" => cfg.default = value.to_string(),
+            "locales" => {
+                cfg.locales = value
+                    .split('|')
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect();
+            }
+            "dir" => cfg.dir = value.to_string(),
+            "fallback" => cfg.fallback = value.to_string(),
+            other => anyhow::bail!("unknown i18n key `{other}`"),
+        }
+        Ok(())
+    })
 }
 
 #[cfg(test)]
@@ -995,6 +1099,41 @@ fonts = "./assets/fonts"
         assert!(!opts.sitemap.enabled);
         assert!(opts.rss.enabled);
         assert_eq!(opts.rss.title, "Blog");
+    }
+
+    #[test]
+    fn apply_cli_i18n() {
+        let mut cfg = StaticaConfig::default();
+        let cli = crate::cli::ConfigCli {
+            i18n: Some("locales=en|pt,default=en".into()),
+            ..crate::cli::ConfigCli::default()
+        };
+        cfg.apply_cli(&cli).unwrap();
+        assert!(cfg.i18n.enabled);
+        assert_eq!(cfg.i18n.locales, vec!["en", "pt"]);
+        assert_eq!(cfg.i18n.default, "en");
+    }
+
+    #[test]
+    fn loads_i18n_config() {
+        let dir = temp_dir();
+        fs::write(
+            dir.join(CONFIG_FILE),
+            r#"
+[i18n]
+enabled = true
+default = "en"
+locales = ["en", "pt"]
+dir = "locales"
+"#,
+        )
+        .unwrap();
+        let cfg = StaticaConfig::load(&dir).unwrap();
+        assert!(cfg.i18n.enabled);
+        assert_eq!(cfg.i18n.locales, vec!["en", "pt"]);
+        let core = cfg.i18n.to_core();
+        assert_eq!(core.dir, "locales");
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]

@@ -25,7 +25,6 @@ fn builds_blog_fixture() {
     assert!(report.pages_written >= 10, "pages={}", report.pages_written);
 
     let listing = std::fs::read_to_string(out.join("blog/index.html")).unwrap();
-    // Newest first: page 1 has latest posts, not hello-world.
     assert!(listing.contains("statica as SSG") || listing.contains("Typed funnels"));
     assert!(listing.contains(r#"href="/posts/statica-ssg/""#) || listing.contains("/posts/"));
     assert!(listing.contains("Page 1 of 3") || listing.contains(">1<"));
@@ -189,6 +188,60 @@ fn font_link_expands_in_build() {
     let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
     assert!(html.contains("fonts.googleapis.com/css2?family=Outfit:wght@400;700"));
     assert!(!html.contains("statica/font"));
+}
+
+#[test]
+fn i18n_expands_locale_param_from_config() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("[locale]/about")).unwrap();
+    std::fs::create_dir_all(dir.join("content/i18n")).unwrap();
+    std::fs::write(
+        dir.join("content/i18n/en.json"),
+        r#"{"title": "About us", "label": "Contact"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/i18n/pt.json"),
+        r#"{"title": "Sobre nós", "label": "Contactar"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("[locale]/about/index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head><title data-t="title">About</title></head>
+  <body>
+    <h1 data-t="title">About</h1>
+    <span data-t="label">hello</span>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.i18n = statica_core::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into(), "pt".into()],
+        ..Default::default()
+    };
+
+    build(&opts).expect("build");
+
+    let en = std::fs::read_to_string(dir.join("dist/en/about/index.html")).unwrap();
+    assert!(en.contains("<title>About us</title>"));
+    assert!(en.contains("lang=\"en\""));
+    assert!(en.contains("<span>Contact</span>"));
+    assert!(!en.contains("data-t"));
+
+    let pt = std::fs::read_to_string(dir.join("dist/pt/about/index.html")).unwrap();
+    assert!(pt.contains("<title>Sobre nós</title>"));
+    assert!(pt.contains("lang=\"pt\""));
+    assert!(pt.contains("<span>Contactar</span>"));
+
+    assert!(!dir.join("dist/[locale]").exists());
 }
 
 fn tempfile_dir() -> PathBuf {
