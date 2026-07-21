@@ -174,6 +174,25 @@ Loops:
 
 Fragments may import their own data and nest other fragments. Paths are relative to the fragment file. Nearest data scope wins.
 
+### `<select>` with slotted options
+
+Browsers reject `<slot>` inside `<select>`; statica’s **pre** pass rewrites those mounts before parsing, then expands them like any other fragment loop:
+
+```html
+<link rel="statica/fragment" type="text/html" href="./ui/select-option.html" id="select-option" />
+<select name="${name}" required>
+  <slot id="select-option" data-each="items"></slot>
+</select>
+```
+
+```html
+<template id="select-option" data-bind="{value, label}">
+  <option value="${value}"><slot name="label"></slot></option>
+</template>
+```
+
+Works inside `<optgroup>` too. Emitted HTML is a normal `<select>` with `<option>` children.
+
 ## Actions (`$`)
 
 ```html

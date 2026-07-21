@@ -1,13 +1,15 @@
-//! statica-core — parse → funnel → bind → scope → emit
+//! statica-core — discover → pre → parse → funnel → expand → bind → scope → emit
 //!
 //! # Pipeline
 //!
 //! 1. **Discover** — every `**/index.html` under the site root (`[param]` → collection).
-//! 2. **Funnel** — load `<script type="statica/data">` JS value literals (oxc).
-//! 3. **Expand** — static (1:1), collection (1:N items), or pagination (1:N page chunks).
-//! 4. **Bind** — slots + `${…}` attrs + fragment/`data-each` expansion.
-//! 5. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).
-//! 6. **Emit** — write HTML; transform CSS to browser-ready; optional asset process; sitemap / RSS.
+//! 2. **Pre** — authoring HTML normalization before html5ever (e.g. `<slot>` in `<select>`).
+//! 3. **Parse** — html5ever → owned AST; post-parse authoring lower (carriers → slots).
+//! 4. **Funnel** — load `<script type="statica/data">` JS value literals (oxc).
+//! 5. **Expand** — static (1:1), collection (1:N items), or pagination (1:N page chunks).
+//! 6. **Bind** — slots + `${…}` attrs + fragment/`data-each` expansion.
+//! 7. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).
+//! 8. **Emit** — write HTML; transform CSS to browser-ready; optional asset process; sitemap / RSS.
 //!
 //! The `statica` CLI owns end-user config (`statica.toml`) and maps it into
 //! [`BuildOptions`]. This crate does not read config files.

@@ -1,4 +1,4 @@
-//! Build orchestration: discover → funnel → bind → scope → emit.
+//! Build orchestration: discover → pre/parse → funnel → bind → scope → emit.
 //!
 //! [`build`] is the main entry. Collection pages expand 1:N via
 //! [`emit_collection`]; routes listed in [`BuildOptions::pagination`] expand via

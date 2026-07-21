@@ -84,8 +84,62 @@ fn parses_with_html5ever_not_regex() {
     assert_eq!(els.len(), 1);
 }
 
+#[test]
+fn select_slot_expands_to_options() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("countries.json"),
+        r#"[
+  {"value": "us", "label": "United States"},
+  {"value": "pt", "label": "Portugal"}
+]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("ui/select-option.html"),
+        r#"<template id="select-option" data-bind="{value, label}">
+  <option value="${value}"><slot name="label"></slot></option>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <script type="statica/data" src="./countries.json" id="countries"></script>
+  </head>
+  <body>
+    <link rel="statica/fragment" type="text/html" href="./ui/select-option.html" id="select-option" />
+    <select name="country" required>
+      <slot id="select-option" data-each="countries"></slot>
+    </select>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("name=\"country\"") && html.contains("required"));
+    assert!(html.contains(r#"<option value="us""#) && html.contains("United States"));
+    assert!(html.contains(r#"<option value="pt""#) && html.contains("Portugal"));
+    assert!(!html.contains("<slot"));
+}
+
 fn tempfile_dir() -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("statica-test-{}", std::process::id()));
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static N: AtomicU64 = AtomicU64::new(0);
+    let dir = std::env::temp_dir().join(format!(
+        "statica-test-{}-{}",
+        std::process::id(),
+        N.fetch_add(1, Ordering::Relaxed)
+    ));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir
