@@ -4,7 +4,7 @@
  * and sync versions across all @statica packages.
  *
  * Usage:
- *   node scripts/pack-npm.mjs --version 0.3.6 --artifacts-dir ./dist-binaries
+ *   node scripts/pack-npm.mjs --version 0.4.0 --artifacts-dir ./dist-binaries
  *
  * Expected layout under --artifacts-dir (one file per target):
  *   aarch64-apple-darwin/statica
