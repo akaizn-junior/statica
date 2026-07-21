@@ -84,6 +84,7 @@ Nested config tables use compact SPECs (CLI wins over the file):
 statica build --rss 'title=Blog,limit=20,collections=posts'
 statica build --sitemap 'filename=sitemap.xml,urls_per_file=50000'
 statica build --process 'css=true,js=false,images=true'
+statica build --minify 'html=true,css=true,js=true'
 statica build --emit strip_data=false
 statica build --pagination 'route=blog/[page],page_size=10,sort_desc=true,index=true'
 statica build --i18n 'locales=en|pt,default=en'
@@ -146,12 +147,13 @@ locales = ["en"]
 
 | Asset kind | Tool |
 | ---------- | ---- |
-| CSS | lightningcss (nesting, modern syntax → browser-ready; minify with `--process`) |
+| CSS | lightningcss (nesting, modern syntax → browser-ready; minify with `--process` or `--minify`) |
 | JS | oxc |
+| HTML | minify-html (final pass with `--minify`) |
 | Images | oxipng + image |
 | Fonts | copied as-is |
 
-Inline `<style>` (pages + fragments) is always transformed. Linked `.css` under `asset_dirs` is transformed when `[process].css` is on.
+Inline `<style>` (pages + fragments) is always transformed. Linked `.css` under `asset_dirs` is transformed when `[process].css` is on. Enable `[minify]` / `--minify` for a final pass on emitted HTML, CSS, and JS (including inline `<style>` / `<script>`).
 
 ## Authoring
 

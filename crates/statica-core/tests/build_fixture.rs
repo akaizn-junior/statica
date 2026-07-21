@@ -244,6 +244,53 @@ fn i18n_expands_locale_param_from_config() {
     assert!(!dir.join("dist/[locale]").exists());
 }
 
+#[test]
+fn minifies_final_html_output() {
+    let dir = tempfile_dir();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <title>  Minify test  </title>
+    <style>
+      body {
+        margin: 0;
+        & p { padding: 1rem; }
+      }
+    </style>
+    <script>
+      const value = 1;
+      console.log(value);
+    </script>
+  </head>
+  <body>
+    <p>  Hello  </p>
+  </body>
+</html>
+"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.minify = statica_core::MinifyOptions {
+        enabled: true,
+        ..statica_core::MinifyOptions::default()
+    };
+
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("Hello"));
+    assert!(html.contains("console"));
+    assert!(
+        html.len() < 350,
+        "expected minified HTML, got {} bytes: {html}",
+        html.len()
+    );
+}
+
 fn tempfile_dir() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static N: AtomicU64 = AtomicU64::new(0);

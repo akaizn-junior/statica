@@ -82,6 +82,7 @@ Supported authoring (compiled when needed): nesting, custom media, range `@media
 
 - **`<style>`** in pages and fragments — always transformed on emit.
 - **`.css` under `asset_dirs`** — transformed + minified when `[process].css` / `--process` is on; otherwise copied as-is.
+- **Final output** — when `[minify]` / `--minify` is on, every `.html`, `.css`, and `.js` under `out_dir` is minified (HTML pass also shrinks inline `<style>` and `<script>`).
 
 ## Data (funnel)
 
@@ -412,6 +413,12 @@ css = true                     # lightningcss: modern → browser-ready + minify
 js = true                      # oxc
 images = true                  # oxipng + image
 fonts = false                  # copied as-is
+
+[minify]
+enabled = false
+html = true                    # .html + inline <style>/<script> when css/js on
+css = true                     # .css under out_dir
+js = true                      # .js under out_dir
 
 [sitemap]
 enabled = false

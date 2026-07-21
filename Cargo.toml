@@ -47,4 +47,5 @@ oxc_mangler = "0.140"
 oxc_minifier = "0.140"
 oxc_parser = "0.140"
 oxc_span = "0.140"
+minify-html = "0.18.1"
 statica-core = { version = "0.8.0", path = "crates/statica-core" }

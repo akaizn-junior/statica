@@ -23,7 +23,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use statica_core::{
     AliasOptions, AssetProcessOptions, BuildOptions, EmitOptions, FormsOptions, I18nOptions,
-    PaginationRule, RssOptions, SitemapOptions,
+    MinifyOptions, PaginationRule, RssOptions, SitemapOptions,
 };
 
 /// Canonical config file name in a statica project root.
@@ -47,6 +47,8 @@ pub struct StaticaConfig {
     pub site_url: String,
     pub emit: EmitConfig,
     pub process: ProcessConfig,
+    /// Final output minification (`[minify]`).
+    pub minify: MinifyConfig,
     pub sitemap: SitemapConfig,
     pub rss: RssConfig,
     /// Paginated listings (`[[pagination]]`).
@@ -184,6 +186,19 @@ pub struct ProcessConfig {
     pub js: bool,
     pub images: bool,
     pub fonts: bool,
+}
+
+/// `[minify]` — final pass on HTML, CSS, and JS in `out_dir`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MinifyConfig {
+    pub enabled: bool,
+    /// Minify emitted `.html` (includes inline `<style>` / `<script>` when css/js are on).
+    pub html: bool,
+    /// Minify `.css` files under `out_dir`.
+    pub css: bool,
+    /// Minify `.js` files under `out_dir`.
+    pub js: bool,
 }
 
 /// `[sitemap]` — XML sitemap of all emitted pages.
@@ -333,6 +348,7 @@ impl Default for StaticaConfig {
             site_url: String::new(),
             emit: EmitConfig::default(),
             process: ProcessConfig::default(),
+            minify: MinifyConfig::default(),
             sitemap: SitemapConfig::default(),
             rss: RssConfig::default(),
             pagination: Vec::new(),
@@ -365,6 +381,17 @@ impl Default for ProcessConfig {
             js: true,
             images: true,
             fonts: false,
+        }
+    }
+}
+
+impl Default for MinifyConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            html: true,
+            css: true,
+            js: true,
         }
     }
 }
@@ -429,6 +456,18 @@ impl ProcessConfig {
             js: self.js,
             images: self.images,
             fonts: self.fonts,
+        }
+    }
+}
+
+impl MinifyConfig {
+    #[must_use]
+    pub fn to_core(&self) -> MinifyOptions {
+        MinifyOptions {
+            enabled: self.enabled,
+            html: self.html,
+            css: self.css,
+            js: self.js,
         }
     }
 }
@@ -533,6 +572,7 @@ impl StaticaConfig {
             rss: self.rss.to_core(),
             pagination: self.pagination.iter().map(PaginationConfig::to_core).collect(),
             process: self.process.to_core(),
+            minify: self.minify.to_core(),
             emit: self.emit.to_core(),
             aliases: self.aliases.to_core(),
             forms: self.forms.to_core(),
@@ -578,6 +618,15 @@ impl StaticaConfig {
             self.process.enabled = true;
             if !spec.is_empty() {
                 apply_process_spec(&mut self.process, spec)?;
+            }
+        }
+
+        if cli.no_minify {
+            self.minify.enabled = false;
+        } else if let Some(spec) = &cli.minify {
+            self.minify.enabled = true;
+            if !spec.is_empty() {
+                apply_minify_spec(&mut self.minify, spec)?;
             }
         }
 
@@ -668,6 +717,13 @@ css = true
 js = true
 images = true
 fonts = false
+
+# Final output minification (also: statica --minify)
+[minify]
+enabled = false
+html = true                    # .html + inline <style>/<script> when css/js on
+css = true                     # .css under out_dir
+js = true                      # .js under out_dir
 
 # XML sitemap of every emitted page (needs site_url)
 [sitemap]
@@ -771,6 +827,19 @@ fn apply_process_spec(cfg: &mut ProcessConfig, spec: &str) -> Result<()> {
             "images" => cfg.images = parse_bool(value)?,
             "fonts" => cfg.fonts = parse_bool(value)?,
             other => anyhow::bail!("unknown process key `{other}`"),
+        }
+        Ok(())
+    })
+}
+
+fn apply_minify_spec(cfg: &mut MinifyConfig, spec: &str) -> Result<()> {
+    for_each_kv(spec, |key, value| {
+        match key {
+            "enabled" => cfg.enabled = parse_bool(value)?,
+            "html" => cfg.html = parse_bool(value)?,
+            "css" => cfg.css = parse_bool(value)?,
+            "js" => cfg.js = parse_bool(value)?,
+            other => anyhow::bail!("unknown minify key `{other}`"),
         }
         Ok(())
     })

@@ -136,6 +136,7 @@ Examples:
   statica build examples/blog
   statica build --project site    Use project=site under found statica.toml
   statica build --process         Optimize public/ CSS, JS, images
+  statica build --minify          Shrink HTML, CSS, JS in out_dir
   statica --site-url https://x.com --rss
   statica serve ./site            Preview .dist over HTTP
   statica watch . --port 8080     Watch, rebuild, serve on :8080
@@ -146,6 +147,7 @@ Configuration:
     --rss 'title=Blog,limit=20,collections=posts'
     --sitemap 'filename=sitemap.xml,urls_per_file=50000'
     --process 'css=true,js=false,images=true'
+    --minify 'html=true,css=true,js=true'
     --emit strip_data=false
     --preview host=127.0.0.1,port=9000
     --pagination 'route=blog/[page],page_size=10,sort_desc=true,index=true'
@@ -175,7 +177,8 @@ Examples:
 Notes:
   Full builds clean out_dir when clean = true (default; --no-clean to keep).
   Asset folders listed in asset_dirs are copied when copy_assets = true.
-  Pass --process to enable [process] (kinds: --process-css/js/images/fonts).";
+  Pass --process to enable [process] (kinds: css, js, images, fonts).
+  Pass --minify to enable [minify] (kinds: html, css, js).";
 
 const SERVE_ABOUT: &str = "\
 Serve a previously built out_dir over HTTP.

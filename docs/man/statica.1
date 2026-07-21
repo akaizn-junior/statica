@@ -4,7 +4,7 @@
 .SH NAME
 statica \- statica — Powered HTML
 .SH SYNOPSIS
-\fBstatica\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-emit\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
+\fBstatica\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-emit\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-minify\fR] [\fB\-\-no\-minify\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
 statica — Powered HTML
 .PP
@@ -74,6 +74,16 @@ Examples:
 .TP
 \fB\-\-no\-process\fR
 Disable asset processing
+.TP
+\fB\-\-minify\fR [\fI<SPEC>\fR]
+Enable [minify] — shrink HTML, CSS, and JS in out_dir.
+enabled, html, css, js
+Examples:
+\-\-minify
+\-\-minify html=true,css=true,js=false
+.TP
+\fB\-\-no\-minify\fR
+Disable final minification
 .TP
 \fB\-\-sitemap\fR [\fI<SPEC>\fR]
 Enable [sitemap]. Optional SPEC:
@@ -159,6 +169,7 @@ Examples:
   statica build examples/blog
   statica build \-\-project site    Use project=site under found statica.toml
   statica build \-\-process         Optimize public/ CSS, JS, images
+  statica build \-\-minify          Shrink HTML, CSS, JS in out_dir
   statica \-\-site\-url https://x.com \-\-rss
   statica serve ./site            Preview .dist over HTTP
   statica watch . \-\-port 8080     Watch, rebuild, serve on :8080
@@ -169,6 +180,7 @@ Configuration:
     \-\-rss \*(Aqtitle=Blog,limit=20,collections=posts\*(Aq
     \-\-sitemap \*(Aqfilename=sitemap.xml,urls_per_file=50000\*(Aq
     \-\-process \*(Aqcss=true,js=false,images=true\*(Aq
+    \-\-minify \*(Aqhtml=true,css=true,js=true\*(Aq
     \-\-emit strip_data=false
     \-\-preview host=127.0.0.1,port=9000
     \-\-pagination \*(Aqroute=blog/[page],page_size=10,sort_desc=true,index=true\*(Aq

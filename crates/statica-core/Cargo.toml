@@ -18,6 +18,7 @@ hex.workspace = true
 html5ever.workspace = true
 image.workspace = true
 lightningcss.workspace = true
+minify-html.workspace = true
 markup5ever_rcdom.workspace = true
 oxc_allocator.workspace = true
 oxc_ast.workspace = true

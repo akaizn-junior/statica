@@ -4,7 +4,7 @@
 .SH NAME
 statica\-build \- Build Funnel → pages → output directory
 .SH SYNOPSIS
-\fBstatica build\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-emit\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBstatica build\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-emit\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-minify\fR] [\fB\-\-no\-minify\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Build Funnel → pages → output directory.
 .PP
@@ -59,6 +59,16 @@ Examples:
 .TP
 \fB\-\-no\-process\fR
 Disable asset processing
+.TP
+\fB\-\-minify\fR [\fI<SPEC>\fR]
+Enable [minify] — shrink HTML, CSS, and JS in out_dir.
+enabled, html, css, js
+Examples:
+\-\-minify
+\-\-minify html=true,css=true,js=false
+.TP
+\fB\-\-no\-minify\fR
+Disable final minification
 .TP
 \fB\-\-sitemap\fR [\fI<SPEC>\fR]
 Enable [sitemap]. Optional SPEC:
@@ -134,6 +144,7 @@ Examples:
 Notes:
   Full builds clean out_dir when clean = true (default; \-\-no\-clean to keep).
   Asset folders listed in asset_dirs are copied when copy_assets = true.
-  Pass \-\-process to enable [process] (kinds: \-\-process\-css/js/images/fonts).
+  Pass \-\-process to enable [process] (kinds: css, js, images, fonts).
+  Pass \-\-minify to enable [minify] (kinds: html, css, js).
 .SH VERSION
 v0.8.0

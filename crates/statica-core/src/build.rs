@@ -25,6 +25,7 @@ use crate::fragment::FragmentRegistry;
 use crate::funnel::{self, DataSource};
 use crate::i18n::{self, I18nCatalogs, I18nOptions};
 use crate::loc::Diagnostic;
+use crate::minify::{self, MinifyOptions};
 use crate::paginate::{self, PaginationRule};
 use crate::parse::{self, Document};
 use crate::{EmitOptions, FormsOptions};
@@ -43,6 +44,8 @@ pub struct BuildOptions {
     pub pagination: Vec<PaginationRule>,
     /// Asset optimize pipeline (off unless `enabled`; kinds are selectable).
     pub process: AssetProcessOptions,
+    /// Final output minification (HTML, CSS, JS in `out_dir`).
+    pub minify: MinifyOptions,
     /// What to strip / tidy when writing HTML.
     pub emit: EmitOptions,
     /// Path / URL aliases for authoring (`[aliases]` in statica.toml).
@@ -71,6 +74,7 @@ impl BuildOptions {
             rss: RssOptions::default(),
             pagination: Vec::new(),
             process: AssetProcessOptions::default(),
+            minify: MinifyOptions::default(),
             emit: EmitOptions::default(),
             aliases: AliasOptions::default(),
             forms: FormsOptions::default(),
@@ -136,6 +140,30 @@ struct PreparedPage {
     data: std::collections::HashMap<String, DataSource>,
 }
 
+/// Overlay locale catalog arrays onto page data (i18n-driven `data-each` sources).
+fn merge_i18n_data(
+    page_data: &std::collections::HashMap<String, DataSource>,
+    catalog: Option<&Value>,
+) -> std::collections::HashMap<String, DataSource> {
+    let Some(Value::Object(map)) = catalog else {
+        return page_data.clone();
+    };
+    let mut merged = page_data.clone();
+    for (key, value) in map {
+        if value.is_array() {
+            merged.insert(
+                key.clone(),
+                DataSource {
+                    id: key.clone(),
+                    path: PathBuf::from(format!("i18n:{key}")),
+                    value: value.clone(),
+                },
+            );
+        }
+    }
+    merged
+}
+
 struct EmitResult {
     outputs: Vec<PathBuf>,
     route: BuildRouteRow,
@@ -170,11 +198,12 @@ impl PreparedPage {
         if let Some(loc) = active_locale {
             i18n::set_html_lang(&mut doc, loc);
         }
+        let page_data = merge_i18n_data(&self.data, catalog.as_ref());
         bind::render_page_document(
             registry,
             &doc,
             current,
-            &self.data,
+            &page_data,
             emit,
             aliases,
             forms,
@@ -335,6 +364,22 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
             detail: detail.to_string(),
         });
         log.step(&format!("feeds  {detail} ({feeds_ms}ms)"));
+    }
+
+    if opts.minify.enabled {
+        let t = Instant::now();
+        let minified = minify::minify_output_dir(&opts.out_dir, &opts.minify)?;
+        let minify_ms = t.elapsed().as_millis();
+        warnings.extend(minified.warnings);
+        phases.push(BuildPhase {
+            name: "minify",
+            duration_ms: minify_ms,
+            detail: format!("{} files", minified.files),
+        });
+        log.step(&format!(
+            "minify  {} files ({minify_ms}ms)",
+            minified.files
+        ));
     }
 
     Ok(BuildReport {
@@ -637,6 +682,7 @@ fn emit_paginated(
     if rule.index {
         if let Some(first) = chunks.first() {
             let ctx = locale.map(|loc| i18n::merge_locale_into(&first.value, loc));
+            let index_route = paginate::index_route(&page.source.route, &param);
             let rendered = page.render(
                 registry,
                 ctx.as_ref().or(Some(&first.value)),
@@ -647,7 +693,6 @@ fn emit_paginated(
                 i18n_catalogs,
                 &opts.i18n,
             )?;
-            let index_route = paginate::index_route(&page.source.route, &param);
             let out = if let Some(loc) = locale {
                 emit::out_path_for_route_replacements(
                     &opts.out_dir,

@@ -15,12 +15,6 @@ use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 
-use oxc_allocator::Allocator;
-use oxc_codegen::{Codegen, CodegenOptions, CommentOptions};
-use oxc_mangler::MangleOptions;
-use oxc_minifier::{CompressOptions, Minifier, MinifierOptions};
-use oxc_parser::Parser;
-use oxc_span::SourceType;
 use rayon::prelude::*;
 
 use crate::error::{Error, Result};
@@ -206,13 +200,13 @@ fn emit_file(from: &Path, to: &Path, process: &AssetProcessOptions) -> Result<bo
     match (kind, ext.as_str()) {
         (AssetKind::Css, _) => {
             let css = fs::read_to_string(from)?;
-            let out = crate::css::transform_css(&css, true).map_err(|e| Error::at_file(from.display().to_string(), e))?;
+            let out = crate::minify::minify_css(&css).map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
             Ok(true)
         }
         (AssetKind::Js, _) => {
             let js = fs::read_to_string(from)?;
-            let out = minify_js(from, &js).map_err(|e| Error::at_file(from.display().to_string(), e))?;
+            let out = crate::minify::minify_js(from, &js).map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
             Ok(true)
         }
@@ -244,37 +238,6 @@ fn emit_file(from: &Path, to: &Path, process: &AssetProcessOptions) -> Result<bo
             Ok(false)
         }
     }
-}
-
-fn minify_js(path: &Path, source: &str) -> std::result::Result<String, String> {
-    let source_type = SourceType::from_path(path).unwrap_or_else(|_| SourceType::mjs());
-    let allocator = Allocator::default();
-    let parsed = Parser::new(&allocator, source, source_type).parse();
-    if !parsed.diagnostics.is_empty() {
-        let msg = parsed
-            .diagnostics
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("; ");
-        return Err(format!("js parse: {msg}"));
-    }
-    let mut program = parsed.program;
-    let options = MinifierOptions {
-        mangle: Some(MangleOptions::default()),
-        compress: Some(CompressOptions::smallest()),
-    };
-    let ret = Minifier::new(options).minify(&allocator, &mut program);
-    let code = Codegen::new()
-        .with_options(CodegenOptions {
-            minify: true,
-            comments: CommentOptions::disabled(),
-            ..CodegenOptions::default()
-        })
-        .with_scoping(ret.scoping)
-        .build(&program)
-        .code;
-    Ok(code)
 }
 
 fn optimize_png(bytes: &[u8]) -> std::result::Result<Vec<u8>, String> {
@@ -312,14 +275,14 @@ mod tests {
 
     #[test]
     fn minifies_css() {
-        let out = crate::css::transform_css("body {  color:  #ffffff ; }", true).unwrap();
+        let out = crate::minify::minify_css("body {  color:  #ffffff ; }").unwrap();
         assert!(out.contains("body"));
         assert!(out.len() < "body {  color:  #ffffff ; }".len());
     }
 
     #[test]
     fn minifies_js() {
-        let out = minify_js(
+        let out = crate::minify::minify_js(
             Path::new("x.js"),
             "const hello_world_variable = 1; console.log(hello_world_variable);",
         )

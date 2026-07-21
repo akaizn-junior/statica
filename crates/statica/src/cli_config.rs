@@ -86,6 +86,24 @@ Examples:\n\
     #[arg(long = "no-process", action = ArgAction::SetTrue, global = true, help = "Disable asset processing")]
     pub no_process: bool,
 
+    // ── [minify] SPEC ──────────────────────────────────────────
+    #[arg(
+        long = "minify",
+        value_name = "SPEC",
+        num_args = 0..=1,
+        default_missing_value = "",
+        global = true,
+        help = "Enable final minify; optional key=value SPEC",
+        long_help = "Enable [minify] — shrink HTML, CSS, and JS in out_dir.\n\
+  enabled, html, css, js\n\
+Examples:\n\
+  --minify\n\
+  --minify html=true,css=true,js=false"
+    )]
+    pub minify: Option<String>,
+    #[arg(long = "no-minify", action = ArgAction::SetTrue, global = true, help = "Disable final minification")]
+    pub no_minify: bool,
+
     // ── [sitemap] SPEC ─────────────────────────────────────────
     #[arg(
         long = "sitemap",

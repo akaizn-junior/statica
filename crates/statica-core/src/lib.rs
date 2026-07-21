@@ -10,6 +10,7 @@
 //! 6. **Bind** — slots + `${…}` attrs + `data-t` i18n + fragment/`data-each` expansion + form wiring.
 //! 7. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).
 //! 8. **Emit** — write HTML; transform CSS to browser-ready; optional asset process; sitemap / RSS.
+//! 9. **Minify** — optional final pass on HTML, CSS, and JS in `out_dir`.
 //!
 //! The `statica` CLI owns end-user config (`statica.toml`) and maps it into
 //! [`BuildOptions`]. This crate does not read config files.
@@ -48,6 +49,7 @@ mod fragment;
 mod i18n;
 mod funnel;
 mod loc;
+mod minify;
 mod paginate;
 pub mod parse;
 mod runtime;
@@ -62,6 +64,7 @@ pub use discover::PageKind;
 pub use emit_opts::EmitOptions;
 pub use error::{Error, Result};
 pub use loc::Diagnostic;
+pub use minify::{MinifyKind, MinifyOptions, MinifyReport};
 pub use feeds::{RssOptions, SitemapOptions};
 pub use forms::{FormProvider, FormsOptions};
 pub use i18n::{I18nCatalogs, I18nOptions};
