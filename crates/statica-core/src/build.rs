@@ -13,6 +13,7 @@ use std::time::Instant;
 use rayon::prelude::*;
 use serde_json::Value;
 
+use crate::aliases::AliasOptions;
 use crate::assets::AssetProcessOptions;
 use crate::bind;
 use crate::build_log::BuildLog;
@@ -43,6 +44,8 @@ pub struct BuildOptions {
     pub process: AssetProcessOptions,
     /// What to strip / tidy when writing HTML.
     pub emit: EmitOptions,
+    /// Path / URL aliases for authoring (`[aliases]` in statica.toml).
+    pub aliases: AliasOptions,
     pub clean: bool,
     pub asset_dirs: Vec<String>,
     pub ignore_dirs: Vec<String>,
@@ -64,6 +67,7 @@ impl BuildOptions {
             pagination: Vec::new(),
             process: AssetProcessOptions::default(),
             emit: EmitOptions::default(),
+            aliases: AliasOptions::default(),
             clean: true,
             asset_dirs: vec!["public".into(), "assets".into(), "static".into()],
             ignore_dirs: vec![
@@ -140,6 +144,7 @@ impl PreparedPage {
         registry: &FragmentRegistry,
         current: Option<&Value>,
         emit: &EmitOptions,
+        aliases: &AliasOptions,
     ) -> Result<String> {
         let file = self.file();
         bind::render_page_document(
@@ -148,6 +153,7 @@ impl PreparedPage {
             current,
             &self.data,
             emit,
+            aliases,
             Some((file.as_str(), self.html.as_str())),
         )
         .map_err(|e| e.in_file(&file, &self.html))
@@ -194,7 +200,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     log.step(&format!("discover  {sources} sources ({discover_ms}ms)"));
 
     let t = Instant::now();
-    let (registry, prepared, data_sources) = prepare_pages(&pages)?;
+    let (registry, prepared, data_sources) = prepare_pages(&pages, &opts.aliases)?;
     let prepare_ms = t.elapsed().as_millis();
     let fragments = registry.len();
     phases.push(BuildPhase {
@@ -311,7 +317,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     })
 }
 
-fn prepare_pages(pages: &[PageSource]) -> Result<(FragmentRegistry, Vec<PreparedPage>, usize)> {
+fn prepare_pages(pages: &[PageSource], aliases: &AliasOptions) -> Result<(FragmentRegistry, Vec<PreparedPage>, usize)> {
     let mut registry = FragmentRegistry::new();
     let mut prepared = Vec::with_capacity(pages.len());
     let mut data_ids = HashSet::new();
@@ -325,12 +331,13 @@ fn prepare_pages(pages: &[PageSource]) -> Result<(FragmentRegistry, Vec<Prepared
             &doc,
             dir,
             registry.data_cache_mut(),
+            aliases,
             Some((&file, &html)),
         )?;
         for id in data.keys() {
             data_ids.insert(id.clone());
         }
-        registry.load_links_from_document(&doc, dir, Some((&file, &html)))?;
+        registry.load_links_from_document(&doc, dir, aliases, Some((&file, &html)))?;
         prepared.push(PreparedPage {
             source: page.clone(),
             html,
@@ -353,7 +360,7 @@ fn emit_prepared(
     } else {
         match page.source.kind() {
             PageKind::Static => {
-                let rendered = page.render(registry, None, &opts.emit)?;
+                let rendered = page.render(registry, None, &opts.emit, &opts.aliases)?;
                 let out = emit::out_path_for_route(&opts.out_dir, &page.source.route, None);
                 emit::write_html(&out, &rendered)?;
                 Ok(EmitResult {
@@ -462,7 +469,7 @@ fn emit_paginated(
 
     let mut outs = Vec::with_capacity(chunks.len() + usize::from(rule.index));
     for chunk in &chunks {
-        let rendered = page.render(registry, Some(&chunk.value), &opts.emit)?;
+        let rendered = page.render(registry, Some(&chunk.value), &opts.emit, &opts.aliases)?;
         let out = emit::out_path_for_route(
             &opts.out_dir,
             &page.source.route,
@@ -474,7 +481,7 @@ fn emit_paginated(
 
     if rule.index {
         if let Some(first) = chunks.first() {
-            let rendered = page.render(registry, Some(&first.value), &opts.emit)?;
+            let rendered = page.render(registry, Some(&first.value), &opts.emit, &opts.aliases)?;
             let index_route = paginate::index_route(&page.source.route, &param);
             let out = emit::out_path_for_route(&opts.out_dir, &index_route, None);
             emit::write_html(&out, &rendered)?;
@@ -561,7 +568,7 @@ fn emit_collection(
                 format!("duplicate collection value for `[{param}]`: `{folder}`"),
             ));
         }
-        let rendered = page.render(registry, Some(item), &opts.emit)?;
+        let rendered = page.render(registry, Some(item), &opts.emit, &opts.aliases)?;
         let out =
             emit::out_path_for_route(&opts.out_dir, &page.source.route, Some((param, &folder)));
         emit::write_html(&out, &rendered)?;

@@ -21,7 +21,8 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use statica_core::{
-    AssetProcessOptions, BuildOptions, EmitOptions, PaginationRule, RssOptions, SitemapOptions,
+    AliasOptions, AssetProcessOptions, BuildOptions, EmitOptions, PaginationRule, RssOptions,
+    SitemapOptions,
 };
 
 /// Canonical config file name in a statica project root.
@@ -52,6 +53,43 @@ pub struct StaticaConfig {
     /// Preview / watch HTTP server (`serve` + `watch`).
     #[serde(alias = "watch")]
     pub preview: PreviewConfig,
+    /// Path / URL aliases for authoring (`@Name:tail` in hrefs).
+    pub aliases: AliasesConfig,
+}
+
+/// `[aliases]` — `@Name:tail` → resolved URL or path (see `docs/guide.md`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AliasesConfig {
+    /// Leading symbol for alias references (default `@`).
+    pub symbol: String,
+    /// Alias name → base URL or local path prefix.
+    pub paths: std::collections::HashMap<String, String>,
+}
+
+impl Default for AliasesConfig {
+    fn default() -> Self {
+        AliasOptions::default().into()
+    }
+}
+
+impl From<AliasOptions> for AliasesConfig {
+    fn from(opts: AliasOptions) -> Self {
+        Self {
+            symbol: opts.symbol,
+            paths: opts.paths,
+        }
+    }
+}
+
+impl AliasesConfig {
+    #[must_use]
+    pub fn to_core(&self) -> AliasOptions {
+        AliasOptions {
+            symbol: self.symbol.clone(),
+            paths: self.paths.clone(),
+        }
+    }
 }
 
 /// `[emit]` — what to strip / tidy in written HTML.
@@ -170,6 +208,7 @@ impl Default for StaticaConfig {
             rss: RssConfig::default(),
             pagination: Vec::new(),
             preview: PreviewConfig::default(),
+            aliases: AliasesConfig::default(),
         }
     }
 }
@@ -356,6 +395,7 @@ impl StaticaConfig {
             pagination: self.pagination.iter().map(PaginationConfig::to_core).collect(),
             process: self.process.to_core(),
             emit: self.emit.to_core(),
+            aliases: self.aliases.to_core(),
             clean: self.clean,
             asset_dirs: self.asset_dirs.clone(),
             ignore_dirs,
@@ -454,6 +494,14 @@ copy_assets = true
 asset_dirs = ["public", "assets", "static"]
 ignore_dirs = [".dist", "dist", "target", ".git"]
 site_url = ""                  # e.g. "https://example.com" — needed for sitemap/RSS
+
+# Authoring aliases — @Name:tail in hrefs (symbol defaults to @)
+[aliases]
+symbol = "@"
+
+[aliases.paths]
+Google = "https://fonts.googleapis.com/css2"
+# fonts = "./assets/fonts"     # local: @fonts:outfit.css → ./assets/fonts/outfit.css
 
 # HTML emit: strip authoring tags from .dist
 [emit]
@@ -752,6 +800,43 @@ port = 9000
         .unwrap();
         let cfg = StaticaConfig::load(&dir).unwrap();
         assert_eq!(cfg.preview.port, 9000);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn loads_aliases() {
+        let dir = temp_dir();
+        fs::write(
+            dir.join(CONFIG_FILE),
+            r#"
+[aliases]
+symbol = "@"
+
+[aliases.paths]
+Google = "https://fonts.googleapis.com/css2"
+fonts = "./assets/fonts"
+"#,
+        )
+        .unwrap();
+        let cfg = StaticaConfig::load(&dir).unwrap();
+        assert_eq!(cfg.aliases.symbol, "@");
+        assert_eq!(
+            cfg.aliases.paths.get("Google").map(String::as_str),
+            Some("https://fonts.googleapis.com/css2")
+        );
+        assert_eq!(
+            cfg.aliases.paths.get("fonts").map(String::as_str),
+            Some("./assets/fonts")
+        );
+        let opts = cfg.to_build_options(&dir);
+        let resolved = opts
+            .aliases
+            .parse("@Google/?family=Outfit&display=swap")
+            .unwrap();
+        assert_eq!(
+            statica_core::join_alias(resolved.base, resolved.tail),
+            "https://fonts.googleapis.com/css2?family=Outfit&display=swap"
+        );
         let _ = fs::remove_dir_all(dir);
     }
 

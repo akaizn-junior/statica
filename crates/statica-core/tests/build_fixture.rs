@@ -132,6 +132,31 @@ fn select_slot_expands_to_options() {
     assert!(!html.contains("<slot"));
 }
 
+#[test]
+fn font_link_expands_in_build() {
+    let dir = tempfile_dir();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/font" href="@Google/?family=Outfit:wght@400;700&display=swap" />
+  </head>
+  <body><p>Hi</p></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("fonts.googleapis.com/css2?family=Outfit:wght@400;700"));
+    assert!(!html.contains("statica/font"));
+}
+
 fn tempfile_dir() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static N: AtomicU64 = AtomicU64::new(0);

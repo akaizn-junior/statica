@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
+use crate::aliases::{self, AliasOptions};
 use crate::error::{Error, Result};
 use crate::funnel::{self, BindDecl, DataSource};
 use crate::parse::{self, Document, Element, Node};
@@ -53,10 +54,11 @@ impl FragmentRegistry {
         &mut self,
         doc: &Document,
         base_dir: &Path,
+        aliases: &AliasOptions,
         page: Option<(&str, &str)>,
     ) -> Result<()> {
         for (id, href) in funnel::find_fragment_links(doc) {
-            self.ensure_loaded(&id, &href, base_dir, page)?;
+            self.ensure_loaded(&id, &href, base_dir, aliases, page)?;
         }
         Ok(())
     }
@@ -66,6 +68,7 @@ impl FragmentRegistry {
         id: &str,
         href: &str,
         from_dir: &Path,
+        aliases: &AliasOptions,
         page: Option<(&str, &str)>,
     ) -> Result<&Fragment> {
         if self.fragments.contains_key(id) {
@@ -74,19 +77,25 @@ impl FragmentRegistry {
             });
         }
 
-        let path = resolve_path(from_dir, href, page, href)?;
+        let href = aliases::resolve_path(href, aliases, page, "href")?;
+        let path = resolve_local_path(from_dir, &href, page, &href)?;
         let raw = fs::read_to_string(&path)
             .map_err(|e| Error::read(path.display().to_string(), e))?;
         let file = path.display().to_string();
         let file_doc = parse::parse_fragment(&raw).map_err(|e| e.in_file(&file, &raw))?;
         let base_dir = path.parent().unwrap_or(from_dir);
 
-        let data =
-            funnel::load_data_from_document(&file_doc, base_dir, &mut self.data_cache, Some((&file, &raw)))?;
+        let data = funnel::load_data_from_document(
+            &file_doc,
+            base_dir,
+            &mut self.data_cache,
+            aliases,
+            Some((&file, &raw)),
+        )?;
         let nested = funnel::find_fragment_links(&file_doc);
         for (nid, nhref) in &nested {
             if !self.fragments.contains_key(nid) {
-                self.ensure_loaded(nid, nhref, base_dir, Some((&file, &raw)))?;
+                self.ensure_loaded(nid, nhref, base_dir, aliases, Some((&file, &raw)))?;
             }
         }
 
@@ -149,7 +158,7 @@ fn short_hash(s: &str) -> String {
     hex::encode(&hasher.finalize()[..4])
 }
 
-fn resolve_path(
+fn resolve_local_path(
     base_dir: &Path,
     rel: &str,
     page: Option<(&str, &str)>,

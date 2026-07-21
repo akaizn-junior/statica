@@ -193,6 +193,54 @@ Browsers reject `<slot>` inside `<select>`; statica’s **pre** pass rewrites th
 
 Works inside `<optgroup>` too. Emitted HTML is a normal `<select>` with `<option>` children.
 
+## Aliases
+
+Path aliases are defined in `statica.toml`. The symbol defaults to `@`. Reference them with regular path syntax: `@Name/tail`.
+
+```toml
+[aliases]
+symbol = "@"
+
+[aliases.paths]
+Google = "https://fonts.googleapis.com/css2"
+fonts = "./assets/fonts"
+static = "./static"
+```
+
+| Authoring | Resolves to |
+|-----------|-------------|
+| `@Google/?family=Outfit:wght@100..900&display=swap` | `https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap` |
+| `@fonts/outfit.css` | `./assets/fonts/outfit.css` |
+| `@static/app.js` | `./static/app.js` |
+| `./app.js` (no alias) | unchanged |
+
+Aliases resolve at build time on `href`, `src`, `poster`, and `action` — including `statica/data` `src`, `statica/fragment` `href`, and emitted HTML.
+
+## Fonts
+
+Declare fonts with `<link rel="statica/font">`. statica expands them into regular HTML5 `<link rel="stylesheet">` tags (plus preconnect hints for Google Fonts when applicable).
+
+```html
+<link rel="statica/font" href="@Google/?family=Outfit:wght@100..900&display=swap" id="outfit-font" />
+```
+
+Emits:
+
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&amp;display=swap" id="outfit-font" />
+```
+
+Local fonts — point at a CSS file with your own `@font-face` rules (plain path or alias):
+
+```html
+<link rel="statica/font" href="./fonts/outfit.css" />
+<link rel="statica/font" href="@fonts/outfit.css" />
+```
+
+Both expand to `<link rel="stylesheet" href="…">`. Font files are copied via `asset_dirs` as usual.
+
 ## Actions (`$`)
 
 ```html
@@ -262,6 +310,13 @@ copy_assets = true
 asset_dirs = ["public", "assets", "static"]
 ignore_dirs = [".dist", "dist", "target", ".git"]
 site_url = ""                  # needed for sitemap / RSS
+
+[aliases]
+symbol = "@"
+
+[aliases.paths]
+Google = "https://fonts.googleapis.com/css2"
+# fonts = "./assets/fonts"
 
 [emit]
 strip_data = true

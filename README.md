@@ -159,6 +159,7 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 ```html
 <script type="statica/data" src="../content/posts.json" id="posts"></script>
 <link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
+<link rel="statica/font" href="@Google/?family=Outfit:wght@100..900&display=swap" />
 <slot id="post-card" data-bind="."></slot>
 ```
 

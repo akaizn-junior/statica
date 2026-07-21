@@ -31,6 +31,7 @@
     clippy::struct_excessive_bools
 )]
 
+mod aliases;
 mod assets;
 mod bind;
 mod build;
@@ -41,6 +42,7 @@ mod emit;
 mod emit_opts;
 mod error;
 mod feeds;
+mod font;
 mod fragment;
 mod funnel;
 mod loc;
@@ -49,6 +51,7 @@ pub mod parse;
 mod runtime;
 mod scope;
 
+pub use aliases::{join_alias, resolve_path, resolve_paths_in_document, AliasOptions};
 pub use assets::AssetProcessOptions;
 pub use build::{build, rebuild_paths, BuildOptions, BuildPhase, BuildReport, BuildRouteRow};
 pub use build_log::BuildLog;

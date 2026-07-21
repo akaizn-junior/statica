@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
+use crate::aliases::{self, AliasOptions};
 use crate::error::{Error, Result};
 use crate::parse::escape_text;
 use crate::parse::{Document, Element, Node};
@@ -26,6 +27,7 @@ pub fn load_data_from_document(
     doc: &Document,
     base_dir: &Path,
     cache: &mut HashMap<PathBuf, Value>,
+    aliases: &AliasOptions,
     site: Option<(&str, &str)>,
 ) -> Result<HashMap<String, DataSource>> {
     let mut out = HashMap::new();
@@ -51,7 +53,8 @@ pub fn load_data_from_document(
                 ));
             }
         };
-        let path = resolve_path(base_dir, src, site, src)?;
+        let src = aliases::resolve_path(src, aliases, site, "src")?;
+        let path = resolve_local_path(base_dir, &src, site, &src)?;
         let value = if let Some(v) = cache.get(&path) {
             v.clone()
         } else {
@@ -210,7 +213,7 @@ pub fn resolve_expr(
     Ok(value)
 }
 
-fn resolve_path(
+fn resolve_local_path(
     base_dir: &Path,
     rel: &str,
     site: Option<(&str, &str)>,
