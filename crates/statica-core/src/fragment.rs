@@ -19,7 +19,10 @@ pub struct Fragment {
     /// Bind scope from `<template data-bind="name">` or `data-bind="{a, b}"`.
     pub bind: BindDecl,
     pub scope_id: String,
+    /// Non-locale funnel sources loaded at registry time.
     pub data: HashMap<String, DataSource>,
+    /// Whether the fragment declares funnel sources with `${locale}` in `src`.
+    pub has_locale_data: bool,
 }
 
 pub struct FragmentRegistry {
@@ -130,6 +133,7 @@ impl FragmentRegistry {
         funnel::validate_template_binds(id, &bind, &template_el.children, bind_source)?;
         let hash = short_hash(&raw);
         let scope_id = format!("{id}-{hash}");
+        let has_locale_data = funnel::document_has_locale_data(&file_doc);
 
         let frag = Fragment {
             id: id.to_string(),
@@ -138,11 +142,46 @@ impl FragmentRegistry {
             bind,
             scope_id,
             data,
+            has_locale_data,
         };
         self.fragments.insert(id.to_string(), frag);
         self.fragments.get(id).ok_or_else(|| {
             Error::at_file("<registry>", format!("missing fragment id `{id}`"))
         })
+    }
+
+    /// Merge static fragment funnel data with locale-specific sources when the parent page locale is known.
+    pub fn resolve_fragment_data(
+        &self,
+        frag: &Fragment,
+        locale: Option<&str>,
+        data_cache: &mut HashMap<PathBuf, serde_json::Value>,
+        aliases: &AliasOptions,
+    ) -> Result<HashMap<String, DataSource>> {
+        let mut data = frag.data.clone();
+        if !frag.has_locale_data {
+            return Ok(data);
+        }
+        let Some(loc) = locale else {
+            return Ok(data);
+        };
+        let raw = fs::read_to_string(&frag.path)
+            .map_err(|e| Error::read(frag.path.display().to_string(), e))?;
+        let file = frag.path.display().to_string();
+        let file_doc = parse::parse_fragment(&raw).map_err(|e| e.in_file(&file, &raw))?;
+        let base_dir = frag.path.parent().unwrap_or_else(|| Path::new("."));
+        let locale_data = funnel::load_locale_data_from_document(
+            &file_doc,
+            base_dir,
+            data_cache,
+            aliases,
+            loc,
+            Some((&file, &raw)),
+        )?;
+        for (id, source) in locale_data {
+            data.insert(id, source);
+        }
+        Ok(data)
     }
 }
 

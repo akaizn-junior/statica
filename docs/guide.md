@@ -326,6 +326,8 @@ Funnel sources can include `${locale}` in `src` to load per-locale content files
 
 With `content/posts.en.json` and `content/posts.pt.json`, each locale expansion loads its own file. Array keys in `content/i18n/{locale}.json` still override funnel data for that locale (useful when content lives in the catalog instead of separate files).
 
+Fragments inherit the parent page locale automatically — no extra attributes on `<slot>` or fragment templates. `data-t` in a fragment translates when the page is emitted under `[locale]/…`; on pages without a locale route, `data-t` is stripped and the inner fallback text is kept.
+
 CLI:
 
 ```bash

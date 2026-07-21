@@ -273,6 +273,16 @@ pub fn apply_data_t(nodes: &mut [Node], catalog: &Value) {
     }
 }
 
+/// Remove `data-t` without translating — used when the parent page has no active locale.
+pub fn strip_data_t(nodes: &mut [Node]) {
+    for node in nodes {
+        if let Node::Element(el) = node {
+            el.attrs.shift_remove("data-t");
+            strip_data_t(&mut el.children);
+        }
+    }
+}
+
 fn direct_text_content(nodes: &[Node]) -> String {
     nodes
         .iter()
@@ -321,6 +331,23 @@ mod tests {
         assert!(opts.route_has_locale(["locale"]));
         assert!(opts.route_has_locale(["locale", "slug"]));
         assert!(!opts.route_has_locale(["slug"]));
+    }
+
+    #[test]
+    fn strip_data_t_removes_attr_keeps_content() {
+        let mut nodes = vec![Node::Element(Element {
+            name: "button".into(),
+            attrs: IndexMap::from([("data-t".into(), "label".into())]),
+            children: vec![Node::Text("Send".into())],
+            void: false,
+        })];
+        strip_data_t(&mut nodes);
+        let el = match &nodes[0] {
+            Node::Element(e) => e,
+            _ => panic!("expected element"),
+        };
+        assert!(!el.attrs.contains_key("data-t"));
+        assert!(matches!(&el.children[0], Node::Text(t) if t == "Send"));
     }
 
     #[test]

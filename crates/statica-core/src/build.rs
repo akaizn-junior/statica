@@ -243,7 +243,7 @@ impl PreparedPage {
         let file = self.file();
         let mut doc = self.doc.clone();
         let active_locale = self.active_locale(locale, i18n);
-        let catalog = active_locale.map(|loc| i18n_catalogs.for_locale(loc, i18n));
+        let catalog = locale.map(|loc| i18n_catalogs.for_locale(loc, i18n));
         if let Some(loc) = active_locale {
             i18n::set_html_lang(&mut doc, loc);
         }
@@ -256,7 +256,9 @@ impl PreparedPage {
             emit,
             aliases,
             forms,
+            locale,
             catalog.as_ref(),
+            data_cache,
             Some((file.as_str(), self.html.as_str())),
         )
         .map_err(|e| e.in_file(&file, &self.html))

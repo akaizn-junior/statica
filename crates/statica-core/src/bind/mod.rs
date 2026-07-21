@@ -4,6 +4,7 @@ mod attrs;
 mod slots;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use serde_json::Value;
 
@@ -27,7 +28,9 @@ pub fn render_page_document(
     emit: &EmitOptions,
     aliases: &AliasOptions,
     forms: &FormsOptions,
+    locale: Option<&str>,
     i18n_catalog: Option<&Value>,
+    data_cache: &mut HashMap<PathBuf, Value>,
     site: Option<(&str, &str)>,
 ) -> Result<String> {
     let mut doc = doc.clone();
@@ -40,11 +43,16 @@ pub fn render_page_document(
         &mut doc.children,
         current,
         page_data,
+        locale,
         i18n_catalog,
+        data_cache,
+        aliases,
         site,
     )?;
     if let Some(catalog) = i18n_catalog {
         i18n::apply_data_t(&mut doc.children, catalog);
+    } else {
+        i18n::strip_data_t(&mut doc.children);
     }
     crate::aliases::resolve_paths_in_document(&mut doc, aliases, site)?;
     crate::font::expand_font_links(&mut doc, aliases, site)?;
@@ -87,7 +95,10 @@ pub fn expand_usage_slots_in_nodes(
     nodes: &mut Vec<Node>,
     current: Option<&Value>,
     data_map: &HashMap<String, DataSource>,
+    locale: Option<&str>,
     i18n_catalog: Option<&Value>,
+    data_cache: &mut HashMap<PathBuf, Value>,
+    aliases: &AliasOptions,
     site: Option<(&str, &str)>,
 ) -> Result<()> {
     let mut i = 0;
@@ -107,7 +118,19 @@ pub fn expand_usage_slots_in_nodes(
             let rendered = if let Some(each_expr) = each {
                 let list = funnel::resolve_expr(&each_expr, current, data_map, data_map)
                     .map_err(|e| relocate_data_err(e, site, &each_expr))?;
-                render_each(registry, &id, &list, data_map, &children_nodes, i18n_catalog, site, &each_expr)?
+                render_each(
+                    registry,
+                    &id,
+                    &list,
+                    data_map,
+                    &children_nodes,
+                    locale,
+                    i18n_catalog,
+                    data_cache,
+                    aliases,
+                    site,
+                    &each_expr,
+                )?
             } else {
                 let value = match bind.as_deref() {
                     None | Some("") => Value::Null,
@@ -120,7 +143,10 @@ pub fn expand_usage_slots_in_nodes(
                     &value,
                     data_map,
                     &children_nodes,
+                    locale,
                     i18n_catalog,
+                    data_cache,
+                    aliases,
                     site,
                 )?
             };
@@ -135,7 +161,10 @@ pub fn expand_usage_slots_in_nodes(
                 &mut el.children,
                 current,
                 data_map,
+                locale,
                 i18n_catalog,
+                data_cache,
+                aliases,
                 site,
             )?;
         }
@@ -163,7 +192,10 @@ fn render_each(
     list: &Value,
     data_map: &HashMap<String, DataSource>,
     children: &[Node],
+    locale: Option<&str>,
     i18n_catalog: Option<&Value>,
+    data_cache: &mut HashMap<PathBuf, Value>,
+    aliases: &AliasOptions,
     site: Option<(&str, &str)>,
     each_expr: &str,
 ) -> Result<Vec<Node>> {
@@ -185,7 +217,16 @@ fn render_each(
     let mut out = Vec::new();
     for item in arr {
         out.extend(render_fragment_nodes(
-            registry, id, item, data_map, children, i18n_catalog, site,
+            registry,
+            id,
+            item,
+            data_map,
+            children,
+            locale,
+            i18n_catalog,
+            data_cache,
+            aliases,
+            site,
         )?);
     }
     Ok(out)
@@ -197,7 +238,10 @@ fn render_fragment_nodes(
     prop_value: &Value,
     parent_data: &HashMap<String, DataSource>,
     children: &[Node],
+    locale: Option<&str>,
     i18n_catalog: Option<&Value>,
+    data_cache: &mut HashMap<PathBuf, Value>,
+    aliases: &AliasOptions,
     site: Option<(&str, &str)>,
 ) -> Result<Vec<Node>> {
     let frag = registry.get(id).ok_or_else(|| {
@@ -214,8 +258,9 @@ fn render_fragment_nodes(
         }
     })?;
 
+    let frag_data = registry.resolve_fragment_data(frag, locale, data_cache, aliases)?;
     let mut local = parent_data.clone();
-    for (k, v) in &frag.data {
+    for (k, v) in &frag_data {
         local.insert(k.clone(), v.clone());
     }
 
@@ -233,11 +278,16 @@ fn render_fragment_nodes(
         &mut nodes,
         Some(prop_value),
         &local,
+        locale,
         i18n_catalog,
+        data_cache,
+        aliases,
         site,
     )?;
     if let Some(catalog) = i18n_catalog {
         i18n::apply_data_t(&mut nodes, catalog);
+    } else {
+        i18n::strip_data_t(&mut nodes);
     }
     Ok(nodes)
 }

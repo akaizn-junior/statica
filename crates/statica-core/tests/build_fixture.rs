@@ -413,6 +413,78 @@ fn i18n_loads_locale_specific_funnel_data() {
 }
 
 #[test]
+fn i18n_fragment_inherits_parent_locale_for_data_t() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("[locale]/about")).unwrap();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::create_dir_all(dir.join("content/i18n")).unwrap();
+    std::fs::write(
+        dir.join("content/i18n/en.json"),
+        r#"{"cta": "Contact us"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/i18n/pt.json"),
+        r#"{"cta": "Contacte-nos"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("ui/button.html"),
+        r#"<template id="button">
+  <button type="button"><span data-t="cta">Contact</span></button>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("[locale]/about/index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <body>
+    <link rel="statica/fragment" type="text/html" href="../../ui/button.html" id="button" />
+    <slot id="button"></slot>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <body>
+    <link rel="statica/fragment" type="text/html" href="./ui/button.html" id="button" />
+    <slot id="button"></slot>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.i18n = statica_core::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into(), "pt".into()],
+        ..Default::default()
+    };
+
+    build(&opts).expect("build");
+
+    let en = std::fs::read_to_string(dir.join("dist/en/about/index.html")).unwrap();
+    assert!(en.contains("Contact us"));
+    assert!(!en.contains("data-t"));
+
+    let pt = std::fs::read_to_string(dir.join("dist/pt/about/index.html")).unwrap();
+    assert!(pt.contains("Contacte-nos"));
+    assert!(!pt.contains("data-t"));
+
+    let home = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(home.contains("Contact"));
+    assert!(!home.contains("data-t"));
+    assert!(!home.contains("Contact us"));
+}
+
+#[test]
 fn minifies_final_html_output() {
     let dir = tempfile_dir();
     std::fs::write(
