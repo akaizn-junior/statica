@@ -328,6 +328,8 @@ With `content/posts.en.json` and `content/posts.pt.json`, each locale expansion 
 
 Fragments inherit the parent page locale automatically — no extra attributes on `<slot>` or fragment templates. `data-t` in a fragment translates when the page is emitted under `[locale]/…`; on pages without a locale route, `data-t` is stripped and the inner fallback text is kept.
 
+When the paginated/collection data source is shared across locales (no `${locale}` in its funnel `src`, no per-locale catalog array override), statica sorts and chunks **once**, then renders each locale — so 100 locales do not repeat sort/chunk work.
+
 CLI:
 
 ```bash

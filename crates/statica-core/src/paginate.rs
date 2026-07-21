@@ -205,6 +205,46 @@ pub fn chunk_items(
     out
 }
 
+/// Rewrite pagination nav paths/hrefs for a concrete locale (`[locale]` → `en`, etc.).
+#[must_use]
+pub fn apply_locale_to_chunk(chunk: &PageChunk, locale: &str) -> PageChunk {
+    let mut value = chunk.value.clone();
+    let Some(obj) = value.as_object_mut() else {
+        return chunk.clone();
+    };
+    for key in [
+        "path",
+        "href",
+        "prev_href",
+        "next_href",
+        "first_href",
+        "last_href",
+    ] {
+        if let Some(s) = obj.get(key).and_then(Value::as_str) {
+            obj.insert(key.into(), Value::String(localize_route_token(s, locale)));
+        }
+    }
+    if let Some(pages) = obj.get_mut("pages").and_then(Value::as_array_mut) {
+        for link in pages {
+            if let Some(link) = link.as_object_mut() {
+                for key in ["path", "href"] {
+                    if let Some(s) = link.get(key).and_then(Value::as_str) {
+                        link.insert(key.into(), Value::String(localize_route_token(s, locale)));
+                    }
+                }
+            }
+        }
+    }
+    PageChunk {
+        page: chunk.page.clone(),
+        value,
+    }
+}
+
+fn localize_route_token(s: &str, locale: &str) -> String {
+    s.replace("[locale]", locale)
+}
+
 fn build_page_links(route: &str, param: &str, total_pages: usize) -> Vec<Value> {
     (1..=total_pages)
         .map(|n| {
@@ -321,5 +361,15 @@ mod tests {
         assert_eq!(index_route("blog/[page]", "page"), "blog");
         assert_eq!(index_route("posts/page/[page]", "page"), "posts/page");
         assert_eq!(index_route("[page]", "page"), "");
+    }
+
+    #[test]
+    fn apply_locale_to_chunk_rewrites_hrefs() {
+        let items: Vec<Value> = (1..=4).map(|n| json!({ "n": n })).collect();
+        let pages = chunk_items(&items, &rule(2), "[locale]/blog/[page]", "page");
+        let localized = apply_locale_to_chunk(&pages[0], "en");
+        assert_eq!(localized.value["path"], "en/blog/1");
+        assert_eq!(localized.value["href"], "/en/blog/1/");
+        assert_eq!(localized.value["next_href"], "/en/blog/2/");
     }
 }

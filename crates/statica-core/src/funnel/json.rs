@@ -31,6 +31,18 @@ pub fn document_has_locale_data(doc: &Document) -> bool {
     })
 }
 
+/// Whether a specific funnel `<script type="statica/data" id="…">` uses `${locale}` in `src`.
+pub fn data_script_has_locale_token(doc: &Document, id: &str) -> bool {
+    doc.find(|e| is_data_script(e)).into_iter().any(|el| {
+        el.attr("id") == Some(id)
+            && el
+                .attr("src")
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .is_some_and(i18n::src_has_locale_token)
+    })
+}
+
 pub fn load_data_from_document(
     doc: &Document,
     base_dir: &Path,

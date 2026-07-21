@@ -485,6 +485,77 @@ fn i18n_fragment_inherits_parent_locale_for_data_t() {
 }
 
 #[test]
+fn i18n_pagination_chunks_once_for_shared_data() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("[locale]/blog/[page]")).unwrap();
+    std::fs::create_dir_all(dir.join("content/i18n")).unwrap();
+    std::fs::write(
+        dir.join("content/posts.json"),
+        r#"[
+  {"slug":"a","headline":"Alpha","published_at":"2026-07-03"},
+  {"slug":"b","headline":"Beta","published_at":"2026-07-02"},
+  {"slug":"c","headline":"Gamma","published_at":"2026-07-01"}
+]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/i18n/en.json"),
+        r#"{"blog_title": "Blog"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/i18n/pt.json"),
+        r#"{"blog_title": "Blogue"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("[locale]/blog/[page]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="posts">
+  <head>
+    <script type="statica/data" src="../../../content/posts.json" id="posts"></script>
+    <title data-t="blog_title">Blog</title>
+  </head>
+  <body>
+    <h1 data-t="blog_title">Blog</h1>
+    <p>Page <slot name="page"></slot> of <slot name="total_pages"></slot></p>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.i18n = statica_core::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into(), "pt".into()],
+        ..Default::default()
+    };
+    opts.pagination = vec![statica_core::PaginationRule {
+        route: "[locale]/blog/[page]".into(),
+        page_size: 2,
+        sort_by: "published_at".into(),
+        sort_desc: true,
+        ..Default::default()
+    }];
+
+    build(&opts).expect("build");
+
+    let en_p1 = std::fs::read_to_string(dir.join("dist/en/blog/1/index.html")).unwrap();
+    assert!(en_p1.contains("<title>Blog</title>"));
+    assert!(en_p1.contains("Page 1 of 2"));
+
+    let pt_p2 = std::fs::read_to_string(dir.join("dist/pt/blog/2/index.html")).unwrap();
+    assert!(pt_p2.contains("<title>Blogue</title>"));
+    assert!(pt_p2.contains("Page 2 of 2"));
+
+    assert!(dir.join("dist/en/blog/2/index.html").exists());
+    assert!(dir.join("dist/pt/blog/1/index.html").exists());
+}
+
+#[test]
 fn minifies_final_html_output() {
     let dir = tempfile_dir();
     std::fs::write(
