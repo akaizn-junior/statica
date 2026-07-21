@@ -1,6 +1,6 @@
 {
   "name": "@statica/cli",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "statica — Powered HTML (CLI launcher for npm)",
   "license": "MIT",
   "type": "commonjs",
@@ -33,11 +33,11 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@statica/cli-darwin-arm64": "0.9.2",
-    "@statica/cli-darwin-x64": "0.9.2",
-    "@statica/cli-linux-x64-gnu": "0.9.2",
-    "@statica/cli-linux-arm64-gnu": "0.9.2",
-    "@statica/cli-win32-x64": "0.9.2"
+    "@statica/cli-darwin-arm64": "0.9.3",
+    "@statica/cli-darwin-x64": "0.9.3",
+    "@statica/cli-linux-x64-gnu": "0.9.3",
+    "@statica/cli-linux-arm64-gnu": "0.9.3",
+    "@statica/cli-win32-x64": "0.9.3"
   },
   "publishConfig": {
     "access": "public"
