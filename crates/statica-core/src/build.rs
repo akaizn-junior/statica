@@ -15,6 +15,7 @@ use serde_json::Value;
 
 use crate::assets::AssetProcessOptions;
 use crate::bind;
+use crate::build_log::BuildLog;
 use crate::discover::{self, PageKind, PageSource};
 use crate::emit;
 use crate::error::{Error, Result};
@@ -45,6 +46,8 @@ pub struct BuildOptions {
     pub clean: bool,
     pub asset_dirs: Vec<String>,
     pub ignore_dirs: Vec<String>,
+    /// Emit step lines to stderr during the build (CLI: `--verbose`).
+    pub verbose: bool,
 }
 
 impl BuildOptions {
@@ -70,12 +73,35 @@ impl BuildOptions {
                 ".git".into(),
             ],
             root,
+            verbose: false,
         }
     }
 
     fn pagination_for(&self, route: &str) -> Option<&PaginationRule> {
         self.pagination.iter().find(|r| r.route == route)
     }
+
+    fn log(&self) -> BuildLog {
+        BuildLog::new(self.verbose)
+    }
+}
+
+/// One timed pipeline step (for `--verbose` summary).
+#[derive(Debug, Clone)]
+pub struct BuildPhase {
+    pub name: &'static str,
+    pub duration_ms: u128,
+    pub detail: String,
+}
+
+/// Pages emitted for one discovered source route.
+#[derive(Debug, Clone)]
+pub struct BuildRouteRow {
+    pub route: String,
+    pub kind: PageKind,
+    /// True when expanded via `[[pagination]]` (still a `[param]` source route).
+    pub paginated: bool,
+    pub pages: usize,
 }
 
 #[derive(Debug, Default)]
@@ -85,6 +111,11 @@ pub struct BuildReport {
     pub warnings: Vec<Diagnostic>,
     pub duration_ms: u128,
     pub outputs: Vec<PathBuf>,
+    pub phases: Vec<BuildPhase>,
+    pub routes: Vec<BuildRouteRow>,
+    pub sources: usize,
+    pub fragments: usize,
+    pub data_sources: usize,
 }
 
 struct PreparedPage {
@@ -92,6 +123,11 @@ struct PreparedPage {
     html: String,
     doc: Document,
     data: std::collections::HashMap<String, DataSource>,
+}
+
+struct EmitResult {
+    outputs: Vec<PathBuf>,
+    route: BuildRouteRow,
 }
 
 impl PreparedPage {
@@ -124,45 +160,105 @@ impl PreparedPage {
     fn warn(&self, needles: &[&str], message: impl Into<String>) -> Diagnostic {
         Diagnostic::at(&self.file(), &self.html, needles, message)
     }
+
+    fn route_row(&self, pages: usize, kind: PageKind, paginated: bool) -> BuildRouteRow {
+        BuildRouteRow {
+            route: self.source.route.clone(),
+            kind,
+            paginated,
+            pages,
+        }
+    }
 }
 
 pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     let started = Instant::now();
+    let log = opts.log();
+    let mut phases = Vec::new();
 
     if opts.clean && opts.out_dir.exists() {
+        log.step("clean  output directory");
         fs::remove_dir_all(&opts.out_dir)?;
     }
     fs::create_dir_all(&opts.out_dir)?;
 
+    let t = Instant::now();
     let pages = discover::discover_pages(&opts.root, &opts.ignore_dirs)?;
-    let (registry, prepared) = prepare_pages(&pages)?;
-    let registry = Arc::new(registry);
+    let discover_ms = t.elapsed().as_millis();
+    let sources = pages.len();
+    phases.push(BuildPhase {
+        name: "discover",
+        duration_ms: discover_ms,
+        detail: format!("{sources} sources"),
+    });
+    log.step(&format!("discover  {sources} sources ({discover_ms}ms)"));
 
+    let t = Instant::now();
+    let (registry, prepared, data_sources) = prepare_pages(&pages)?;
+    let prepare_ms = t.elapsed().as_millis();
+    let fragments = registry.len();
+    phases.push(BuildPhase {
+        name: "funnel",
+        duration_ms: prepare_ms,
+        detail: format!("{data_sources} data, {fragments} fragments"),
+    });
+    log.step(&format!(
+        "funnel  {data_sources} data, {fragments} fragments ({prepare_ms}ms)"
+    ));
+
+    let registry = Arc::new(registry);
+    let route_rows = Mutex::new(Vec::with_capacity(prepared.len()));
     let warnings = Mutex::new(Vec::new());
-    let results: Vec<Result<Vec<PathBuf>>> = prepared
+
+    let t = Instant::now();
+    let results: Vec<Result<EmitResult>> = prepared
         .par_iter()
-        .map(|page| emit_prepared(opts, page, &registry, &warnings))
+        .map(|page| emit_prepared(opts, page, &registry, &warnings, &route_rows))
         .collect();
+    let emit_ms = t.elapsed().as_millis();
 
     let mut outputs = Vec::new();
     for chunk in results {
-        outputs.extend(chunk?);
+        outputs.extend(chunk?.outputs);
     }
+    phases.push(BuildPhase {
+        name: "emit",
+        duration_ms: emit_ms,
+        detail: format!("{} pages", outputs.len()),
+    });
+    log.step(&format!("emit  {} pages ({emit_ms}ms)", outputs.len()));
 
     let mut warnings = warnings
         .into_inner()
         .map_err(|_| Error::at_file("<build>", "warnings mutex poisoned"))?;
+    let mut routes = route_rows
+        .into_inner()
+        .map_err(|_| Error::at_file("<build>", "route summary mutex poisoned"))?;
+    routes.sort_by(|a, b| a.route.cmp(&b.route));
 
     let mut assets_processed = 0;
     if opts.copy_assets {
+        let t = Instant::now();
         let assets = emit::copy_static_assets(
             &opts.root,
             &opts.out_dir,
             &opts.asset_dirs,
             &opts.process,
         )?;
+        let assets_ms = t.elapsed().as_millis();
         assets_processed = assets.processed;
         warnings.extend(assets.warnings);
+        let detail = if opts.process.enabled {
+            format!("{} processed", assets_processed)
+        } else {
+            format!("{} copied", assets.copied)
+        };
+        phases.push(BuildPhase {
+            name: "assets",
+            duration_ms: assets_ms,
+            detail,
+        });
+        log.step(&format!("assets  {} ({assets_ms}ms)", phases.last().unwrap().detail));
     }
 
     let feed_pages: Vec<FeedPage<'_>> = prepared
@@ -173,14 +269,33 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
             collection_id: feeds::collection_id_for_page(&p.doc),
         })
         .collect();
-    warnings.extend(feeds::write_feeds(
-        &opts.out_dir,
-        &opts.site_url,
-        &opts.sitemap,
-        &opts.rss,
-        &outputs,
-        &feed_pages,
-    )?);
+
+    let mut feed_detail = Vec::new();
+    if opts.sitemap.enabled {
+        feed_detail.push("sitemap");
+    }
+    if opts.rss.enabled {
+        feed_detail.push("rss");
+    }
+    if !feed_detail.is_empty() {
+        let t = Instant::now();
+        warnings.extend(feeds::write_feeds(
+            &opts.out_dir,
+            &opts.site_url,
+            &opts.sitemap,
+            &opts.rss,
+            &outputs,
+            &feed_pages,
+        )?);
+        let feeds_ms = t.elapsed().as_millis();
+        let detail = feed_detail.join(", ");
+        phases.push(BuildPhase {
+            name: "feeds",
+            duration_ms: feeds_ms,
+            detail: detail.to_string(),
+        });
+        log.step(&format!("feeds  {detail} ({feeds_ms}ms)"));
+    }
 
     Ok(BuildReport {
         pages_written: outputs.len(),
@@ -188,12 +303,18 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
         warnings,
         duration_ms: started.elapsed().as_millis(),
         outputs,
+        phases,
+        routes,
+        sources,
+        fragments,
+        data_sources,
     })
 }
 
-fn prepare_pages(pages: &[PageSource]) -> Result<(FragmentRegistry, Vec<PreparedPage>)> {
+fn prepare_pages(pages: &[PageSource]) -> Result<(FragmentRegistry, Vec<PreparedPage>, usize)> {
     let mut registry = FragmentRegistry::new();
     let mut prepared = Vec::with_capacity(pages.len());
+    let mut data_ids = HashSet::new();
 
     for page in pages {
         let file = page.path.display().to_string();
@@ -206,6 +327,9 @@ fn prepare_pages(pages: &[PageSource]) -> Result<(FragmentRegistry, Vec<Prepared
             registry.data_cache_mut(),
             Some((&file, &html)),
         )?;
+        for id in data.keys() {
+            data_ids.insert(id.clone());
+        }
         registry.load_links_from_document(&doc, dir, Some((&file, &html)))?;
         prepared.push(PreparedPage {
             source: page.clone(),
@@ -214,7 +338,7 @@ fn prepare_pages(pages: &[PageSource]) -> Result<(FragmentRegistry, Vec<Prepared
             data,
         });
     }
-    Ok((registry, prepared))
+    Ok((registry, prepared, data_ids.len()))
 }
 
 fn emit_prepared(
@@ -222,19 +346,29 @@ fn emit_prepared(
     page: &PreparedPage,
     registry: &FragmentRegistry,
     warnings: &Mutex<Vec<Diagnostic>>,
-) -> Result<Vec<PathBuf>> {
-    if let Some(rule) = opts.pagination_for(&page.source.route) {
-        return emit_paginated(opts, page, registry, rule, warnings);
-    }
-    match page.source.kind() {
-        PageKind::Static => {
-            let rendered = page.render(registry, None, &opts.emit)?;
-            let out = emit::out_path_for_route(&opts.out_dir, &page.source.route, None);
-            emit::write_html(&out, &rendered)?;
-            Ok(vec![out])
+    route_rows: &Mutex<Vec<BuildRouteRow>>,
+) -> Result<EmitResult> {
+    let result = if let Some(rule) = opts.pagination_for(&page.source.route) {
+        emit_paginated(opts, page, registry, rule, warnings)
+    } else {
+        match page.source.kind() {
+            PageKind::Static => {
+                let rendered = page.render(registry, None, &opts.emit)?;
+                let out = emit::out_path_for_route(&opts.out_dir, &page.source.route, None);
+                emit::write_html(&out, &rendered)?;
+                Ok(EmitResult {
+                    outputs: vec![out],
+                    route: page.route_row(1, PageKind::Static, false),
+                })
+            }
+            PageKind::Collection => emit_collection(opts, page, registry, warnings),
         }
-        PageKind::Collection => emit_collection(opts, page, registry, warnings),
-    }
+    }?;
+    route_rows
+        .lock()
+        .map_err(|_| Error::at_file("<build>", "route summary mutex poisoned"))?
+        .push(result.route.clone());
+    Ok(result)
 }
 
 fn html_data_bind(doc: &Document) -> Option<String> {
@@ -259,7 +393,7 @@ fn emit_paginated(
     registry: &FragmentRegistry,
     rule: &PaginationRule,
     warnings: &Mutex<Vec<Diagnostic>>,
-) -> Result<Vec<PathBuf>> {
+) -> Result<EmitResult> {
     let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
         page.at(
             &["<html", "data-bind"],
@@ -320,7 +454,10 @@ fn emit_paginated(
             &needle_refs,
             format!("pagination `{collection_id}` is empty — 0 pages emitted"),
         ));
-        return Ok(Vec::new());
+        return Ok(EmitResult {
+            outputs: Vec::new(),
+            route: page.route_row(0, PageKind::Collection, true),
+        });
     }
 
     let mut outs = Vec::with_capacity(chunks.len() + usize::from(rule.index));
@@ -345,7 +482,14 @@ fn emit_paginated(
         }
     }
 
-    Ok(outs)
+    Ok(EmitResult {
+        outputs: outs,
+        route: page.route_row(
+            chunks.len() + usize::from(rule.index),
+            PageKind::Collection,
+            true,
+        ),
+    })
 }
 
 fn emit_collection(
@@ -353,7 +497,7 @@ fn emit_collection(
     page: &PreparedPage,
     registry: &FragmentRegistry,
     warnings: &Mutex<Vec<Diagnostic>>,
-) -> Result<Vec<PathBuf>> {
+) -> Result<EmitResult> {
     let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
         page.at(
             &["<html", "data-bind"],
@@ -391,7 +535,10 @@ fn emit_collection(
             &needle_refs,
             format!("collection `{collection_id}` is empty — 0 pages emitted"),
         ));
-        return Ok(Vec::new());
+        return Ok(EmitResult {
+            outputs: Vec::new(),
+            route: page.route_row(0, PageKind::Collection, false),
+        });
     }
 
     let param = page.source.params.first().ok_or_else(|| {
@@ -420,7 +567,11 @@ fn emit_collection(
         emit::write_html(&out, &rendered)?;
         outs.push(out);
     }
-    Ok(outs)
+    let count = outs.len();
+    Ok(EmitResult {
+        outputs: outs,
+        route: page.route_row(count, PageKind::Collection, false),
+    })
 }
 
 pub fn rebuild_paths(opts: &BuildOptions, changed: &[PathBuf]) -> Result<BuildReport> {

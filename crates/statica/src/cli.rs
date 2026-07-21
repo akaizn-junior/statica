@@ -169,6 +169,7 @@ Examples:
   statica build
   statica build examples/blog
   statica build --process --no-sitemap --rss-limit 20
+  statica build --verbose             Step logs + route summary
 
 Notes:
   Full builds clean out_dir when clean = true (default; --no-clean to keep).
@@ -208,6 +209,8 @@ Examples:
   statica watch . -p 9000 --process
 
 Notes:
+  Build logs are shown by default; pass `--silent` to hide them.
+  Use `statica build --verbose` for one-off builds with logs.
   --host / --port / --process and other config flags override statica.toml.
   Defaults: host 0.0.0.0, port 4321.
   Prints Local + Network (LAN) URLs for phone testing.";

@@ -32,6 +32,7 @@
 mod assets;
 mod bind;
 mod build;
+mod build_log;
 pub mod css;
 mod discover;
 mod emit;
@@ -47,7 +48,8 @@ mod runtime;
 mod scope;
 
 pub use assets::AssetProcessOptions;
-pub use build::{build, rebuild_paths, BuildOptions, BuildReport};
+pub use build::{build, rebuild_paths, BuildOptions, BuildPhase, BuildReport, BuildRouteRow};
+pub use build_log::BuildLog;
 pub use css::{transform_and_scope, transform_css};
 pub use discover::PageKind;
 pub use emit_opts::EmitOptions;

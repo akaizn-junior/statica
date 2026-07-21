@@ -13,7 +13,7 @@ use super::{preview, util};
 
 pub async fn run(dir: &Path, overrides: &ConfigCli) -> Result<()> {
     let (root, config) = util::load_project(dir, overrides)?;
-    let opts = config.to_build_options(&root);
+    let opts = util::build_options(&config, &root, overrides, true);
     let host = config.preview.host_addr()?;
     let port = config.preview.port;
 
@@ -24,7 +24,7 @@ pub async fn run(dir: &Path, overrides: &ConfigCli) -> Result<()> {
     );
 
     let report = util::run_build(&opts)?;
-    util::log_build(&report, &opts.out_dir, "built");
+    util::log_build(&report, &opts.out_dir, "Built", opts.verbose);
 
     start_watcher(root.clone(), opts.clone(), &config.preview)?;
     preview::serve_dir(&opts.out_dir, host, port).await
@@ -95,7 +95,9 @@ fn start_watcher(root: PathBuf, opts: BuildOptions, preview_cfg: &PreviewConfig)
                 let mut rebuild_opts = opts.clone();
                 rebuild_opts.clean = false;
                 match util::run_rebuild(&rebuild_opts, &changed) {
-                    Ok(report) => util::log_build(&report, &rebuild_opts.out_dir, "rebuilt"),
+                    Ok(report) => {
+                        util::log_build(&report, &rebuild_opts.out_dir, "Rebuilt", rebuild_opts.verbose)
+                    }
                     Err(e) => eprintln!("{} {e:#}", style::error("rebuild failed:")),
                 }
             }

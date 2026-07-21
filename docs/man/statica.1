@@ -4,7 +4,7 @@
 .SH NAME
 statica \- statica — Powered HTML
 .SH SYNOPSIS
-\fBstatica\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-emit\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
+\fBstatica\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-emit\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
 statica — Powered HTML
 .PP
@@ -114,6 +114,14 @@ Preview bind address (alias for \-\-preview host=…)
 .TP
 \fB\-p\fR, \fB\-\-port\fR \fI<PORT>\fR
 Preview server port (alias for \-\-preview port=…)
+.TP
+\fB\-V\fR, \fB\-\-verbose\fR
+Print pipeline step timings during the build and a Next.js\-style route table at the end.
+`statica build` is silent by default; `statica watch` shows logs by default.
+.TP
+\fB\-\-silent\fR
+Hide build step logs and the route summary.
+`statica watch` shows logs by default; pass `\-\-silent` to turn them off.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)

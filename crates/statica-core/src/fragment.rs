@@ -40,6 +40,11 @@ impl FragmentRegistry {
         self.fragments.get(id)
     }
 
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.fragments.len()
+    }
+
     pub fn data_cache_mut(&mut self) -> &mut HashMap<PathBuf, serde_json::Value> {
         &mut self.data_cache
     }

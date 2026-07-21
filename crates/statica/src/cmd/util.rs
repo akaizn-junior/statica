@@ -15,7 +15,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use statica_core::{build, rebuild_paths, BuildOptions, BuildReport, Diagnostic};
+use statica_core::{build, rebuild_paths, BuildOptions, BuildReport, BuildRouteRow, Diagnostic, PageKind};
 
 use crate::cli::ConfigCli;
 use crate::config::{StaticaConfig, CONFIG_FILE};
@@ -117,15 +117,51 @@ pub fn run_rebuild(opts: &BuildOptions, changed: &[PathBuf]) -> Result<BuildRepo
     rebuild_paths(opts, changed).context("rebuild failed")
 }
 
-pub fn log_build(report: &BuildReport, out_dir: &Path, verb: &str) {
+pub fn build_options(
+    config: &crate::config::StaticaConfig,
+    root: &Path,
+    cli: &ConfigCli,
+    default_verbose: bool,
+) -> BuildOptions {
+    let mut opts = config.to_build_options(root);
+    opts.verbose = !cli.silent && (cli.verbose || default_verbose);
+    opts
+}
+
+pub fn log_build(report: &BuildReport, out_dir: &Path, verb: &str, verbose: bool) {
     print_warnings(&report.warnings);
+
     if report.pages_written == 0 && report.duration_ms == 0 {
         return;
     }
+
+    if !verbose {
+        return;
+    }
+
+    if !report.routes.is_empty() {
+        eprintln!();
+        print_route_table(&report.routes);
+    }
+
+    if !report.phases.is_empty() {
+        eprintln!();
+        for phase in &report.phases {
+            eprintln!(
+                "  {}  {} ({}{})",
+                style::dim(phase.name),
+                phase.detail,
+                phase.duration_ms,
+                style::dim("ms"),
+            );
+        }
+    }
+
+    eprintln!();
     if report.assets_processed > 0 {
         eprintln!(
             "{} {} page(s), {} asset(s) → {} in {}",
-            style::success(verb),
+            style::success(format!("{verb}")),
             style::bold(report.pages_written.to_string()),
             style::bold(report.assets_processed.to_string()),
             style::dim(out_dir.display().to_string()),
@@ -134,10 +170,57 @@ pub fn log_build(report: &BuildReport, out_dir: &Path, verb: &str) {
     } else {
         eprintln!(
             "{} {} page(s) → {} in {}",
-            style::success(verb),
+            style::success(format!("{verb}")),
             style::bold(report.pages_written.to_string()),
             style::dim(out_dir.display().to_string()),
             style::dim(format!("{}ms", report.duration_ms)),
+        );
+    }
+}
+
+fn route_type_label(row: &BuildRouteRow) -> (&'static str, &'static str) {
+    if row.paginated {
+        ("◐", "paginated")
+    } else {
+        match row.kind {
+            PageKind::Static => ("○", "static"),
+            PageKind::Collection => ("λ", "collection"),
+        }
+    }
+}
+
+fn print_route_table(routes: &[BuildRouteRow]) {
+    let route_w = routes
+        .iter()
+        .map(|r| r.route.len())
+        .max()
+        .unwrap_or(5)
+        .max(5);
+    let type_w = 10;
+
+    eprintln!(
+        "{:<route_w$}  {:<type_w$}  {}",
+        style::bold("Route"),
+        style::bold("Type"),
+        style::bold("Pages"),
+        route_w = route_w,
+        type_w = type_w,
+    );
+
+    for row in routes {
+        let (symbol, label) = route_type_label(row);
+        let route = if row.route.is_empty() {
+            "/".to_string()
+        } else {
+            row.route.clone()
+        };
+        eprintln!(
+            "{:<route_w$}  {:<type_w$}  {}",
+            format!("{symbol} {route}"),
+            label,
+            row.pages,
+            route_w = route_w + 2,
+            type_w = type_w,
         );
     }
 }

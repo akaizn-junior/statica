@@ -156,4 +156,29 @@ Example: --preview host=127.0.0.1,port=9000,debounce_ms=100\n\
 
     #[arg(short = 'p', long = "port", value_name = "PORT", global = true, help = "Preview server port (alias for --preview port=…)")]
     pub port: Option<u16>,
+
+    /// Show build step logs and a route summary (silent by default on build).
+    #[arg(
+        long = "verbose",
+        short = 'V',
+        action = ArgAction::SetTrue,
+        global = true,
+        conflicts_with = "silent",
+        help = "Show build logs and summary",
+        long_help = "Print pipeline step timings during the build and a Next.js-style route table at the end.\n\
+`statica build` is silent by default; `statica watch` shows logs by default."
+    )]
+    pub verbose: bool,
+
+    /// Suppress build logs (overrides watch default verbosity).
+    #[arg(
+        long = "silent",
+        action = ArgAction::SetTrue,
+        global = true,
+        conflicts_with = "verbose",
+        help = "Suppress build logs",
+        long_help = "Hide build step logs and the route summary.\n\
+`statica watch` shows logs by default; pass `--silent` to turn them off."
+    )]
+    pub silent: bool,
 }

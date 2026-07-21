@@ -360,6 +360,7 @@ impl StaticaConfig {
             asset_dirs: self.asset_dirs.clone(),
             ignore_dirs,
             root,
+            verbose: false,
         }
     }
 
