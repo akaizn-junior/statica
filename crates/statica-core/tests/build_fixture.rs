@@ -350,6 +350,69 @@ fn i18n_expands_locale_param_from_config() {
 }
 
 #[test]
+fn i18n_loads_locale_specific_funnel_data() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("[locale]/posts/[slug]")).unwrap();
+    std::fs::create_dir_all(dir.join("content/i18n")).unwrap();
+    std::fs::write(
+        dir.join("content/i18n/en.json"),
+        r#"{"title": "Posts"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/i18n/pt.json"),
+        r#"{"title": "Artigos"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/posts.en.json"),
+        r#"[{"slug":"hello","headline":"Hello world"}]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/posts.pt.json"),
+        r#"[{"slug":"ola","headline":"Olá mundo"}]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("[locale]/posts/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="posts">
+  <head>
+    <script type="statica/data" src="../../../content/posts.${locale}.json" id="posts"></script>
+    <title data-t="title">Posts</title>
+  </head>
+  <body>
+    <h1><slot name="headline"></slot></h1>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.i18n = statica_core::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into(), "pt".into()],
+        ..Default::default()
+    };
+
+    build(&opts).expect("build");
+
+    let en = std::fs::read_to_string(dir.join("dist/en/posts/hello/index.html")).unwrap();
+    assert!(en.contains("<title>Posts</title>"));
+    assert!(en.contains("<h1>Hello world</h1>"));
+    assert!(en.contains("lang=\"en\""));
+
+    let pt = std::fs::read_to_string(dir.join("dist/pt/posts/ola/index.html")).unwrap();
+    assert!(pt.contains("<title>Artigos</title>"));
+    assert!(pt.contains("<h1>Olá mundo</h1>"));
+    assert!(pt.contains("lang=\"pt\""));
+}
+
+#[test]
 fn minifies_final_html_output() {
     let dir = tempfile_dir();
     std::fs::write(

@@ -174,6 +174,60 @@ impl PreparedPage {
         self.source.path.display().to_string()
     }
 
+    fn base_dir(&self) -> &Path {
+        self.source.path.parent().unwrap_or_else(|| Path::new("."))
+    }
+
+    fn active_locale<'a>(&self, locale: Option<&'a str>, i18n: &'a I18nOptions) -> Option<&'a str> {
+        locale.or_else(|| {
+            if i18n.enabled {
+                Some(i18n.default_locale.as_str())
+            } else {
+                None
+            }
+        })
+    }
+
+    fn resolve_page_data(
+        &self,
+        data_cache: &mut std::collections::HashMap<PathBuf, Value>,
+        aliases: &AliasOptions,
+        locale: Option<&str>,
+        i18n_catalogs: &I18nCatalogs,
+        i18n: &I18nOptions,
+    ) -> Result<std::collections::HashMap<String, DataSource>> {
+        let active_locale = self.active_locale(locale, i18n);
+        if funnel::document_has_locale_data(&self.doc) && active_locale.is_none() {
+            return Err(self.at(
+                &["type=\"statica/data\"", i18n::LOCALE_SRC_TOKEN],
+                format!(
+                    "funnel src contains `{}` but i18n is disabled — enable [i18n] or remove the locale token",
+                    i18n::LOCALE_SRC_TOKEN
+                ),
+            ));
+        }
+
+        let mut data = self.data.clone();
+        if let Some(loc) = active_locale.filter(|_| funnel::document_has_locale_data(&self.doc)) {
+            let file = self.file();
+            let locale_data = funnel::load_locale_data_from_document(
+                &self.doc,
+                self.base_dir(),
+                data_cache,
+                aliases,
+                loc,
+                Some((file.as_str(), self.html.as_str())),
+            )
+            .map_err(|e| e.in_file(&file, &self.html))?;
+            for (id, source) in locale_data {
+                data.insert(id, source);
+            }
+        }
+
+        let catalog = active_locale.map(|loc| i18n_catalogs.for_locale(loc, i18n));
+        Ok(merge_i18n_data(&data, catalog.as_ref()))
+    }
+
     fn render(
         &self,
         registry: &FragmentRegistry,
@@ -184,21 +238,16 @@ impl PreparedPage {
         locale: Option<&str>,
         i18n_catalogs: &I18nCatalogs,
         i18n: &I18nOptions,
+        data_cache: &mut std::collections::HashMap<PathBuf, Value>,
     ) -> Result<String> {
         let file = self.file();
         let mut doc = self.doc.clone();
-        let active_locale = locale.or_else(|| {
-            if i18n.enabled {
-                Some(i18n.default_locale.as_str())
-            } else {
-                None
-            }
-        });
+        let active_locale = self.active_locale(locale, i18n);
         let catalog = active_locale.map(|loc| i18n_catalogs.for_locale(loc, i18n));
         if let Some(loc) = active_locale {
             i18n::set_html_lang(&mut doc, loc);
         }
-        let page_data = merge_i18n_data(&self.data, catalog.as_ref());
+        let page_data = self.resolve_page_data(data_cache, aliases, locale, i18n_catalogs, i18n)?;
         bind::render_page_document(
             registry,
             &doc,
@@ -448,6 +497,7 @@ fn emit_prepared(
     } else {
         match page.source.kind() {
             PageKind::Static => {
+                let mut data_cache = std::collections::HashMap::new();
                 let rendered = page.render(
                     registry,
                     None,
@@ -457,6 +507,7 @@ fn emit_prepared(
                     None,
                     i18n_catalogs,
                     &opts.i18n,
+                    &mut data_cache,
                 )?;
                 let out = emit::out_path_for_route(&opts.out_dir, &page.source.route, None);
                 emit::write_html(&out, &rendered)?;
@@ -483,6 +534,7 @@ fn emit_locales(
 ) -> Result<EmitResult> {
     let locales = &opts.i18n.locales;
     let mut outs = Vec::with_capacity(locales.len());
+    let mut data_cache = std::collections::HashMap::new();
     for loc in locales {
         let ctx = i18n::locale_bind_context(loc);
         let rendered = page.render(
@@ -494,6 +546,7 @@ fn emit_locales(
             Some(loc.as_str()),
             i18n_catalogs,
             &opts.i18n,
+            &mut data_cache,
         )?;
         let out = emit::out_path_for_route(
             &opts.out_dir,
@@ -615,7 +668,15 @@ fn emit_paginated(
         ));
     }
 
-    let list = page.data.get(&collection_id).ok_or_else(|| {
+    let mut data_cache = std::collections::HashMap::new();
+    let page_data = page.resolve_page_data(
+        &mut data_cache,
+        &opts.aliases,
+        locale,
+        i18n_catalogs,
+        &opts.i18n,
+    )?;
+    let list = page_data.get(&collection_id).ok_or_else(|| {
         page.at(
             &needle_refs,
             format!(
@@ -661,6 +722,7 @@ fn emit_paginated(
             locale,
             i18n_catalogs,
             &opts.i18n,
+            &mut data_cache,
         )?;
         let out = if let Some(loc) = locale {
             emit::out_path_for_route_replacements(
@@ -692,6 +754,7 @@ fn emit_paginated(
                 locale,
                 i18n_catalogs,
                 &opts.i18n,
+                &mut data_cache,
             )?;
             let out = if let Some(loc) = locale {
                 emit::out_path_for_route_replacements(
@@ -734,7 +797,15 @@ fn emit_collection(
     let needles = html_bind_needles(&collection_id);
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
 
-    let list = page.data.get(&collection_id).ok_or_else(|| {
+    let mut data_cache = std::collections::HashMap::new();
+    let page_data = page.resolve_page_data(
+        &mut data_cache,
+        &opts.aliases,
+        None,
+        i18n_catalogs,
+        &opts.i18n,
+    )?;
+    let list = page_data.get(&collection_id).ok_or_else(|| {
         page.at(
             &needle_refs,
             format!(
@@ -796,6 +867,7 @@ fn emit_collection(
             None,
             i18n_catalogs,
             &opts.i18n,
+            &mut data_cache,
         )?;
         let out =
             emit::out_path_for_route(&opts.out_dir, &page.source.route, Some((param, &folder)));
@@ -826,39 +898,6 @@ fn emit_locale_collection(
     let needles = html_bind_needles(&collection_id);
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
 
-    let list = page.data.get(&collection_id).ok_or_else(|| {
-        page.at(
-            &needle_refs,
-            format!(
-                "missing data source id `{collection_id}` (no <script type=\"statica/data\" id=\"{collection_id}\">)"
-            ),
-        )
-    })?;
-
-    let items = match &list.value {
-        Value::Array(a) => a,
-        other => {
-            return Err(page.at(
-                &needle_refs,
-                format!("collection `{collection_id}` must be an array, got {other}"),
-            ));
-        }
-    };
-
-    if items.is_empty() {
-        let mut w = warnings
-            .lock()
-            .map_err(|_| Error::at_file("<build>", "warnings mutex poisoned"))?;
-        w.push(page.warn(
-            &needle_refs,
-            format!("collection `{collection_id}` is empty — 0 pages emitted"),
-        ));
-        return Ok(EmitResult {
-            outputs: Vec::new(),
-            route: page.route_row(0, PageKind::Collection, false),
-        });
-    }
-
     let param = collection_param(&page.source.params).map_err(|e| {
         page.at(
             &needle_refs,
@@ -867,7 +906,45 @@ fn emit_locale_collection(
     })?;
 
     let mut outs = Vec::new();
+    let mut data_cache = std::collections::HashMap::new();
     for loc in &opts.i18n.locales {
+        let page_data = page.resolve_page_data(
+            &mut data_cache,
+            &opts.aliases,
+            Some(loc.as_str()),
+            i18n_catalogs,
+            &opts.i18n,
+        )?;
+        let list = page_data.get(&collection_id).ok_or_else(|| {
+            page.at(
+                &needle_refs,
+                format!(
+                    "missing data source id `{collection_id}` (no <script type=\"statica/data\" id=\"{collection_id}\">)"
+                ),
+            )
+        })?;
+
+        let items = match &list.value {
+            Value::Array(a) => a,
+            other => {
+                return Err(page.at(
+                    &needle_refs,
+                    format!("collection `{collection_id}` must be an array, got {other}"),
+                ));
+            }
+        };
+
+        if items.is_empty() {
+            let mut w = warnings
+                .lock()
+                .map_err(|_| Error::at_file("<build>", "warnings mutex poisoned"))?;
+            w.push(page.warn(
+                &needle_refs,
+                format!("collection `{collection_id}` is empty — 0 pages emitted"),
+            ));
+            continue;
+        }
+
         let mut seen = HashSet::new();
         for item in items {
             let folder = funnel::field_as_str(item, param).ok_or_else(|| {
@@ -895,6 +972,7 @@ fn emit_locale_collection(
                 Some(loc.as_str()),
                 i18n_catalogs,
                 &opts.i18n,
+                &mut data_cache,
             )?;
             let out = emit::out_path_for_route_replacements(
                 &opts.out_dir,

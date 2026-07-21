@@ -13,6 +13,21 @@ use crate::parse::{Document, Node};
 /// Route param name for locale expansion (`[locale]/…`).
 pub const LOCALE_PARAM: &str = "locale";
 
+/// Token in funnel `src` paths resolved to the active locale at build time.
+pub const LOCALE_SRC_TOKEN: &str = "${locale}";
+
+/// Whether a funnel `src` path contains a locale token.
+#[must_use]
+pub fn src_has_locale_token(src: &str) -> bool {
+    src.contains(LOCALE_SRC_TOKEN)
+}
+
+/// Replace `${locale}` in a funnel `src` path with the active locale code.
+#[must_use]
+pub fn interpolate_locale(src: &str, locale: &str) -> String {
+    src.replace(LOCALE_SRC_TOKEN, locale)
+}
+
 /// i18n settings mapped from `[i18n]` in `statica.toml`.
 #[derive(Debug, Clone)]
 pub struct I18nOptions {
@@ -286,6 +301,16 @@ mod tests {
     use crate::parse::{Element, Node};
     use indexmap::IndexMap;
     use serde_json::json;
+
+    #[test]
+    fn interpolate_locale_in_src() {
+        assert!(!src_has_locale_token("posts.json"));
+        assert!(src_has_locale_token("../content/posts.${locale}.json"));
+        assert_eq!(
+            interpolate_locale("../content/posts.${locale}.json", "pt"),
+            "../content/posts.pt.json"
+        );
+    }
 
     #[test]
     fn route_has_locale_param() {

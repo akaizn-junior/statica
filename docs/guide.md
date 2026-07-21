@@ -315,6 +315,17 @@ Mark translatable text with `data-t` (inner text is the fallback when a key is m
 
 At build time statica replaces element content from the catalog, sets `<html lang="…">`, strips `data-t`, and supports `${locale}` in attributes. Use `${…}` only in **attributes** — not in text nodes.
 
+### Locale-aware data
+
+Funnel sources can include `${locale}` in `src` to load per-locale content files at build time:
+
+```html
+<!-- [locale]/posts/[slug]/index.html -->
+<script type="statica/data" src="../../../content/posts.${locale}.json" id="posts"></script>
+```
+
+With `content/posts.en.json` and `content/posts.pt.json`, each locale expansion loads its own file. Array keys in `content/i18n/{locale}.json` still override funnel data for that locale (useful when content lives in the catalog instead of separate files).
+
 CLI:
 
 ```bash

@@ -8,6 +8,7 @@ use serde_json::Value;
 use crate::aliases::{self, AliasOptions};
 use crate::content;
 use crate::error::{Error, Result};
+use crate::i18n;
 use crate::parse::escape_text;
 use crate::parse::{Document, Element, Node};
 
@@ -21,12 +22,63 @@ pub struct DataSource {
     pub value: Value,
 }
 
+pub fn document_has_locale_data(doc: &Document) -> bool {
+    doc.find(|e| is_data_script(e)).into_iter().any(|el| {
+        el.attr("src")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .is_some_and(i18n::src_has_locale_token)
+    })
+}
+
 pub fn load_data_from_document(
     doc: &Document,
     base_dir: &Path,
     cache: &mut HashMap<PathBuf, Value>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
+) -> Result<HashMap<String, DataSource>> {
+    load_data_scripts(
+        doc,
+        base_dir,
+        cache,
+        aliases,
+        site,
+        DataScriptFilter::WithoutLocaleToken,
+    )
+}
+
+/// Load funnel sources whose `src` contains `${locale}` for the active locale.
+pub fn load_locale_data_from_document(
+    doc: &Document,
+    base_dir: &Path,
+    cache: &mut HashMap<PathBuf, Value>,
+    aliases: &AliasOptions,
+    locale: &str,
+    site: Option<(&str, &str)>,
+) -> Result<HashMap<String, DataSource>> {
+    load_data_scripts(
+        doc,
+        base_dir,
+        cache,
+        aliases,
+        site,
+        DataScriptFilter::WithLocaleTokenOnly { locale },
+    )
+}
+
+enum DataScriptFilter<'a> {
+    WithoutLocaleToken,
+    WithLocaleTokenOnly { locale: &'a str },
+}
+
+fn load_data_scripts(
+    doc: &Document,
+    base_dir: &Path,
+    cache: &mut HashMap<PathBuf, Value>,
+    aliases: &AliasOptions,
+    site: Option<(&str, &str)>,
+    filter: DataScriptFilter<'_>,
 ) -> Result<HashMap<String, DataSource>> {
     let mut out = HashMap::new();
     for el in doc.find(|e| is_data_script(e)) {
@@ -52,6 +104,16 @@ pub fn load_data_from_document(
             }
         };
         let src = aliases::resolve_path(src, aliases, site, "src")?;
+        let has_locale_token = i18n::src_has_locale_token(&src);
+        match filter {
+            DataScriptFilter::WithoutLocaleToken if has_locale_token => continue,
+            DataScriptFilter::WithLocaleTokenOnly { .. } if !has_locale_token => continue,
+            _ => {}
+        }
+        let src = match filter {
+            DataScriptFilter::WithLocaleTokenOnly { locale } => i18n::interpolate_locale(&src, locale),
+            DataScriptFilter::WithoutLocaleToken => src,
+        };
         let cache_key = content_cache_key(base_dir, &src);
         let value = if let Some(v) = cache.get(&cache_key) {
             v.clone()
