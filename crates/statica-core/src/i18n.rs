@@ -221,13 +221,36 @@ pub fn lookup_key(catalog: &Value, key: &str) -> Option<String> {
 }
 
 /// Replace `data-t="key"` element content with the catalog string (fallback: inner text).
+/// For `<meta>` / `<link>`, updates `content` or `href` instead.
 pub fn apply_data_t(nodes: &mut [Node], catalog: &Value) {
     for node in nodes {
         if let Node::Element(el) = node {
             if let Some(key) = el.attrs.get("data-t").cloned() {
-                let fallback = direct_text_content(&el.children);
-                let text = lookup_key(catalog, &key).unwrap_or(fallback);
-                el.children = vec![Node::Text(text)];
+                let text = if el.name.eq_ignore_ascii_case("link") {
+                    let fallback = el
+                        .attrs
+                        .get("href")
+                        .cloned()
+                        .unwrap_or_default();
+                    let text = lookup_key(catalog, &key).unwrap_or(fallback);
+                    el.attrs.insert("href".into(), text.clone());
+                    text
+                } else if el.name.eq_ignore_ascii_case("meta") {
+                    let fallback = el
+                        .attrs
+                        .get("content")
+                        .cloned()
+                        .unwrap_or_default();
+                    let text = lookup_key(catalog, &key).unwrap_or(fallback);
+                    el.attrs.insert("content".into(), text.clone());
+                    text
+                } else {
+                    let fallback = direct_text_content(&el.children);
+                    let text = lookup_key(catalog, &key).unwrap_or(fallback);
+                    el.children = vec![Node::Text(text.clone())];
+                    text
+                };
+                let _ = text;
                 el.attrs.shift_remove("data-t");
             }
             apply_data_t(&mut el.children, catalog);
