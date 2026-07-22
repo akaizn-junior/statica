@@ -1,0 +1,15 @@
+{
+  "page": {
+    "title": "About",
+    "intro": "statica — Powered HTML."
+  },
+  "nav": {
+    "home": "Home",
+    "en": "English",
+    "pt": "Português"
+  },
+  "form": {
+    "email": "Email",
+    "send": "Send"
+  }
+}

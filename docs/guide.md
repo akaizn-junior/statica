@@ -484,7 +484,7 @@ Sitemap pagination (many URLs) is separate from UI pagination: when URL count ex
 | ----- | ---- |
 | `crates/statica` | CLI: cwd/project resolve, `statica.toml`, SPEC flags, watch/serve/scaffold, man pages |
 | `crates/statica-core` | Pipeline: discover → funnel → bind → scope → emit (+ feeds, pagination, assets) |
-| `examples/blog` | Dogfood fixture (pagination, RSS, sitemap) |
+| `examples/blog` | Dogfood fixture (Markdown funnel, pagination, RSS, sitemap, fonts, forms, i18n) |
 | `examples/bench-1k` | Stress fixture (~1k collection pages) |
 
 ## License

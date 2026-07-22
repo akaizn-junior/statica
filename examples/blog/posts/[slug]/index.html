@@ -3,6 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <title><slot name="headline"></slot></title>
+    <link rel="stylesheet" href="/site.css" />
+    <link
+      rel="statica/font"
+      href="@Google/?family=Outfit:wght@400;600&display=swap"
+    />
     <link
       rel="statica/fragment"
       type="text/html"
@@ -15,7 +20,7 @@
       href="../../ui/related-posts.html"
       id="related-posts"
     />
-    <script type="statica/data" src="../../content/posts.json" id="posts"></script>
+    <script type="statica/data" src="../../content/posts" id="posts"></script>
   </head>
   <body>
     <article>

@@ -3,6 +3,12 @@ out_dir = ".dist"
 clean = true
 copy_assets = true
 
+[aliases]
+symbol = "@"
+
+[aliases.paths]
+Google = "https://fonts.googleapis.com/css2"
+
 [sitemap]
 enabled = true
 
@@ -22,3 +28,17 @@ sort_by = "published_at"
 sort_desc = true
 max_pages = 0
 index = true
+
+[forms]
+enabled = true
+provider = "formspree"
+endpoint = "https://formspree.io/f/{id}"
+
+[forms.ids]
+contact = "example"
+
+[i18n]
+enabled = true
+default = "en"
+locales = ["en", "pt"]
+dir = "content/i18n"

@@ -1,0 +1,15 @@
+{
+  "page": {
+    "title": "Sobre",
+    "intro": "statica — HTML com superpoderes."
+  },
+  "nav": {
+    "home": "Início",
+    "en": "English",
+    "pt": "Português"
+  },
+  "form": {
+    "email": "Email",
+    "send": "Enviar"
+  }
+}

@@ -3,9 +3,11 @@
 Stress fixture: **1000** collection posts + home + blog index → **1002** pages.
 
 ```bash
-# from repo root (release binary)
-cargo build -p statica --release
-./target/release/statica examples/bench-1k
+# from repo root (release binary recommended)
+statica build examples/bench-1k
+
+# or after a local build
+./target/release/statica build examples/bench-1k
 ```
 
 Regenerate posts:

@@ -10,6 +10,26 @@ fn builds_blog_fixture() {
     let mut opts = BuildOptions::new(&root);
     opts.out_dir = out.clone();
     opts.clean = true;
+    opts.i18n = statica_core::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into(), "pt".into()],
+        ..Default::default()
+    };
+    opts.forms = statica_core::FormsOptions {
+        enabled: true,
+        provider: statica_core::FormProvider::Formspree,
+        endpoint: "https://formspree.io/f/{id}".into(),
+        ids: [("contact".into(), "example".into())].into(),
+    };
+    opts.aliases = statica_core::AliasOptions {
+        paths: [(
+            "Google".into(),
+            "https://fonts.googleapis.com/css2".into(),
+        )]
+        .into(),
+        ..Default::default()
+    };
     opts.pagination = vec![statica_core::PaginationRule {
         route: "blog/[page]".into(),
         page_size: 2,
@@ -41,6 +61,15 @@ fn builds_blog_fixture() {
 
     let home = std::fs::read_to_string(out.join("index.html")).unwrap();
     assert!(home.contains("Read the blog") || home.contains("class=\"btn\""));
+    assert!(home.contains("fonts.googleapis.com"));
+
+    let about_en = std::fs::read_to_string(out.join("en/about/index.html")).unwrap();
+    assert!(about_en.contains("https://formspree.io/f/example"));
+    assert!(about_en.contains("lang=\"en\""));
+
+    let about_pt = std::fs::read_to_string(out.join("pt/about/index.html")).unwrap();
+    assert!(about_pt.contains("HTML com superpoderes") || about_pt.contains(">Sobre<"));
+    assert!(about_pt.contains("lang=\"pt\""));
 
     let _ = std::fs::remove_dir_all(out);
 }
