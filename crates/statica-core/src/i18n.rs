@@ -270,7 +270,6 @@ pub fn lookup_key(catalog: &Value, key: &str) -> Option<String> {
 }
 
 /// Replace `data-t="key"` element content with the catalog string (fallback: inner text).
-/// For `<meta>` / `<link>`, updates `content` or `href` instead.
 ///
 /// `data-t-{attr}="key"` translates `{attr}` from the catalog (fallback: current `{attr}` value).
 pub fn apply_data_t(nodes: &mut [Node], catalog: &Value) {
@@ -284,19 +283,9 @@ pub fn apply_data_t(nodes: &mut [Node], catalog: &Value) {
 
 fn apply_data_t_on_element(el: &mut crate::parse::Element, catalog: &Value) {
     if let Some(key) = el.attrs.get(DATA_T).cloned() {
-        if el.name.eq_ignore_ascii_case("link") {
-            let fallback = el.attrs.get("href").cloned().unwrap_or_default();
-            let text = lookup_key(catalog, &key).unwrap_or(fallback);
-            el.attrs.insert("href".into(), text);
-        } else if el.name.eq_ignore_ascii_case("meta") {
-            let fallback = el.attrs.get("content").cloned().unwrap_or_default();
-            let text = lookup_key(catalog, &key).unwrap_or(fallback);
-            el.attrs.insert("content".into(), text);
-        } else {
-            let fallback = direct_text_content(&el.children);
-            let text = lookup_key(catalog, &key).unwrap_or(fallback);
-            el.children = vec![Node::Text(text)];
-        }
+        let fallback = direct_text_content(&el.children);
+        let text = lookup_key(catalog, &key).unwrap_or(fallback);
+        el.children = vec![Node::Text(text)];
         el.attrs.shift_remove(DATA_T);
     }
     apply_data_t_attr_translations(el, catalog);
@@ -430,6 +419,90 @@ mod tests {
         };
         assert!(!el.attrs.contains_key(DATA_T));
         assert!(matches!(&el.children[0], Node::Text(t) if t == "Olá"));
+    }
+
+    #[test]
+    fn data_t_attr_translates_href_and_content() {
+        let catalog = json!({
+            "canonical": { "href": "https://example.com/pt/sobre" },
+            "description": { "content": "Página sobre nós" }
+        });
+        let mut nodes = vec![
+            Node::Element(Element {
+                name: "link".into(),
+                attrs: IndexMap::from([
+                    ("rel".into(), "canonical".into()),
+                    ("href".into(), "https://example.com/about".into()),
+                    ("data-t-href".into(), "canonical.href".into()),
+                ]),
+                children: vec![],
+                void: true,
+            }),
+            Node::Element(Element {
+                name: "meta".into(),
+                attrs: IndexMap::from([
+                    ("name".into(), "description".into()),
+                    ("content".into(), "About us".into()),
+                    ("data-t-content".into(), "description.content".into()),
+                ]),
+                children: vec![],
+                void: true,
+            }),
+        ];
+        apply_data_t(&mut nodes, &catalog);
+        let link = match &nodes[0] {
+            Node::Element(e) => e,
+            _ => panic!("expected link"),
+        };
+        let meta = match &nodes[1] {
+            Node::Element(e) => e,
+            _ => panic!("expected meta"),
+        };
+        assert_eq!(link.attr("href"), Some("https://example.com/pt/sobre"));
+        assert_eq!(meta.attr("content"), Some("Página sobre nós"));
+    }
+
+    #[test]
+    fn data_t_on_void_link_translates_inner_text_not_href() {
+        let catalog = json!({"label": "Stylesheet"});
+        let mut nodes = vec![Node::Element(Element {
+            name: "link".into(),
+            attrs: IndexMap::from([
+                ("rel".into(), "stylesheet".into()),
+                ("href".into(), "/site.css".into()),
+                (DATA_T.into(), "label".into()),
+            ]),
+            children: vec![Node::Text("Site CSS".into())],
+            void: true,
+        })];
+        apply_data_t(&mut nodes, &catalog);
+        let link = match &nodes[0] {
+            Node::Element(e) => e,
+            _ => panic!("expected link"),
+        };
+        assert_eq!(link.attr("href"), Some("/site.css"));
+        assert!(matches!(&link.children[0], Node::Text(t) if t == "Stylesheet"));
+    }
+
+    #[test]
+    fn data_t_translates_anchor_inner_text() {
+        let catalog = json!({"nav": {"home": "Início"}});
+        let mut nodes = vec![Node::Element(Element {
+            name: "a".into(),
+            attrs: IndexMap::from([
+                ("href".into(), "/".into()),
+                (DATA_T.into(), "nav.home".into()),
+            ]),
+            children: vec![Node::Text("Home".into())],
+            void: false,
+        })];
+        apply_data_t(&mut nodes, &catalog);
+        let link = match &nodes[0] {
+            Node::Element(e) => e,
+            _ => panic!("expected anchor"),
+        };
+        assert_eq!(link.attr("href"), Some("/"));
+        assert!(matches!(&link.children[0], Node::Text(t) if t == "Início"));
     }
 
     #[test]
