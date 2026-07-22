@@ -16,6 +16,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Build
         run: cargo build -p statica --release
+      - name: Test
+        run: |
+          cargo test -p statica-core
+          cargo test -p statica
       - name: crates.io dry-run (statica-core)
         run: cargo publish -p statica-core --dry-run
       - name: npm pack sync (no binaries)

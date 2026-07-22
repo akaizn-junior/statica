@@ -1,7 +1,8 @@
 name: Tag release
 
 # When the workspace version on main has no matching tag yet, push v{version}.
-# That tag triggers .github/workflows/release.yml (binaries, GitHub Release, crates.io, npm).
+# Tag pushes from GITHUB_TOKEN do not trigger other workflows, so we dispatch
+# release.yml explicitly (binaries, GitHub Release, crates.io, npm).
 on:
   push:
     branches: [main, master]
@@ -9,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: tag-release
@@ -34,6 +36,7 @@ jobs:
           echo "Workspace version: ${VERSION}"
 
       - name: Create and push tag if missing
+        id: tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -41,11 +44,53 @@ jobs:
           set -euo pipefail
           TAG="${{ steps.version.outputs.tag }}"
           if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "refs/tags/${TAG}$"; then
-            echo "Tag ${TAG} already exists — release workflow handles publishing"
+            echo "Tag ${TAG} already exists"
+            echo "created=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "${TAG}" -m "Release ${TAG}"
           git push origin "${TAG}"
-          echo "Pushed ${TAG}; release workflow will build and publish"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+          echo "Pushed ${TAG}"
+
+      - name: Check GitHub Release exists
+        id: release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = '${{ steps.version.outputs.tag }}';
+            try {
+              await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag,
+              });
+              core.setOutput('missing', 'false');
+            } catch (error) {
+              if (error.status === 404) {
+                core.setOutput('missing', 'true');
+                core.info(`No GitHub Release for ${tag}`);
+                return;
+              }
+              throw error;
+            }
+
+      - name: Trigger global release build
+        if: >-
+          steps.tag.outputs.created == 'true' ||
+          steps.release.outputs.missing == 'true' ||
+          github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = '${{ steps.version.outputs.tag }}';
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release.yml',
+              ref: tag,
+              inputs: { tag },
+            });
+            core.info(`Triggered release.yml for ${tag}`);

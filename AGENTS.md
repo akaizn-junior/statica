@@ -42,7 +42,7 @@ statica watch
 statica build .
 ```
 
-CI runs `cargo build -p statica --release` but does not run tests yet — run `cargo test` locally before submitting Rust changes.
+CI runs `cargo build -p statica --release` and `cargo test` on push/PR. Pushing a version bump to `main` tags `v{version}` and dispatches the global release build (binaries, GitHub Release, crates.io, npm).
 
 ## Documentation map
 
