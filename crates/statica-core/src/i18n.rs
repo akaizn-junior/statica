@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
+use crate::discover::PageSource;
 use crate::error::{Error, Result};
 use crate::funnel::{parse_js_value, read_field};
 use crate::parse::{Document, Node};
@@ -125,6 +126,49 @@ impl I18nOptions {
     pub fn route_has_locale<'a>(&self, params: impl IntoIterator<Item = &'a str>) -> bool {
         self.enabled && params.into_iter().any(|p| p == LOCALE_PARAM)
     }
+}
+
+/// Whether the build should emit a root redirect to the default locale home.
+///
+/// True when i18n is enabled, the author did not define a root page, and the
+/// default locale home was emitted (e.g. from `[locale]/index.html`).
+#[must_use]
+pub fn should_emit_root_redirect(
+    i18n: &I18nOptions,
+    pages: &[PageSource],
+    out_dir: &Path,
+) -> bool {
+    if !i18n.enabled {
+        return false;
+    }
+    if pages.iter().any(|p| p.route.is_empty()) {
+        return false;
+    }
+    out_dir
+        .join(&i18n.default_locale)
+        .join("index.html")
+        .is_file()
+}
+
+/// Minimal root redirect stub for static hosts (meta refresh + JS fallback).
+#[must_use]
+pub fn root_redirect_html(default_locale: &str) -> String {
+    let target = format!("/{default_locale}/");
+    format!(
+        r#"<!doctype html>
+<html lang="{default_locale}">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="0; url={target}" />
+    <link rel="canonical" href="{target}" />
+    <title>Redirecting…</title>
+    <script>location.replace("{target}" + location.hash);</script>
+  </head>
+  <body>
+    <p><a href="{target}">Continue to site</a></p>
+  </body>
+</html>"#
+    )
 }
 
 /// Loaded translation catalogs keyed by locale code.
@@ -615,6 +659,14 @@ mod tests {
             assert!(is_data_t_attr(&marker));
             assert_eq!(target_attr_from_data_t_key(&marker), Some(*attr));
         }
+    }
+
+    #[test]
+    fn root_redirect_html_points_at_default_locale() {
+        let html = root_redirect_html("pt");
+        assert!(html.contains(r#"lang="pt""#));
+        assert!(html.contains(r#"content="0; url=/pt/""#));
+        assert!(html.contains(r#"location.replace("/pt/" + location.hash)"#));
     }
 
     #[test]

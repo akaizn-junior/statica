@@ -371,6 +371,91 @@ fn i18n_expands_locale_param_from_config() {
 }
 
 #[test]
+fn i18n_emits_root_redirect_to_default_locale() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("[locale]")).unwrap();
+    std::fs::create_dir_all(dir.join("content/i18n")).unwrap();
+    std::fs::write(
+        dir.join("content/i18n/en.json"),
+        r#"{"title": "Home"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/i18n/pt.json"),
+        r#"{"title": "Início"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("[locale]/index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head><title data-t="title">Home</title></head>
+  <body><h1 data-t="title">Home</h1></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.i18n = statica_core::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into(), "pt".into()],
+        ..Default::default()
+    };
+
+    build(&opts).expect("build");
+
+    let root = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(root.contains(r#"<meta http-equiv="refresh" content="0; url=/en/""#));
+    assert!(root.contains(r#"location.replace("/en/" + location.hash)"#));
+    assert!(root.contains(r#"<a href="/en/">Continue to site</a>"#));
+
+    let en = std::fs::read_to_string(dir.join("dist/en/index.html")).unwrap();
+    assert!(en.contains("<title>Home</title>"));
+    assert!(en.contains("lang=\"en\""));
+
+    let pt = std::fs::read_to_string(dir.join("dist/pt/index.html")).unwrap();
+    assert!(pt.contains("<title>Início</title>"));
+    assert!(pt.contains("lang=\"pt\""));
+}
+
+#[test]
+fn i18n_skips_root_redirect_when_author_has_root_page() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("[locale]")).unwrap();
+    std::fs::create_dir_all(dir.join("content/i18n")).unwrap();
+    std::fs::write(dir.join("content/i18n/en.json"), r#"{"title": "Home"}"#).unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html><html><body><p>Landing</p></body></html>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("[locale]/index.html"),
+        r#"<!doctype html><html><body><h1 data-t="title">Home</h1></body></html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.i18n = statica_core::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into()],
+        ..Default::default()
+    };
+
+    build(&opts).expect("build");
+
+    let root = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(root.contains("Landing"));
+    assert!(!root.contains("http-equiv=\"refresh\""));
+}
+
+#[test]
 fn i18n_loads_locale_specific_funnel_data() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("[locale]/posts/[slug]")).unwrap();

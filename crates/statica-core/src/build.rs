@@ -400,6 +400,23 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     let mut routes = route_rows
         .into_inner()
         .map_err(|_| Error::at_file("<build>", "route summary mutex poisoned"))?;
+
+    if i18n::should_emit_root_redirect(&opts.i18n, &pages, &opts.out_dir) {
+        let redirect = opts.out_dir.join("index.html");
+        emit::write_html(&redirect, &i18n::root_redirect_html(&opts.i18n.default_locale))?;
+        outputs.push(redirect);
+        routes.push(BuildRouteRow {
+            route: String::new(),
+            kind: PageKind::Static,
+            paginated: false,
+            pages: 1,
+        });
+        log.step(&format!(
+            "redirect  / → /{}/",
+            opts.i18n.default_locale
+        ));
+    }
+
     routes.sort_by(|a, b| a.route.cmp(&b.route));
 
     let mut assets_processed = 0;
