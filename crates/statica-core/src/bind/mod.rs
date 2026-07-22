@@ -30,12 +30,9 @@ fn html_element<'a>(doc: &'a Document) -> Option<&'a Element> {
 
 /// Funnel id for collection/pagination routes.
 ///
-/// From `<html data-source>`, `data-bind="id"`, or a single funnel script on the page.
+/// From `data-bind="id"` on `<html>`, or the lone funnel script when using `data-bind="{…}"`.
 #[must_use]
 pub fn html_collection_id(doc: &Document) -> Option<String> {
-    if let Some(src) = html_data_source(doc) {
-        return Some(src.to_string());
-    }
     if let Some(raw) = html_bind_raw(doc) {
         if let Ok(BindDecl::Named(name)) = funnel::parse_bind_decl(Some(raw)) {
             return Some(name);
@@ -68,20 +65,14 @@ pub fn require_collection_id(doc: &Document, source: BindSource<'_>) -> Result<S
     ))
 }
 
-fn html_data_source(doc: &Document) -> Option<&str> {
-    html_element(doc).and_then(|el| el.attr("data-source"))
-}
-
 fn html_bind_raw(doc: &Document) -> Option<&str> {
     html_element(doc).and_then(|el| el.attr("data-bind"))
 }
 
-pub fn collection_needles(id: &str) -> [String; 4] {
+pub fn collection_needles(id: &str) -> [String; 2] {
     [
         format!("data-bind=\"{id}\""),
         format!("data-bind='{id}'"),
-        format!("data-source=\"{id}\""),
-        format!("data-source='{id}'"),
     ]
 }
 

@@ -709,7 +709,7 @@ fn html_data_source(doc: &Document) -> Option<String> {
     bind::html_collection_id(doc)
 }
 
-fn html_source_needles(id: &str) -> [String; 4] {
+fn html_source_needles(id: &str) -> [String; 2] {
     bind::collection_needles(id)
 }
 
