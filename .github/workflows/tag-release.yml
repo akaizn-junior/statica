@@ -1,0 +1,51 @@
+name: Tag release
+
+# When the workspace version on main has no matching tag yet, push v{version}.
+# That tag triggers .github/workflows/release.yml (binaries, GitHub Release, crates.io, npm).
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Ensure release tag exists
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from Cargo.toml
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(grep -E '^version = ' Cargo.toml | head -1 | sed 's/^version = "\(.*\)"/\1/')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Workspace version: ${VERSION}"
+
+      - name: Create and push tag if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "refs/tags/${TAG}$"; then
+            echo "Tag ${TAG} already exists — release workflow handles publishing"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+          echo "Pushed ${TAG}; release workflow will build and publish"
