@@ -181,6 +181,23 @@ Examples:\n\
     #[arg(long = "no-i18n", action = ArgAction::SetTrue, global = true, help = "Disable i18n")]
     pub no_i18n: bool,
 
+    // ── [manifest] ───────────────────────────────────────────────
+    #[arg(
+        long = "manifest",
+        action = ArgAction::SetTrue,
+        global = true,
+        overrides_with = "no_manifest",
+        help = "Scaffold public/manifest.webmanifest and inject PWA head tags"
+    )]
+    pub manifest: bool,
+    #[arg(
+        long = "no-manifest",
+        action = ArgAction::SetTrue,
+        global = true,
+        help = "Disable web manifest scaffold and head tags"
+    )]
+    pub no_manifest: bool,
+
     /// Show build step logs and a route summary (silent by default on build).
     #[arg(
         long = "verbose",

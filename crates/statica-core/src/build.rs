@@ -21,6 +21,7 @@ use crate::discover::{self, PageKind, PageSource};
 use crate::emit;
 use crate::error::{Error, Result};
 use crate::feeds::{self, FeedPage, RssOptions, SitemapOptions};
+use crate::manifest::{self, ManifestMeta};
 use crate::fragment::FragmentRegistry;
 use crate::funnel::{self, DataSource};
 use crate::i18n::{self, I18nCatalogs, I18nOptions};
@@ -40,6 +41,8 @@ pub struct BuildOptions {
     pub site_url: String,
     pub sitemap: SitemapOptions,
     pub rss: RssOptions,
+    /// Scaffold `public/manifest.webmanifest` and inject PWA head tags.
+    pub manifest: bool,
     /// List → `…/1/`, `…/2/`, … expansions.
     pub pagination: Vec<PaginationRule>,
     /// Asset optimize pipeline (off unless `enabled`; kinds are selectable).
@@ -70,6 +73,7 @@ impl BuildOptions {
             site_url: String::new(),
             sitemap: SitemapOptions::default(),
             rss: RssOptions::default(),
+            manifest: false,
             pagination: Vec::new(),
             process: AssetProcessOptions::default(),
             minify: MinifyOptions::default(),
@@ -234,6 +238,7 @@ impl PreparedPage {
         current: Option<&Value>,
         aliases: &AliasOptions,
         forms: &FormsOptions,
+        manifest: Option<&ManifestMeta>,
         locale: Option<&str>,
         i18n_catalogs: &I18nCatalogs,
         i18n: &I18nOptions,
@@ -254,6 +259,7 @@ impl PreparedPage {
             &page_data,
             aliases,
             forms,
+            manifest,
             locale,
             catalog.as_ref(),
             data_cache,
@@ -371,10 +377,27 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     let route_rows = Mutex::new(Vec::with_capacity(prepared.len()));
     let warnings = Mutex::new(Vec::new());
 
+    let manifest_meta = if opts.manifest {
+        let path = manifest::ensure_manifest_file(&opts.root)?;
+        Some(manifest::read_manifest_meta(&path)?)
+    } else {
+        None
+    };
+
     let t = Instant::now();
     let results: Vec<Result<EmitResult>> = prepared
         .par_iter()
-        .map(|page| emit_prepared(opts, page, &registry, &i18n_catalogs, &warnings, &route_rows))
+        .map(|page| {
+            emit_prepared(
+                opts,
+                page,
+                &registry,
+                &i18n_catalogs,
+                manifest_meta.as_ref(),
+                &warnings,
+                &route_rows,
+            )
+        })
         .collect();
     let emit_ms = t.elapsed().as_millis();
 
@@ -565,19 +588,20 @@ fn emit_prepared(
     page: &PreparedPage,
     registry: &FragmentRegistry,
     i18n_catalogs: &I18nCatalogs,
+    manifest: Option<&ManifestMeta>,
     warnings: &Mutex<Vec<Diagnostic>>,
     route_rows: &Mutex<Vec<BuildRouteRow>>,
 ) -> Result<EmitResult> {
     let result = if page.locale_only(&opts.i18n) {
-        emit_locales(opts, page, registry, i18n_catalogs)
+        emit_locales(opts, page, registry, i18n_catalogs, manifest)
     } else if let Some(rule) = opts.pagination_for(&page.source.route) {
         if page.has_locale_param(&opts.i18n) {
-            emit_locale_paginated(opts, page, registry, i18n_catalogs, rule, warnings)
+            emit_locale_paginated(opts, page, registry, i18n_catalogs, rule, manifest, warnings)
         } else {
-            emit_paginated(opts, page, registry, i18n_catalogs, rule, warnings, None)
+            emit_paginated(opts, page, registry, i18n_catalogs, rule, manifest, warnings, None)
         }
     } else if page.has_locale_param(&opts.i18n) && page.source.kind() == PageKind::Collection {
-        emit_locale_collection(opts, page, registry, i18n_catalogs, warnings)
+        emit_locale_collection(opts, page, registry, i18n_catalogs, manifest, warnings)
     } else {
         match page.source.kind() {
             PageKind::Static => {
@@ -588,6 +612,7 @@ fn emit_prepared(
                     None,
                     &opts.aliases,
                     &opts.forms,
+                    manifest,
                     None,
                     i18n_catalogs,
                     &opts.i18n,
@@ -600,7 +625,9 @@ fn emit_prepared(
                     route: page.route_row(1, PageKind::Static, false),
                 })
             }
-            PageKind::Collection => emit_collection(opts, page, registry, i18n_catalogs, warnings),
+            PageKind::Collection => {
+                emit_collection(opts, page, registry, i18n_catalogs, manifest, warnings)
+            }
         }
     }?;
     route_rows
@@ -615,6 +642,7 @@ fn emit_locales(
     page: &PreparedPage,
     registry: &FragmentRegistry,
     i18n_catalogs: &I18nCatalogs,
+    manifest: Option<&ManifestMeta>,
 ) -> Result<EmitResult> {
     let locales = &opts.i18n.locales;
     let mut outs = Vec::with_capacity(locales.len());
@@ -627,6 +655,7 @@ fn emit_locales(
             Some(&ctx),
             &opts.aliases,
             &opts.forms,
+            manifest,
             Some(loc.as_str()),
             i18n_catalogs,
             &opts.i18n,
@@ -681,6 +710,7 @@ fn emit_locale_paginated(
     registry: &FragmentRegistry,
     i18n_catalogs: &I18nCatalogs,
     rule: &PaginationRule,
+    manifest: Option<&ManifestMeta>,
     warnings: &Mutex<Vec<Diagnostic>>,
 ) -> Result<EmitResult> {
     let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
@@ -722,6 +752,7 @@ fn emit_locale_paginated(
                 &param,
                 Some(loc.as_str()),
                 i18n_catalogs,
+                manifest,
                 &mut data_cache,
                 &mut outs,
             )?;
@@ -750,6 +781,7 @@ fn emit_locale_paginated(
                 &param,
                 Some(loc.as_str()),
                 i18n_catalogs,
+                manifest,
                 &mut data_cache,
                 &mut outs,
             )?;
@@ -848,6 +880,7 @@ fn emit_pagination_chunks(
     param: &str,
     locale: Option<&str>,
     i18n_catalogs: &I18nCatalogs,
+    manifest: Option<&ManifestMeta>,
     data_cache: &mut std::collections::HashMap<PathBuf, Value>,
     outs: &mut Vec<PathBuf>,
 ) -> Result<()> {
@@ -859,6 +892,7 @@ fn emit_pagination_chunks(
             ctx.as_ref().or(Some(&chunk.value)),
             &opts.aliases,
             &opts.forms,
+            manifest,
             locale,
             i18n_catalogs,
             &opts.i18n,
@@ -891,6 +925,7 @@ fn emit_pagination_chunks(
                 ctx.as_ref().or(Some(&first.value)),
                 &opts.aliases,
                 &opts.forms,
+                manifest,
                 locale,
                 i18n_catalogs,
                 &opts.i18n,
@@ -918,6 +953,7 @@ fn emit_paginated(
     registry: &FragmentRegistry,
     i18n_catalogs: &I18nCatalogs,
     rule: &PaginationRule,
+    manifest: Option<&ManifestMeta>,
     warnings: &Mutex<Vec<Diagnostic>>,
     locale: Option<&str>,
 ) -> Result<EmitResult> {
@@ -968,6 +1004,7 @@ fn emit_paginated(
         &param,
         locale,
         i18n_catalogs,
+        manifest,
         &mut data_cache,
         &mut outs,
     )?;
@@ -984,6 +1021,7 @@ fn emit_collection(
     page: &PreparedPage,
     registry: &FragmentRegistry,
     i18n_catalogs: &I18nCatalogs,
+    manifest: Option<&ManifestMeta>,
     warnings: &Mutex<Vec<Diagnostic>>,
 ) -> Result<EmitResult> {
     let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
@@ -1064,6 +1102,7 @@ fn emit_collection(
             Some(item),
             &opts.aliases,
             &opts.forms,
+            manifest,
             None,
             i18n_catalogs,
             &opts.i18n,
@@ -1086,6 +1125,7 @@ fn emit_locale_collection(
     page: &PreparedPage,
     registry: &FragmentRegistry,
     i18n_catalogs: &I18nCatalogs,
+    manifest: Option<&ManifestMeta>,
     warnings: &Mutex<Vec<Diagnostic>>,
 ) -> Result<EmitResult> {
     let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
@@ -1152,6 +1192,7 @@ fn emit_locale_collection(
                 page,
                 registry,
                 i18n_catalogs,
+                manifest,
                 param,
                 items,
                 loc,
@@ -1183,6 +1224,7 @@ fn emit_locale_collection(
                 page,
                 registry,
                 i18n_catalogs,
+                manifest,
                 param,
                 items,
                 loc,
@@ -1206,6 +1248,7 @@ fn emit_locale_collection_items(
     page: &PreparedPage,
     registry: &FragmentRegistry,
     i18n_catalogs: &I18nCatalogs,
+    manifest: Option<&ManifestMeta>,
     param: &str,
     items: &[Value],
     loc: &str,
@@ -1235,6 +1278,7 @@ fn emit_locale_collection_items(
             Some(&ctx),
             &opts.aliases,
             &opts.forms,
+            manifest,
             Some(loc),
             i18n_catalogs,
             &opts.i18n,

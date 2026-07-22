@@ -22,6 +22,7 @@ fn builds_blog_fixture() {
         endpoint: "https://formspree.io/f/{id}".into(),
         ids: [("contact".into(), "example".into())].into(),
     };
+    opts.manifest = true;
     opts.pagination = vec![statica_core::PaginationRule {
         route: "blog/[page]".into(),
         page_size: 2,
@@ -314,6 +315,37 @@ fn font_link_expands_in_build() {
     let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
     assert!(html.contains("fonts.googleapis.com/css2?family=Outfit:wght@400;700"));
     assert!(!html.contains("statica/font"));
+}
+
+#[test]
+fn manifest_scaffolds_and_injects_tags() {
+    let dir = tempfile_dir();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+  </head>
+  <body><p>Hi</p></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.manifest = true;
+    build(&opts).expect("build");
+
+    assert!(dir.join("public/manifest.webmanifest").exists());
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains(r#"<link rel="manifest" href="/manifest.webmanifest""#));
+    assert!(html.contains("theme-color"));
+
+    let manifest = std::fs::read_to_string(dir.join("dist/public/manifest.webmanifest")).unwrap();
+    assert!(manifest.contains("\"name\": \"My Site\""));
 }
 
 #[test]

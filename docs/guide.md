@@ -285,6 +285,28 @@ Local fonts — point at a CSS file with your own `@font-face` rules (plain path
 
 Both expand to `<link rel="stylesheet" href="…">`. Font files are copied via `asset_dirs` as usual.
 
+## Web manifest
+
+Enable with `manifest = true` in statica.toml or `--manifest` on the CLI.
+
+statica scaffolds `public/manifest.webmanifest` when it is missing (edit that file directly), copies it via `asset_dirs`, and injects PWA head tags into every page:
+
+```html
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="theme-color" content="…" />
+<link rel="apple-touch-icon" href="…" />
+```
+
+Tags are skipped when a page already declares them. Theme color and the apple touch icon are read from the manifest JSON.
+
+```toml
+manifest = true
+```
+
+```bash
+statica build --manifest
+```
+
 ## Internationalization (`[i18n]`)
 
 Author **one page template** with a `[locale]` route segment. statica expands it once per entry in `[i18n].locales`:

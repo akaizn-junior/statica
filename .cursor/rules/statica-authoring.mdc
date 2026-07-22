@@ -1,0 +1,29 @@
+---
+description: statica HTML site authoring conventions
+globs: "**/{index.html,ui/**/*.html,examples/**/*.html}"
+alwaysApply: false
+---
+
+# statica site authoring
+
+Read [AGENTS.md](../../AGENTS.md) and [docs/guide.md](../../docs/guide.md). Copy patterns from [examples/blog/](../../examples/blog/).
+
+## Core rules
+
+- HTML-first — no React/Vue/JSX. Valid HTML + statica attributes.
+- Routing: `**/index.html`; dynamic segments use `[slug]`, `[page]`, `[locale]` folders.
+- Fragments: three-part `id` contract — `<link rel="statica/fragment">`, `<slot id="…">`, `<template id="…">`.
+- Text content → `<slot name="field">`. Attributes → `${field}`. Every field must be in `data-bind`.
+- Collection: `<html data-bind="arrayId">` + funnel script. Pagination: `data-bind="items"` + `[[pagination]]` in TOML.
+- Paths relative to the declaring HTML file. Aliases via `@Name/tail` from `statica.toml`.
+- Always lowercase **statica**.
+
+## Anti-patterns
+
+- `${field}` in text nodes (use slots)
+- `<slot>` inside attributes
+- Undeclared `${…}` bindings
+- `[page]` and `[slug]` in the same route tree
+- Runtime fetch for static content
+
+Verify with `statica build` or `statica watch`.

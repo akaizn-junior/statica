@@ -63,6 +63,8 @@ pub struct StaticaConfig {
     pub env: crate::env::EnvConfig,
     /// Locale catalogs and prefixed routes (`[i18n]`).
     pub i18n: I18nConfig,
+    /// Scaffold `public/manifest.webmanifest` and inject PWA head tags.
+    pub manifest: bool,
 }
 
 /// `[aliases]` — `@Name/tail` → resolved URL or path (see `docs/guide.md`).
@@ -391,6 +393,7 @@ impl Default for StaticaConfig {
             forms: FormsConfig::default(),
             env: crate::env::EnvConfig::default(),
             i18n: I18nConfig::default(),
+            manifest: false,
         }
     }
 }
@@ -632,6 +635,7 @@ impl StaticaConfig {
             aliases: self.aliases.to_core(),
             forms: self.forms.to_core(),
             i18n: self.i18n.to_core(),
+            manifest: self.manifest,
             clean: self.clean,
             asset_dirs: self.asset_dirs.clone(),
             ignore_dirs,
@@ -724,6 +728,12 @@ impl StaticaConfig {
             if !spec.is_empty() {
                 apply_i18n_spec(&mut self.i18n, spec)?;
             }
+        }
+
+        if cli.no_manifest {
+            self.manifest = false;
+        } else if cli.manifest {
+            self.manifest = true;
         }
 
         Ok(())
@@ -822,6 +832,9 @@ poll_interval_secs = 2
 # locales = ["en", "pt"]     # expanded for every [locale]/… template
 # dir = "content/i18n"
 # fallback = ""             # empty → default locale catalog
+
+# Web app manifest — scaffold public/manifest.webmanifest + inject PWA head tags
+# manifest = false          # or: statica --manifest
 "#
         .into()
     }

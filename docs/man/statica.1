@@ -1,10 +1,10 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH statica 1  "statica 0.10.1" 
+.TH statica 1  "statica 0.11.0" 
 .SH NAME
 statica \- statica — Powered HTML
 .SH SYNOPSIS
-\fBstatica\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-minify\fR] [\fB\-\-no\-minify\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
+\fBstatica\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-minify\fR] [\fB\-\-no\-minify\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-\-manifest\fR] [\fB\-\-no\-manifest\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
 statica — Powered HTML
 .PP
@@ -130,6 +130,12 @@ Examples:
 \fB\-\-no\-i18n\fR
 Disable i18n
 .TP
+\fB\-\-manifest\fR
+Scaffold public/manifest.webmanifest and inject PWA head tags
+.TP
+\fB\-\-no\-manifest\fR
+Disable web manifest scaffold and head tags
+.TP
 \fB\-V\fR, \fB\-\-verbose\fR
 Print pipeline step timings during the build and a Next.js\-style route table at the end.
 `statica build` is silent by default; `statica watch` shows logs by default.
@@ -174,6 +180,7 @@ Configuration:
   Nested tables use compact SPECs (same style as pagination):
     \-\-rss \*(Aqtitle=Blog,limit=20,collections=posts\*(Aq
     \-\-sitemap \*(Aqfilename=sitemap.xml,urls_per_file=50000\*(Aq
+    \-\-manifest
     \-\-process \*(Aqcss=true,js=false,images=true\*(Aq
     \-\-minify \*(Aqhtml=true,css=true,js=true\*(Aq
     \-\-preview host=127.0.0.1,port=9000
@@ -187,4 +194,4 @@ Exit status:
 See also:
   docs/guide.md, man statica(1)
 .SH VERSION
-v0.10.1
+v0.11.0

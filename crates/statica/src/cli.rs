@@ -146,6 +146,7 @@ Configuration:
   Nested tables use compact SPECs (same style as pagination):
     --rss 'title=Blog,limit=20,collections=posts'
     --sitemap 'filename=sitemap.xml,urls_per_file=50000'
+    --manifest
     --process 'css=true,js=false,images=true'
     --minify 'html=true,css=true,js=true'
     --preview host=127.0.0.1,port=9000

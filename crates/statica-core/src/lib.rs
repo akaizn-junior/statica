@@ -9,7 +9,7 @@
 //! 5. **Expand** — static (1:1), collection (1:N items), or pagination (1:N page chunks).
 //! 6. **Bind** — slots + `${…}` attrs + `data-t` / `data-t-{attr}` i18n + fragment/`data-each` expansion + form wiring.
 //! 7. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).
-//! 8. **Emit** — write HTML; transform CSS to browser-ready; optional asset process + responsive images; sitemap / RSS.
+//! 8. **Emit** — write HTML; transform CSS to browser-ready; optional asset process + responsive images; sitemap / RSS / web manifest.
 //! 9. **Minify** — optional final pass on HTML, CSS, and JS in `out_dir`.
 //!
 //! The `statica` CLI owns end-user config (`statica.toml`) and maps it into
@@ -20,6 +20,7 @@
 //! - `docs/guide.md` — authoring + config reference
 //! - [`paginate`] — UI list pagination page objects
 //! - [`feeds`] — sitemap + RSS (via `sitemap-rs` / `rss`)
+//! - [`manifest`] — web app manifest scaffold + automatic PWA head tags
 
 #![warn(clippy::pedantic)]
 #![allow(
@@ -50,6 +51,7 @@ mod i18n;
 mod funnel;
 mod images;
 mod loc;
+mod manifest;
 mod minify;
 mod paginate;
 pub mod parse;
@@ -67,6 +69,7 @@ pub use loc::Diagnostic;
 pub use images::{ImageManifest, ImageProcessOptions, ResponsiveImage};
 pub use minify::{MinifyKind, MinifyOptions, MinifyReport};
 pub use feeds::{RssOptions, SitemapOptions};
+pub use manifest::{ManifestMeta, MANIFEST_FILE, MANIFEST_HREF};
 pub use forms::{FormProvider, FormsOptions};
 pub use i18n::{A11Y_TRANSLATABLE_ATTRS, I18nCatalogs, I18nOptions, DATA_T_ATTR_PREFIX};
 pub use paginate::PaginationRule;
