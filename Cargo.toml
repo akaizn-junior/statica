@@ -6,7 +6,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.9.7"
+version = "0.9.8"
 edition = "2021"
 license = "MIT"
 authors = ["statica"]
@@ -51,4 +51,4 @@ minify-html = "0.18.1"
 glob = "0.3"
 pulldown-cmark = "0.13"
 serde_yaml = "0.9"
-statica-core = { version = "0.9.7", path = "crates/statica-core" }
+statica-core = { version = "0.9.8", path = "crates/statica-core" }
