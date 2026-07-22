@@ -41,7 +41,6 @@ mod content;
 pub mod css;
 mod discover;
 mod emit;
-mod emit_opts;
 mod error;
 mod feeds;
 mod font;
@@ -63,7 +62,6 @@ pub use build::{build, rebuild_paths, BuildOptions, BuildPhase, BuildReport, Bui
 pub use build_log::BuildLog;
 pub use css::{transform_and_scope, transform_css};
 pub use discover::PageKind;
-pub use emit_opts::EmitOptions;
 pub use error::{Error, Result};
 pub use loc::Diagnostic;
 pub use images::{ImageManifest, ImageProcessOptions, ResponsiveImage};

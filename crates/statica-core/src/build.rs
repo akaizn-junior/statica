@@ -28,7 +28,7 @@ use crate::loc::Diagnostic;
 use crate::minify::{self, MinifyOptions};
 use crate::paginate::{self, PaginationRule};
 use crate::parse::{self, Document};
-use crate::{EmitOptions, FormsOptions};
+use crate::FormsOptions;
 
 /// Inputs for a build. The CLI maps `statica.toml` into this; core does not read config files.
 #[derive(Debug, Clone)]
@@ -46,8 +46,6 @@ pub struct BuildOptions {
     pub process: AssetProcessOptions,
     /// Final output minification (HTML, CSS, JS in `out_dir`).
     pub minify: MinifyOptions,
-    /// What to strip / tidy when writing HTML.
-    pub emit: EmitOptions,
     /// Path / URL aliases for authoring (`[aliases]` in statica.toml).
     pub aliases: AliasOptions,
     /// Static form wiring (`[forms]` in statica.toml).
@@ -75,7 +73,6 @@ impl BuildOptions {
             pagination: Vec::new(),
             process: AssetProcessOptions::default(),
             minify: MinifyOptions::default(),
-            emit: EmitOptions::default(),
             aliases: AliasOptions::default(),
             forms: FormsOptions::default(),
             i18n: I18nOptions::default(),
@@ -235,7 +232,6 @@ impl PreparedPage {
         registry: &FragmentRegistry,
         site_root: &Path,
         current: Option<&Value>,
-        emit: &EmitOptions,
         aliases: &AliasOptions,
         forms: &FormsOptions,
         locale: Option<&str>,
@@ -256,7 +252,6 @@ impl PreparedPage {
             &doc,
             current,
             &page_data,
-            emit,
             aliases,
             forms,
             locale,
@@ -591,7 +586,6 @@ fn emit_prepared(
                     registry,
                     &opts.root,
                     None,
-                    &opts.emit,
                     &opts.aliases,
                     &opts.forms,
                     None,
@@ -631,7 +625,6 @@ fn emit_locales(
             registry,
             &opts.root,
             Some(&ctx),
-            &opts.emit,
             &opts.aliases,
             &opts.forms,
             Some(loc.as_str()),
@@ -864,7 +857,6 @@ fn emit_pagination_chunks(
             registry,
             &opts.root,
             ctx.as_ref().or(Some(&chunk.value)),
-            &opts.emit,
             &opts.aliases,
             &opts.forms,
             locale,
@@ -897,7 +889,6 @@ fn emit_pagination_chunks(
                 registry,
                 &opts.root,
                 ctx.as_ref().or(Some(&first.value)),
-                &opts.emit,
                 &opts.aliases,
                 &opts.forms,
                 locale,
@@ -1071,7 +1062,6 @@ fn emit_collection(
             registry,
             &opts.root,
             Some(item),
-            &opts.emit,
             &opts.aliases,
             &opts.forms,
             None,
@@ -1243,7 +1233,6 @@ fn emit_locale_collection_items(
             registry,
             &opts.root,
             Some(&ctx),
-            &opts.emit,
             &opts.aliases,
             &opts.forms,
             Some(loc),

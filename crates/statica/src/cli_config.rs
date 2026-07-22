@@ -2,7 +2,7 @@
 //!
 //! # SPEC format
 //!
-//! Nested tables (`[emit]`, `[process]`, `[sitemap]`, `[rss]`, `[preview]`,
+//! Nested tables (`[process]`, `[sitemap]`, `[rss]`, `[preview]`,
 //! `[[pagination]]`) are overridden with compact `key=value,key=value` strings,
 //! the same style as `--pagination`.
 //!
@@ -55,18 +55,6 @@ Empty / omitted = that config directory is the site root."
 
     #[arg(long = "ignore-dirs", value_name = "DIRS", global = true, value_delimiter = ',', help = "Comma-separated dirs to skip when discovering pages")]
     pub ignore_dirs: Option<Vec<String>>,
-
-    // ── [emit] SPEC ────────────────────────────────────────────
-    #[arg(
-        long = "emit",
-        value_name = "SPEC",
-        global = true,
-        help = "Emit options as key=value SPEC",
-        long_help = "Override [emit]. Comma-separated key=value:\n\
-  strip_data, strip_fragments, strip_html_data_bind, dedupe_helpers, dedupe_styles\n\
-Example: --emit strip_data=false,dedupe_styles=true"
-    )]
-    pub emit: Option<String>,
 
     // ── [process] SPEC ─────────────────────────────────────────
     #[arg(

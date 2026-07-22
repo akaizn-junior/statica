@@ -22,7 +22,7 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use statica_core::{
-    AliasOptions, AssetProcessOptions, BuildOptions, EmitOptions, FormsOptions, I18nOptions,
+    AliasOptions, AssetProcessOptions, BuildOptions, FormsOptions, I18nOptions,
     ImageProcessOptions, MinifyOptions, PaginationRule, RssOptions, SitemapOptions,
 };
 
@@ -45,7 +45,6 @@ pub struct StaticaConfig {
     pub ignore_dirs: Vec<String>,
     /// Absolute site origin for sitemap/RSS (`https://example.com`). Empty → feeds skipped.
     pub site_url: String,
-    pub emit: EmitConfig,
     pub process: ProcessConfig,
     /// Final output minification (`[minify]`).
     pub minify: MinifyConfig,
@@ -192,22 +191,6 @@ impl FormsConfig {
             ids: self.ids.clone(),
         }
     }
-}
-
-/// `[emit]` — what to strip / tidy in written HTML.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct EmitConfig {
-    /// Remove `<script type="statica/data">` from output.
-    pub strip_data: bool,
-    /// Remove `<link rel="statica/fragment">` from output.
-    pub strip_fragments: bool,
-    /// Remove `data-bind` from `<html>`.
-    pub strip_html_data_bind: bool,
-    /// Dedupe inlined `$` helpers.
-    pub dedupe_helpers: bool,
-    /// Dedupe scoped `<style>` blocks.
-    pub dedupe_styles: bool,
 }
 
 /// `[process]` — asset optimize pipeline.
@@ -398,7 +381,6 @@ impl Default for StaticaConfig {
                 ".git".into(),
             ],
             site_url: String::new(),
-            emit: EmitConfig::default(),
             process: ProcessConfig::default(),
             minify: MinifyConfig::default(),
             sitemap: SitemapConfig::default(),
@@ -409,18 +391,6 @@ impl Default for StaticaConfig {
             forms: FormsConfig::default(),
             env: crate::env::EnvConfig::default(),
             i18n: I18nConfig::default(),
-        }
-    }
-}
-
-impl Default for EmitConfig {
-    fn default() -> Self {
-        Self {
-            strip_data: true,
-            strip_fragments: true,
-            strip_html_data_bind: true,
-            dedupe_helpers: true,
-            dedupe_styles: true,
         }
     }
 }
@@ -526,19 +496,6 @@ impl Default for PreviewConfig {
             port: 4321,
             debounce_ms: 80,
             poll_interval_secs: 2,
-        }
-    }
-}
-
-impl EmitConfig {
-    #[must_use]
-    pub fn to_core(&self) -> EmitOptions {
-        EmitOptions {
-            strip_data: self.strip_data,
-            strip_fragments: self.strip_fragments,
-            strip_html_data_bind: self.strip_html_data_bind,
-            dedupe_helpers: self.dedupe_helpers,
-            dedupe_styles: self.dedupe_styles,
         }
     }
 }
@@ -672,7 +629,6 @@ impl StaticaConfig {
             pagination: self.pagination.iter().map(PaginationConfig::to_core).collect(),
             process: self.process.to_core(),
             minify: self.minify.to_core(),
-            emit: self.emit.to_core(),
             aliases: self.aliases.to_core(),
             forms: self.forms.to_core(),
             i18n: self.i18n.to_core(),
@@ -705,10 +661,6 @@ impl StaticaConfig {
         }
         if let Some(v) = &cli.ignore_dirs {
             self.ignore_dirs = v.clone();
-        }
-
-        if let Some(spec) = &cli.emit {
-            apply_emit_spec(&mut self.emit, spec)?;
         }
 
         if cli.no_process {
@@ -802,14 +754,6 @@ Google = "https://fonts.googleapis.com/css2"
 
 [aliases.paths]
 # fonts = "./assets/fonts"     # local: @fonts/outfit.css → ./assets/fonts/outfit.css
-
-# HTML emit: strip authoring tags from .dist
-[emit]
-strip_data = true              # <script type="statica/data">
-strip_fragments = true         # <link rel="statica/fragment">
-strip_html_data_bind = true    # data-bind on <html>
-dedupe_helpers = true
-dedupe_styles = true
 
 # Asset optimize (also: statica --process)
 [process]
@@ -911,20 +855,6 @@ fn for_each_kv(spec: &str, mut f: impl FnMut(&str, &str) -> Result<()>) -> Resul
         f(key.trim(), value.trim())?;
     }
     Ok(())
-}
-
-fn apply_emit_spec(cfg: &mut EmitConfig, spec: &str) -> Result<()> {
-    for_each_kv(spec, |key, value| {
-        match key {
-            "strip_data" => cfg.strip_data = parse_bool(value)?,
-            "strip_fragments" => cfg.strip_fragments = parse_bool(value)?,
-            "strip_html_data_bind" => cfg.strip_html_data_bind = parse_bool(value)?,
-            "dedupe_helpers" => cfg.dedupe_helpers = parse_bool(value)?,
-            "dedupe_styles" => cfg.dedupe_styles = parse_bool(value)?,
-            other => anyhow::bail!("unknown emit key `{other}`"),
-        }
-        Ok(())
-    })
 }
 
 fn apply_process_spec(cfg: &mut ProcessConfig, spec: &str) -> Result<()> {
@@ -1142,22 +1072,17 @@ mod tests {
     fn defaults_without_file() {
         let dir = temp_dir();
         let cfg = StaticaConfig::load(&dir).unwrap();
-        assert!(cfg.emit.strip_data);
         assert_eq!(cfg.preview.host, "0.0.0.0");
         assert_eq!(cfg.preview.port, 4321);
         let _ = fs::remove_dir_all(dir);
     }
 
     #[test]
-    fn loads_emit_and_preview() {
+    fn loads_preview() {
         let dir = temp_dir();
         fs::write(
             dir.join(CONFIG_FILE),
             r#"
-[emit]
-strip_data = false
-strip_fragments = true
-
 [preview]
 host = "0.0.0.0"
 port = 8080
@@ -1165,8 +1090,6 @@ port = 8080
         )
         .unwrap();
         let cfg = StaticaConfig::load(&dir).unwrap();
-        assert!(!cfg.emit.strip_data);
-        assert!(cfg.emit.strip_fragments);
         assert_eq!(cfg.preview.host, "0.0.0.0");
         assert_eq!(cfg.preview.port, 8080);
         assert_eq!(cfg.preview.host_addr().unwrap(), IpAddr::from_str("0.0.0.0").unwrap());
@@ -1324,7 +1247,6 @@ fonts = "./assets/fonts"
     #[test]
     fn default_toml_roundtrips() {
         let cfg: StaticaConfig = toml::from_str(&StaticaConfig::default_toml()).unwrap();
-        assert!(cfg.emit.strip_data);
         assert!(!cfg.sitemap.enabled);
         assert!(!cfg.rss.enabled);
         assert_eq!(cfg.preview.host, "0.0.0.0");
@@ -1389,7 +1311,6 @@ dir = "locales"
             pagination: vec![
                 "route=blog/[page],page_size=2,sort_desc=true,index=true".into(),
             ],
-            emit: Some("strip_data=false".into()),
             preview: Some("port=9000,debounce_ms=50".into()),
             ..crate::cli::ConfigCli::default()
         };
@@ -1400,7 +1321,6 @@ dir = "locales"
         assert_eq!(cfg.rss.title, "T");
         assert_eq!(cfg.rss.limit, 3);
         assert_eq!(cfg.rss.collections, vec!["posts", "notes"]);
-        assert!(!cfg.emit.strip_data);
         assert_eq!(cfg.preview.port, 9000);
         assert_eq!(cfg.site_url, "https://ex.com");
         assert_eq!(cfg.pagination.len(), 1);

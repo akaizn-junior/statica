@@ -148,7 +148,6 @@ Configuration:
     --sitemap 'filename=sitemap.xml,urls_per_file=50000'
     --process 'css=true,js=false,images=true'
     --minify 'html=true,css=true,js=true'
-    --emit strip_data=false
     --preview host=127.0.0.1,port=9000
     --pagination 'route=blog/[page],page_size=10,sort_desc=true,index=true'
     --i18n 'locales=en|pt,default=en'

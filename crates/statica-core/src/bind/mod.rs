@@ -13,7 +13,7 @@ use crate::fragment::{self, FragmentRegistry};
 use crate::funnel::{self, DataSource};
 use crate::parse::{Document, Node};
 use crate::scope;
-use crate::{AliasOptions, EmitOptions, FormsOptions};
+use crate::{AliasOptions, FormsOptions};
 use crate::i18n;
 
 pub use attrs::fill_attr_templates_in_nodes;
@@ -25,7 +25,6 @@ pub fn render_page_document(
     doc: &Document,
     current: Option<&Value>,
     page_data: &HashMap<String, DataSource>,
-    emit: &EmitOptions,
     aliases: &AliasOptions,
     forms: &FormsOptions,
     locale: Option<&str>,
@@ -57,15 +56,11 @@ pub fn render_page_document(
     crate::aliases::resolve_paths_in_document(&mut doc, aliases, site)?;
     crate::font::expand_font_links(&mut doc, aliases, site)?;
     crate::forms::wire_forms_in_document(&mut doc, forms, site)?;
-    funnel::strip_authoring(&mut doc, emit);
+    funnel::strip_authoring(&mut doc);
     clear_remaining_named_slots(&mut doc.children);
     transform_page_styles(&mut doc.children);
-    if emit.dedupe_helpers {
-        scope::dedupe_helpers_in_document(&mut doc);
-    }
-    if emit.dedupe_styles {
-        scope::dedupe_styles_in_document(&mut doc);
-    }
+    scope::dedupe_helpers_in_document(&mut doc);
+    scope::dedupe_styles_in_document(&mut doc);
     Ok(crate::parse::serialize_document(&doc))
 }
 

@@ -85,7 +85,7 @@ statica build --rss 'title=Blog,limit=20,collections=posts'
 statica build --sitemap 'filename=sitemap.xml,urls_per_file=50000'
 statica build --process 'css=true,js=false,images=true'
 statica build --minify 'html=true,css=true,js=true'
-statica build --emit strip_data=false
+statica build --process --minify
 statica build --pagination 'route=blog/[page],page_size=10,sort_desc=true,index=true'
 statica build --i18n 'locales=en|pt,default=en'
 statica watch --preview host=127.0.0.1,port=9000
@@ -111,9 +111,6 @@ Optional. Missing file → defaults. See [docs/guide.md](docs/guide.md) for the 
 project = ""                 # relative to this file; empty = here
 out_dir = ".dist"
 site_url = ""                # needed for sitemap / RSS
-
-[emit]
-strip_data = true
 
 [process]
 enabled = false

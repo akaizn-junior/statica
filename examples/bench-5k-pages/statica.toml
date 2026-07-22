@@ -4,11 +4,6 @@ clean = true
 copy_assets = false
 ignore_dirs = [".dist", "dist", "target", ".git"]
 
-[emit]
-strip_data = true
-strip_fragments = true
-strip_html_data_bind = true
-
 [sitemap]
 enabled = true
 

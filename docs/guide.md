@@ -372,7 +372,6 @@ Nested config tables use compact `key=value` **SPECs** (CLI wins over `statica.t
 statica build --rss 'title=Blog,limit=20,collections=posts'
 statica build --sitemap 'filename=sitemap.xml,urls_per_file=50000'
 statica build --process 'css=true,js=false,images=true'
-statica build --emit strip_data=false
 statica build --pagination 'route=blog/[page],page_size=10,sort_desc=true,index=true'
 statica build --i18n 'locales=en|pt,default=en'
 statica watch --preview host=127.0.0.1,port=9000
@@ -419,13 +418,6 @@ Google = "https://fonts.googleapis.com/css2"
 
 [aliases.paths]
 # fonts = "./assets/fonts"
-
-[emit]
-strip_data = true
-strip_fragments = true
-strip_html_data_bind = true
-dedupe_helpers = true
-dedupe_styles = true
 
 [process]
 enabled = false

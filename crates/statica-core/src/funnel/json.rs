@@ -339,32 +339,30 @@ pub fn find_template<'a>(doc: &'a Document, id: &str) -> Option<&'a Element> {
         .next()
 }
 
-/// Strip authoring tags according to [`crate::EmitOptions`].
-pub fn strip_authoring(doc: &mut Document, opts: &crate::EmitOptions) {
-    strip_nodes(&mut doc.children, opts);
-    if opts.strip_html_data_bind {
-        for child in &mut doc.children {
-            if let Node::Element(el) = child {
-                if el.name.eq_ignore_ascii_case("html") {
-                    el.attrs.shift_remove("data-bind");
-                }
+/// Strip statica authoring tags so output is browser-valid HTML.
+pub fn strip_authoring(doc: &mut Document) {
+    strip_nodes(&mut doc.children);
+    for child in &mut doc.children {
+        if let Node::Element(el) = child {
+            if el.name.eq_ignore_ascii_case("html") {
+                el.attrs.shift_remove("data-bind");
             }
         }
     }
 }
 
-fn strip_nodes(nodes: &mut Vec<Node>, opts: &crate::EmitOptions) {
+fn strip_nodes(nodes: &mut Vec<Node>) {
     nodes.retain(|n| match n {
         Node::Element(el) => {
             if is_data_script(el) {
-                return !opts.strip_data;
+                return false;
             }
             if el.is_link()
                 && el
                     .attr("rel")
                     .is_some_and(|r| r.split_whitespace().any(|p| p == "statica/fragment"))
             {
-                return !opts.strip_fragments;
+                return false;
             }
             true
         }
@@ -372,7 +370,7 @@ fn strip_nodes(nodes: &mut Vec<Node>, opts: &crate::EmitOptions) {
     });
     for n in nodes.iter_mut() {
         if let Node::Element(el) = n {
-            strip_nodes(&mut el.children, opts);
+            strip_nodes(&mut el.children);
         }
     }
 }
