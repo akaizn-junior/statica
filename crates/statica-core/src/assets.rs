@@ -4,7 +4,7 @@
 //!
 //! - **CSS** — [lightningcss](https://lightningcss.dev/) (modern → browser-ready + minify)
 //! - **JS** — [oxc](https://oxc.rs/) minifier
-//! - **Images** — [oxipng](https://docs.rs/oxipng) + [image](https://docs.rs/image) (png/jpeg/webp)
+//! - **Images** — responsive variants + WebP ([`crate::images`]) or legacy single-file optimize
 //! - **Fonts** — copied when enabled (woff/woff2/ttf/otf are already compressed containers)
 //!
 //! Note: `<style>` tags are always transformed by [`crate::css`] during HTML emit.
@@ -12,12 +12,12 @@
 //! off they are copied as-is (escape hatch for prebuilt CSS).
 
 use std::fs;
-use std::io::Cursor;
 use std::path::Path;
 
 use rayon::prelude::*;
 
 use crate::error::{Error, Result};
+use crate::images::{self, ImageManifest, ImageProcessOptions};
 use crate::loc::Diagnostic;
 
 /// Which asset kinds to optimize when processing is on.
@@ -28,6 +28,7 @@ pub struct AssetProcessOptions {
     pub js: bool,
     pub images: bool,
     pub fonts: bool,
+    pub image: ImageProcessOptions,
 }
 
 impl Default for AssetProcessOptions {
@@ -38,6 +39,7 @@ impl Default for AssetProcessOptions {
             js: true,
             images: true,
             fonts: false,
+            image: ImageProcessOptions::default(),
         }
     }
 }
@@ -90,6 +92,7 @@ pub struct ProcessReport {
     pub processed: usize,
     pub copied: usize,
     pub warnings: Vec<Diagnostic>,
+    pub images: ImageManifest,
 }
 
 /// Copy `asset_dirs` into `out_dir`, optionally processing selected asset kinds.
@@ -106,51 +109,60 @@ pub fn copy_asset_dirs(
             continue;
         }
         let dst = out_dir.join(name);
-        let partial = copy_tree(&src, &dst, process)?;
+        let partial = copy_tree(&src, &dst, out_dir, process)?;
         report.processed += partial.processed;
         report.copied += partial.copied;
         report.warnings.extend(partial.warnings);
+        report.images.merge(&partial.images);
     }
     Ok(report)
 }
 
-fn copy_tree(src: &Path, dst: &Path, process: &AssetProcessOptions) -> Result<ProcessReport> {
+fn copy_tree(
+    src: &Path,
+    dst: &Path,
+    out_dir: &Path,
+    process: &AssetProcessOptions,
+) -> Result<ProcessReport> {
     let mut files = Vec::new();
     collect_files(src, dst, &mut files)?;
 
-    let results: Vec<(bool, Option<Diagnostic>)> = files
-        .par_iter()
-        .map(|(from, to)| {
-            if let Some(parent) = to.parent() {
-                let _ = fs::create_dir_all(parent);
-            }
-            match emit_file(from, to, process) {
-                Ok(did_process) => (did_process, None),
-                Err(e) => {
-                    let file = from.display().to_string();
-                    if let Err(copy_err) = fs::copy(from, to) {
-                        return (
+    let results: Vec<(bool, Option<Diagnostic>, Option<(String, crate::images::ResponsiveImage)>)> =
+        files
+            .par_iter()
+            .map(|(from, to)| {
+                if let Some(parent) = to.parent() {
+                    let _ = fs::create_dir_all(parent);
+                }
+                match emit_file(from, to, out_dir, process) {
+                    Ok(outcome) => (outcome.processed, None, outcome.manifest_entry),
+                    Err(e) => {
+                        let file = from.display().to_string();
+                        if let Err(copy_err) = fs::copy(from, to) {
+                            return (
+                                false,
+                                Some(Diagnostic::at_file(
+                                    file.clone(),
+                                    format!("asset copy failed: {copy_err}"),
+                                )),
+                                None,
+                            );
+                        }
+                        (
                             false,
                             Some(Diagnostic::at_file(
-                                file.clone(),
-                                format!("asset copy failed: {copy_err}"),
+                                file,
+                                format!("asset process failed ({e}); copied raw"),
                             )),
-                        );
+                            None,
+                        )
                     }
-                    (
-                        false,
-                        Some(Diagnostic::at_file(
-                            file,
-                            format!("asset process failed ({e}); copied raw"),
-                        )),
-                    )
                 }
-            }
-        })
-        .collect();
+            })
+            .collect();
 
     let mut report = ProcessReport::default();
-    for (did_process, warn) in results {
+    for (did_process, warn, entry) in results {
         if did_process {
             report.processed += 1;
         } else {
@@ -158,6 +170,9 @@ fn copy_tree(src: &Path, dst: &Path, process: &AssetProcessOptions) -> Result<Pr
         }
         if let Some(w) = warn {
             report.warnings.push(w);
+        }
+        if let Some((key, image)) = entry {
+            report.images.insert(key, image);
         }
     }
     Ok(report)
@@ -183,8 +198,18 @@ fn collect_files(
     Ok(())
 }
 
-/// Returns `true` when the file was transformed (not a byte-for-byte copy).
-fn emit_file(from: &Path, to: &Path, process: &AssetProcessOptions) -> Result<bool> {
+struct EmitOutcome {
+    processed: bool,
+    manifest_entry: Option<(String, crate::images::ResponsiveImage)>,
+}
+
+/// Returns whether the file was transformed (not a byte-for-byte copy).
+fn emit_file(
+    from: &Path,
+    to: &Path,
+    out_dir: &Path,
+    process: &AssetProcessOptions,
+) -> Result<EmitOutcome> {
     let ext = from
         .extension()
         .and_then(|e| e.to_str())
@@ -194,79 +219,60 @@ fn emit_file(from: &Path, to: &Path, process: &AssetProcessOptions) -> Result<bo
 
     if !process.allows(kind) {
         fs::copy(from, to)?;
-        return Ok(false);
+        return Ok(EmitOutcome {
+            processed: false,
+            manifest_entry: None,
+        });
     }
 
     match (kind, ext.as_str()) {
         (AssetKind::Css, _) => {
             let css = fs::read_to_string(from)?;
-            let out = crate::minify::minify_css(&css).map_err(|e| Error::at_file(from.display().to_string(), e))?;
+            let out = crate::minify::minify_css(&css)
+                .map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
-            Ok(true)
+            Ok(EmitOutcome {
+                processed: true,
+                manifest_entry: None,
+            })
         }
         (AssetKind::Js, _) => {
             let js = fs::read_to_string(from)?;
-            let out = crate::minify::minify_js(from, &js).map_err(|e| Error::at_file(from.display().to_string(), e))?;
+            let out = crate::minify::minify_js(from, &js)
+                .map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
-            Ok(true)
+            Ok(EmitOutcome {
+                processed: true,
+                manifest_entry: None,
+            })
         }
-        (AssetKind::Image, "png") => {
-            let bytes = fs::read(from)?;
-            let out = optimize_png(&bytes).map_err(|e| Error::at_file(from.display().to_string(), e))?;
-            fs::write(to, out)?;
-            Ok(true)
-        }
-        (AssetKind::Image, "jpg" | "jpeg") => {
-            let bytes = fs::read(from)?;
-            let out = optimize_jpeg(&bytes).map_err(|e| Error::at_file(from.display().to_string(), e))?;
-            fs::write(to, out)?;
-            Ok(true)
-        }
-        (AssetKind::Image, "webp") => {
-            let bytes = fs::read(from)?;
-            let out = optimize_webp(&bytes).map_err(|e| Error::at_file(from.display().to_string(), e))?;
-            fs::write(to, out)?;
-            Ok(true)
+        (AssetKind::Image, ext) if images::is_responsive_source(ext) => {
+            let resp =
+                images::process_responsive_image(from, to, out_dir, &process.image).map_err(
+                    |e| Error::at_file(from.display().to_string(), e.to_string()),
+                )?;
+            let key = resp.source_url.clone();
+            Ok(EmitOutcome {
+                processed: true,
+                manifest_entry: Some((key, resp)),
+            })
         }
         // gif/svg/avif/ico and fonts: selected for processing but no transform yet → copy.
         (AssetKind::Image | AssetKind::Font, _) => {
             fs::copy(from, to)?;
-            Ok(false)
+            Ok(EmitOutcome {
+                processed: false,
+                manifest_entry: None,
+            })
         }
         (AssetKind::Other, _) => {
             fs::copy(from, to)?;
-            Ok(false)
+            Ok(EmitOutcome {
+                processed: false,
+                manifest_entry: None,
+            })
         }
     }
-}
-
-fn optimize_png(bytes: &[u8]) -> std::result::Result<Vec<u8>, String> {
-    oxipng::optimize_from_memory(
-        bytes,
-        &oxipng::Options {
-            fix_errors: true,
-            ..oxipng::Options::from_preset(2)
-        },
-    )
-    .map_err(|e| format!("png: {e}"))
-}
-
-fn optimize_jpeg(bytes: &[u8]) -> std::result::Result<Vec<u8>, String> {
-    let img = image::load_from_memory(bytes).map_err(|e| format!("jpeg decode: {e}"))?;
-    let mut out = Cursor::new(Vec::new());
-    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 85);
-    img.write_with_encoder(encoder)
-        .map_err(|e| format!("jpeg encode: {e}"))?;
-    Ok(out.into_inner())
-}
-
-fn optimize_webp(bytes: &[u8]) -> std::result::Result<Vec<u8>, String> {
-    let img = image::load_from_memory(bytes).map_err(|e| format!("webp decode: {e}"))?;
-    let mut out = Cursor::new(Vec::new());
-    let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut out);
-    img.write_with_encoder(encoder)
-        .map_err(|e| format!("webp encode: {e}"))?;
-    Ok(out.into_inner())
 }
 
 #[cfg(test)]
@@ -299,6 +305,7 @@ mod tests {
             js: false,
             images: true,
             fonts: false,
+            ..AssetProcessOptions::default()
         };
         assert!(opts.allows(AssetKind::Image));
         assert!(!opts.allows(AssetKind::Css));

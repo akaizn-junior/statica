@@ -684,6 +684,65 @@ fn minifies_final_html_output() {
     );
 }
 
+#[test]
+fn responsive_images_wrap_img_in_picture() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("assets")).unwrap();
+
+    let mut img = image::RgbImage::new(800, 600);
+    for (x, y, pixel) in img.enumerate_pixels_mut() {
+        *pixel = image::Rgb([x as u8, y as u8, 100]);
+    }
+    let dyn_img = image::DynamicImage::ImageRgb8(img);
+    let mut buf = Vec::new();
+    dyn_img
+        .write_to(
+            &mut std::io::Cursor::new(&mut buf),
+            image::ImageFormat::Jpeg,
+        )
+        .unwrap();
+    std::fs::write(dir.join("assets/hero.jpg"), &buf).unwrap();
+
+    std::fs::write(
+        dir.join("index.html"),
+        r##"<!doctype html>
+<html lang="en">
+  <body>
+    <img src="/assets/hero.jpg" alt="Hero" data-statica-img-sizes="(max-width: 768px) 100vw, 50vw" />
+  </body>
+</html>"##,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.process = statica_core::AssetProcessOptions {
+        enabled: true,
+        images: true,
+        css: false,
+        js: false,
+        fonts: false,
+        image: statica_core::ImageProcessOptions {
+            widths: vec![400, 800],
+            ..statica_core::ImageProcessOptions::default()
+        },
+    };
+
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("<picture>"), "expected picture: {html}");
+    assert!(html.contains("type=\"image/webp\""));
+    assert!(html.contains("srcset=\"/assets/hero-400w.webp 400w"));
+    assert!(html.contains("sizes=\"(max-width: 768px) 100vw, 50vw\""));
+    assert!(html.contains("loading=\"lazy\""));
+    assert!(html.contains("width=\"800\""));
+    assert!(html.contains("height=\"600\""));
+    assert!(!html.contains("data-statica-img"));
+    assert!(dir.join("dist/assets/hero-400w.webp").exists());
+    assert!(dir.join("dist/assets/hero-800w.jpg").exists());
+}
+
 fn tempfile_dir() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static N: AtomicU64 = AtomicU64::new(0);

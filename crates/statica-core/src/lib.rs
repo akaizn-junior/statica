@@ -9,7 +9,7 @@
 //! 5. **Expand** — static (1:1), collection (1:N items), or pagination (1:N page chunks).
 //! 6. **Bind** — slots + `${…}` attrs + `data-t` / `data-t-{attr}` i18n + fragment/`data-each` expansion + form wiring.
 //! 7. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).
-//! 8. **Emit** — write HTML; transform CSS to browser-ready; optional asset process; sitemap / RSS.
+//! 8. **Emit** — write HTML; transform CSS to browser-ready; optional asset process + responsive images; sitemap / RSS.
 //! 9. **Minify** — optional final pass on HTML, CSS, and JS in `out_dir`.
 //!
 //! The `statica` CLI owns end-user config (`statica.toml`) and maps it into
@@ -49,6 +49,7 @@ mod forms;
 mod fragment;
 mod i18n;
 mod funnel;
+mod images;
 mod loc;
 mod minify;
 mod paginate;
@@ -65,6 +66,7 @@ pub use discover::PageKind;
 pub use emit_opts::EmitOptions;
 pub use error::{Error, Result};
 pub use loc::Diagnostic;
+pub use images::{ImageManifest, ImageProcessOptions, ResponsiveImage};
 pub use minify::{MinifyKind, MinifyOptions, MinifyReport};
 pub use feeds::{RssOptions, SitemapOptions};
 pub use forms::{FormProvider, FormsOptions};

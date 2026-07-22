@@ -23,7 +23,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use statica_core::{
     AliasOptions, AssetProcessOptions, BuildOptions, EmitOptions, FormsOptions, I18nOptions,
-    MinifyOptions, PaginationRule, RssOptions, SitemapOptions,
+    ImageProcessOptions, MinifyOptions, PaginationRule, RssOptions, SitemapOptions,
 };
 
 /// Canonical config file name in a statica project root.
@@ -219,6 +219,25 @@ pub struct ProcessConfig {
     pub js: bool,
     pub images: bool,
     pub fonts: bool,
+    /// Responsive image settings (`[process.image]`).
+    #[serde(default)]
+    pub image: ImageProcessConfig,
+}
+
+/// `[process.image]` — widths, formats, and HTML `<picture>` wiring.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ImageProcessConfig {
+    /// Target widths in px (original width is always included when smaller).
+    pub widths: Vec<u32>,
+    /// Extra formats besides the source type (e.g. `"webp"`).
+    pub formats: Vec<String>,
+    /// Lossy quality for jpeg output (1–100).
+    pub quality: u8,
+    /// Default `sizes` when `<img>` has none.
+    pub sizes: String,
+    /// Wrap local `<img>` tags in `<picture>` with `srcset`.
+    pub responsive: bool,
 }
 
 /// `[minify]` — final pass on HTML, CSS, and JS in `out_dir`.
@@ -414,6 +433,50 @@ impl Default for ProcessConfig {
             js: true,
             images: true,
             fonts: false,
+            image: ImageProcessConfig::default(),
+        }
+    }
+}
+
+impl Default for ImageProcessConfig {
+    fn default() -> Self {
+        ImageProcessOptions::default().into()
+    }
+}
+
+impl From<ImageProcessOptions> for ImageProcessConfig {
+    fn from(opts: ImageProcessOptions) -> Self {
+        Self {
+            widths: opts.widths,
+            formats: opts.formats,
+            quality: opts.quality,
+            sizes: opts.default_sizes,
+            responsive: opts.responsive,
+        }
+    }
+}
+
+impl ImageProcessConfig {
+    #[must_use]
+    pub fn to_core(&self) -> ImageProcessOptions {
+        ImageProcessOptions {
+            widths: if self.widths.is_empty() {
+                ImageProcessOptions::default().widths
+            } else {
+                self.widths.clone()
+            },
+            formats: if self.formats.is_empty() {
+                ImageProcessOptions::default().formats
+            } else {
+                self.formats.clone()
+            },
+            quality: self.quality,
+            default_sizes: if self.sizes.is_empty() {
+                ImageProcessOptions::default().default_sizes
+            } else {
+                self.sizes.clone()
+            },
+            responsive: self.responsive,
         }
     }
 }
@@ -489,6 +552,7 @@ impl ProcessConfig {
             js: self.js,
             images: self.images,
             fonts: self.fonts,
+            image: self.image.to_core(),
         }
     }
 }
@@ -755,6 +819,14 @@ js = true
 images = true
 fonts = false
 
+# Responsive images — widths, WebP variants, <picture> in HTML (needs [process].images)
+[process.image]
+widths = [480, 768, 1024, 1366, 1920]
+formats = ["webp"]
+quality = 85
+sizes = "100vw"
+responsive = true
+
 # Final output minification (also: statica --minify)
 [minify]
 enabled = false
@@ -863,10 +935,39 @@ fn apply_process_spec(cfg: &mut ProcessConfig, spec: &str) -> Result<()> {
             "js" => cfg.js = parse_bool(value)?,
             "images" => cfg.images = parse_bool(value)?,
             "fonts" => cfg.fonts = parse_bool(value)?,
+            "image.widths" => cfg.image.widths = parse_width_list(value)?,
+            "image.formats" => {
+                cfg.image.formats = value
+                    .split('|')
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect();
+            }
+            "image.quality" => {
+                cfg.image.quality = value
+                    .parse()
+                    .with_context(|| format!("invalid image.quality `{value}`"))?;
+            }
+            "image.sizes" => cfg.image.sizes = value.to_string(),
+            "image.responsive" => cfg.image.responsive = parse_bool(value)?,
             other => anyhow::bail!("unknown process key `{other}`"),
         }
         Ok(())
     })
+}
+
+fn parse_width_list(value: &str) -> Result<Vec<u32>> {
+    let sep = if value.contains('|') { '|' } else { ',' };
+    value
+        .split(sep)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            s.parse()
+                .with_context(|| format!("invalid width `{s}` in `{value}`"))
+        })
+        .collect()
 }
 
 fn apply_minify_spec(cfg: &mut MinifyConfig, spec: &str) -> Result<()> {

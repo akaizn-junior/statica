@@ -425,6 +425,25 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
             detail,
         });
         log.step(&format!("assets  {} ({assets_ms}ms)", phases.last().unwrap().detail));
+
+        if opts.process.enabled && opts.process.images && !assets.images.is_empty() {
+            let t = Instant::now();
+            let (img_count, img_warnings) = crate::images::apply_responsive_html(
+                &opts.out_dir,
+                &assets.images,
+                &opts.process.image,
+            )?;
+            let img_ms = t.elapsed().as_millis();
+            warnings.extend(img_warnings);
+            if img_count > 0 {
+                phases.push(BuildPhase {
+                    name: "images",
+                    duration_ms: img_ms,
+                    detail: format!("{img_count} img tags"),
+                });
+                log.step(&format!("images  {img_count} img tags ({img_ms}ms)"));
+            }
+        }
     }
 
     let feed_pages: Vec<FeedPage<'_>> = prepared
