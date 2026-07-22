@@ -101,7 +101,7 @@ More **content** here.
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{headline, html}">
   <head>
     <script type="statica/data" src="../../content/posts" id="posts"></script>
     <title><slot name="headline"></slot></title>
@@ -149,7 +149,7 @@ Glob **works**.
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{headline, html}">
   <head>
     <script type="statica/data" src="../../content/posts/*.md" id="posts"></script>
     <title><slot name="headline"></slot></title>
@@ -184,7 +184,7 @@ fn duplicate_slug_errors() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{headline, html}">
   <head>
     <script type="statica/data" src="../../content.json" id="posts"></script>
     <title><slot name="headline"></slot></title>
@@ -197,6 +197,69 @@ fn duplicate_slug_errors() {
     let opts = BuildOptions::new(&dir);
     let err = build(&opts).unwrap_err().to_string();
     assert!(err.contains("duplicate") || err.contains("Duplicate"), "{err}");
+}
+
+#[test]
+fn page_named_bind_uses_prop_paths() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
+    std::fs::write(
+        dir.join("content.json"),
+        r#"[{"slug":"a","headline":"Hello","html":"<p>Hi</p>"}]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("posts/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="posts">
+  <head>
+    <script type="statica/data" src="../../content.json" id="posts"></script>
+  </head>
+  <body>
+    <h1><slot name="posts.headline"></slot></h1>
+    <div><slot name="posts.html"></slot></div>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/posts/a/index.html")).unwrap();
+    assert!(html.contains("<h1>Hello</h1>"));
+    assert!(html.contains("<p>Hi</p>"));
+}
+
+#[test]
+fn page_undeclared_bind_field_errors() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
+    std::fs::write(
+        dir.join("content.json"),
+        r#"[{"slug":"a","headline":"A","summary":"S"}]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("posts/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{headline}">
+  <head>
+    <script type="statica/data" src="../../content.json" id="posts"></script>
+    <title><slot name="headline"></slot></title>
+  </head>
+  <body>
+    <h1><slot name="headline"></slot></h1>
+    <p><slot name="summary"></slot></p>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let err = build(&BuildOptions::new(&dir)).unwrap_err().to_string();
+    assert!(err.contains("`summary` is not bound"), "{err}");
 }
 
 #[test]
@@ -515,7 +578,7 @@ fn i18n_loads_locale_specific_funnel_data() {
     std::fs::write(
         dir.join("[locale]/posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{headline}">
   <head>
     <script type="statica/data" src="../../../content/posts.${locale}.json" id="posts"></script>
     <title data-t="title">Posts</title>
@@ -710,7 +773,7 @@ fn i18n_pagination_chunks_once_for_shared_data() {
     std::fs::write(
         dir.join("[locale]/blog/[page]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{page, total_pages}">
   <head>
     <script type="statica/data" src="../../../content/posts.json" id="posts"></script>
     <title data-t="blog_title">Blog</title>

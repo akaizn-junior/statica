@@ -59,8 +59,8 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …   (with [[pagination]
 ```
 
 - **Static page** — no `[param]` in the path; one output.
-- **Collection** — `[param]` + `<html data-bind="id">` over a JS array; one output per item using `item[param]` as the folder name.
-- **Pagination** — `[page]` (or any single param) + `[[pagination]]` in config; array is chunked into page objects.
+- **Collection** — `[param]` + `<html data-bind="id">` or `data-bind="{…}">` over a JS array; one output per item using `item[param]` as the folder name.
+- **Pagination** — `[page]` + `[[pagination]]`; declare chunk fields in `<html data-bind="{page, items, …}">`.
 
 ## CSS
 
@@ -90,13 +90,18 @@ Supported authoring (compiled when needed): nesting, custom media, range `@media
 <script type="statica/data" src="../content/posts.json" id="posts"></script>
 ```
 
-Look up with `data-bind="posts"` / `data-each="posts"`. Funnel files are static JS value literals (JSON still works). Missing fields render empty.
+Collection/pagination pages use the same bind rules as fragments:
+
+- **Named** — `data-bind="posts"` → `${posts.headline}`, `<slot name="posts.headline">` (also selects the funnel id)
+- **Destructure** — `data-bind="{headline, html}"` → `<slot name="headline">`, `${headline}` (funnel id from the lone `<script id>` on the page, or `data-bind="id"`)
+
+Look up funnel arrays on static pages with `data-each="posts"` on fragment mounts.
 
 ### Collection page
 
 ```html
 <!doctype html>
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{headline, html}">
   <head>
     <script type="statica/data" src="../../content/posts.json" id="posts"></script>
     <title><slot name="headline"></slot></title>
@@ -107,12 +112,14 @@ Look up with `data-bind="posts"` / `data-each="posts"`. Funnel files are static 
 </html>
 ```
 
+Or bind the whole item: `data-bind="posts"` with `<slot name="posts.headline">` / `${posts.slug}`.
+
 ### Paginated listing
 
 Template at `blog/[page]/index.html`:
 
 ```html
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{page, total_pages, items, prev_href, next_href, first_href, last_href, pages}">
   <body>
     <p>Page <slot name="page"></slot> of <slot name="total_pages"></slot></p>
     <slot id="post-list" data-bind="items"></slot>

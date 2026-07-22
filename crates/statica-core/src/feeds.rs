@@ -19,6 +19,7 @@ use sitemap_rs::sitemap_index::SitemapIndex;
 use sitemap_rs::url::Url as SitemapUrl;
 use sitemap_rs::url_set::UrlSet;
 
+use crate::bind;
 use crate::discover::{PageKind, PageSource};
 use crate::error::{Error, Result};
 use crate::funnel::{self, DataSource};
@@ -248,12 +249,7 @@ fn url_from_output(out_dir: &Path, file: &Path) -> Option<String> {
 }
 
 fn collection_id_from_doc(doc: &crate::parse::Document) -> Option<String> {
-    doc.children.iter().find_map(|n| match n {
-        crate::parse::Node::Element(el) if el.name.eq_ignore_ascii_case("html") => {
-            el.attr("data-bind").map(str::to_string)
-        }
-        _ => None,
-    })
+    bind::html_collection_id(doc)
 }
 
 pub fn collection_id_for_page(doc: &crate::parse::Document) -> Option<String> {

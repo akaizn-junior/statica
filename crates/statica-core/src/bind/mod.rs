@@ -10,8 +10,9 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::fragment::{self, FragmentRegistry};
-use crate::funnel::{self, DataSource};
-use crate::parse::{Document, Node};
+use crate::discover::PageKind;
+use crate::funnel::{self, BindDecl, BindSource, DataSource};
+use crate::parse::{Document, Element, Node};
 use crate::scope;
 use crate::{AliasOptions, FormsOptions};
 use crate::manifest::ManifestMeta;
@@ -19,6 +20,117 @@ use crate::i18n;
 
 pub use attrs::fill_attr_templates_in_nodes;
 pub use slots::{clear_remaining_named_slots, fill_default_slots, fill_named_slots};
+
+fn html_element<'a>(doc: &'a Document) -> Option<&'a Element> {
+    doc.children.iter().find_map(|n| match n {
+        Node::Element(el) if el.name.eq_ignore_ascii_case("html") => Some(el),
+        _ => None,
+    })
+}
+
+/// Funnel id for collection/pagination routes.
+///
+/// From `<html data-source>`, `data-bind="id"`, or a single funnel script on the page.
+#[must_use]
+pub fn html_collection_id(doc: &Document) -> Option<String> {
+    if let Some(src) = html_data_source(doc) {
+        return Some(src.to_string());
+    }
+    if let Some(raw) = html_bind_raw(doc) {
+        if let Ok(BindDecl::Named(name)) = funnel::parse_bind_decl(Some(raw)) {
+            return Some(name);
+        }
+    }
+    let ids = funnel::data_script_ids(doc);
+    if ids.len() == 1 {
+        return Some(ids[0].clone());
+    }
+    None
+}
+
+/// Resolve the funnel id for a collection/pagination template.
+pub fn require_collection_id(doc: &Document, source: BindSource<'_>) -> Result<String> {
+    if let Some(id) = html_collection_id(doc) {
+        return Ok(id);
+    }
+    let ids = funnel::data_script_ids(doc);
+    let message = match ids.len() {
+        0 => "collection page needs data-bind=\"id\" or data-bind=\"{…}\" with a funnel script",
+        _ => {
+            "multiple funnel scripts — set data-bind=\"id\" on <html> to the collection id"
+        }
+    };
+    Err(Error::at(
+        source.file,
+        source.source,
+        &["<html", "data-bind"],
+        message,
+    ))
+}
+
+fn html_data_source(doc: &Document) -> Option<&str> {
+    html_element(doc).and_then(|el| el.attr("data-source"))
+}
+
+fn html_bind_raw(doc: &Document) -> Option<&str> {
+    html_element(doc).and_then(|el| el.attr("data-bind"))
+}
+
+pub fn collection_needles(id: &str) -> [String; 4] {
+    [
+        format!("data-bind=\"{id}\""),
+        format!("data-bind='{id}'"),
+        format!("data-source=\"{id}\""),
+        format!("data-source='{id}'"),
+    ]
+}
+
+/// Whether the page declares a `<html data-bind>` scope.
+#[must_use]
+pub fn html_has_bind(doc: &Document) -> bool {
+    html_bind_raw(doc).is_some()
+}
+
+fn parse_html_bind_decl(doc: &Document) -> Result<BindDecl> {
+    let raw = html_bind_raw(doc);
+    funnel::parse_bind_decl(raw).map_err(|reason| {
+        let prop = raw.unwrap_or("");
+        Error::at(
+            "<page>",
+            "",
+            &[
+                &format!("data-bind=\"{prop}\""),
+                &format!("data-bind='{prop}'"),
+            ],
+            reason,
+        )
+    })
+}
+
+/// Fail the build if page slots / `${…}` / mount binds reference names not in `<html data-bind>`.
+pub fn validate_page_binds(doc: &Document, source: BindSource<'_>) -> Result<()> {
+    let Some(el) = html_element(doc) else {
+        return Ok(());
+    };
+    let decl = parse_html_bind_decl(doc).map_err(|e| e.in_file(source.file, source.source))?;
+    funnel::validate_page_template_binds("page", &decl, &el.children, source)
+}
+
+/// Collection / pagination templates must declare `<html data-bind>`.
+pub fn validate_collection_page_binds(
+    doc: &Document,
+    kind: PageKind,
+    source: BindSource<'_>,
+) -> Result<()> {
+    if kind != PageKind::Collection {
+        return Ok(());
+    }
+    if html_bind_raw(doc).is_none() {
+        return Ok(());
+    }
+    require_collection_id(doc, source)?;
+    validate_page_binds(doc, source)
+}
 
 /// Render a full page document with optional item context.
 pub fn render_page_document(
@@ -35,9 +147,13 @@ pub fn render_page_document(
     site: Option<(&str, &str)>,
 ) -> Result<String> {
     let mut doc = doc.clone();
-    if let Some(ctx) = current {
-        fill_attr_templates_in_nodes(&mut doc.children, ctx);
-        fill_named_slots(&mut doc.children, ctx);
+    if let Some(current) = current {
+        let bind = html_element(&doc)
+            .and_then(|el| funnel::parse_bind_decl(el.attr("data-bind")).ok())
+            .unwrap_or(BindDecl::None);
+        let ctx = funnel::bind_context(&bind, current);
+        fill_attr_templates_in_nodes(&mut doc.children, &ctx);
+        fill_named_slots(&mut doc.children, &ctx);
     }
     expand_usage_slots_in_nodes(
         registry,

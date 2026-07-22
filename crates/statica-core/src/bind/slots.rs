@@ -16,7 +16,7 @@ pub fn fill_named_slots(nodes: &mut Vec<Node>, ctx: &Value) {
         };
         if let Some(name) = replace {
             // Scope is validated statically; missing/null at runtime → empty.
-            let html = match funnel::read_field(ctx, &name) {
+            let html = match funnel::path_value(ctx, &name) {
                 None | Some(Value::Null) => String::new(),
                 Some(v) => funnel::value_to_html(v),
             };
@@ -108,6 +108,16 @@ mod tests {
         fill_named_slots(&mut nodes, &json!({"label": null}));
         assert!(matches!(&nodes[0], Node::Text(t) if t.is_empty()));
         assert!(matches!(&nodes[1], Node::Text(t) if t.is_empty()));
+    }
+
+    #[test]
+    fn dotted_slot_name_resolves_path() {
+        let mut nodes = vec![named_slot("posts.headline", "fallback")];
+        fill_named_slots(
+            &mut nodes,
+            &json!({"posts": {"headline": "Hello", "html": "<p>Hi</p>"}}),
+        );
+        assert!(matches!(&nodes[0], Node::Text(t) if t == "Hello"));
     }
 
     #[test]

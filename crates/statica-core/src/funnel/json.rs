@@ -173,6 +173,16 @@ fn is_data_script(el: &Element) -> bool {
     el.is_script() && el.attr("type").is_some_and(|t| t == "statica/data")
 }
 
+/// Funnel `<script type="statica/data" id="…">` ids declared on a page.
+#[must_use]
+pub fn data_script_ids(doc: &Document) -> Vec<String> {
+    doc.find(is_data_script)
+        .into_iter()
+        .filter_map(|el| el.attr("id").map(str::trim).filter(|s| !s.is_empty()))
+        .map(str::to_string)
+        .collect()
+}
+
 /// Look up a field, distinguishing missing (`None`) from present `null` (`Some(Null)`).
 /// Non-objects yield `None` (undefined) — only objects have enumerable own properties.
 pub fn read_field<'a>(value: &'a Value, field: &str) -> Option<&'a Value> {
@@ -203,22 +213,29 @@ pub fn field_as_str(value: &Value, field: &str) -> Option<String> {
     }
 }
 
+/// Resolve a dotted path against a bind context object.
+#[must_use]
+pub fn path_value<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
+    let path = path.trim();
+    if path.is_empty() {
+        return None;
+    }
+    let mut cur = value;
+    for part in path.split('.').filter(|p| !p.is_empty()) {
+        cur = read_field(cur, part)?;
+    }
+    Some(cur)
+}
+
 /// Resolve `${path}` for attributes. Missing / null → empty (scope is checked statically).
 pub fn path_as_str(value: &Value, path: &str) -> String {
     let path = path.trim();
     if path.is_empty() {
         return String::new();
     }
-    let mut cur = value;
-    for part in path.split('.').filter(|p| !p.is_empty()) {
-        match read_field(cur, part) {
-            Some(next) => cur = next,
-            None => return String::new(),
-        }
-    }
-    match cur {
-        Value::Null => String::new(),
-        other => value_as_str(other).unwrap_or_default(),
+    match path_value(value, path) {
+        None | Some(Value::Null) => String::new(),
+        Some(v) => value_as_str(v).unwrap_or_default(),
     }
 }
 

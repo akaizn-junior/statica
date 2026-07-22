@@ -93,7 +93,8 @@ Every fragment needs matching `id` on all three parts:
 | -------- | ------ | ----- |
 | Text content | `<slot name="field">` | Never put `<slot>` inside attributes |
 | Attributes | `${field}` | Field must be declared in `data-bind` |
-| Whole object | `data-bind="posts"` | Use `${posts.field}` or nested slots |
+| Whole object | `data-bind="posts"` on fragments | Use `${posts.field}` or nested slots |
+| Page collection | `data-bind="posts"` or `data-bind="{headline, …}"` | Named → `${posts.field}`; destructure → `<slot name="field">` |
 | Destructured fields | `data-bind="{slug, headline}"` | Use `${slug}` directly |
 | Current item in loop | `data-bind="."` | On `<slot>` inside `data-each` |
 | Loops | `data-each="items"` | On `<slot id="fragment-id">` |
@@ -104,21 +105,19 @@ Every fragment needs matching `id` on all three parts:
 
 **Static page** — plain `index.html`, one output.
 
-**Collection page** — `[param]` folder + root `<html data-bind="arrayId">`:
+**Collection page** — `[param]` folder + root `<html data-bind="arrayId">` or `data-bind="{fields…}">`:
 
 ```html
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{headline, summary}">
   <script type="statica/data" src="../../content/posts" id="posts"></script>
   <title><slot name="headline"></slot></title>
 </html>
 ```
 
-Route `posts/[slug]/index.html` emits one page per array item; folder name comes from `item.slug`.
-
 **Pagination page** — `[page]` folder + `[[pagination]]` in `statica.toml`:
 
 ```html
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{page, total_pages, items, prev_href, next_href, pages}">
   <slot id="post-list" data-bind="items"></slot>
   <a href="${prev_href}">Previous</a>
 </html>

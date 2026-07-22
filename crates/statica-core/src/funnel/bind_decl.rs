@@ -259,6 +259,17 @@ pub fn validate_template_binds(
     validate_nodes(fragment_id, &scope, nodes, source)
 }
 
+/// Page templates: slots, `${…}`, and `<slot id data-each/bind>` mount expressions.
+pub fn validate_page_template_binds(
+    fragment_id: &str,
+    decl: &BindDecl,
+    nodes: &[Node],
+    source: BindSource<'_>,
+) -> Result<()> {
+    validate_template_binds(fragment_id, decl, nodes, source)?;
+    validate_mount_nodes(fragment_id, &decl.scope_names(), nodes, source)
+}
+
 fn validate_nodes(
     fragment_id: &str,
     scope: &HashSet<&str>,
@@ -268,6 +279,52 @@ fn validate_nodes(
     for node in nodes {
         if let Node::Element(el) = node {
             validate_element(fragment_id, scope, el, source)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_mount_element(
+    fragment_id: &str,
+    scope: &HashSet<&str>,
+    el: &Element,
+    source: BindSource<'_>,
+) -> Result<()> {
+    if el.is_slot() && el.attr("id").is_some() {
+        if let Some(each) = el.attr("data-each").map(str::trim).filter(|s| !s.is_empty()) {
+            let root = path_root(each);
+            if root != "." {
+                let dq = format!("data-each=\"{each}\"");
+                let sq = format!("data-each='{each}'");
+                ensure_bound(fragment_id, scope, each, root, source, &[&dq, &sq])?;
+            }
+        }
+        if let Some(bind) = el.attr("data-bind").map(str::trim).filter(|s| !s.is_empty()) {
+            let root = path_root(bind);
+            if root != "." {
+                let dq = format!("data-bind=\"{bind}\"");
+                let sq = format!("data-bind='{bind}'");
+                ensure_bound(fragment_id, scope, bind, root, source, &[&dq, &sq])?;
+            }
+        }
+    }
+    for node in &el.children {
+        if let Node::Element(child) = node {
+            validate_mount_element(fragment_id, scope, child, source)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_mount_nodes(
+    fragment_id: &str,
+    scope: &HashSet<&str>,
+    nodes: &[Node],
+    source: BindSource<'_>,
+) -> Result<()> {
+    for node in nodes {
+        if let Node::Element(el) = node {
+            validate_mount_element(fragment_id, scope, el, source)?;
         }
     }
     Ok(())
@@ -283,7 +340,7 @@ fn validate_element(
         if let Some(name) = el.attr("name").map(str::trim).filter(|s| !s.is_empty()) {
             let dq = format!("name=\"{name}\"");
             let sq = format!("name='{name}'");
-            ensure_bound(fragment_id, scope, name, name, source, &[&dq, &sq])?;
+            ensure_bound(fragment_id, scope, name, path_root(name), source, &[&dq, &sq])?;
         }
     }
     if !el.is_script() && !el.is_style() {

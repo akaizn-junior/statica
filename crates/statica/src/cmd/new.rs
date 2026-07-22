@@ -111,7 +111,7 @@ Two posts in → two folders out.
     write(
         &root.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{headline, published_at, summary, html}">
   <head>
     <meta charset="utf-8" />
     <title><slot name="headline"></slot></title>

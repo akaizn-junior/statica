@@ -53,7 +53,7 @@ Points at a directory of `.md` files with YAML front matter — see `content/pos
 
 [`posts/[slug]/index.html`](posts/[slug]/index.html):
 
-- `<html data-bind="posts">` on root
+- `<html data-bind="{headline, …}">` or `data-bind="posts"` on root
 - Funnel script in `<head>`
 - `<slot name="headline">` for item fields
 - Fragment imports with relative paths from the page file

@@ -573,6 +573,23 @@ fn prepare_pages(
             data_ids.insert(id.clone());
         }
         registry.load_links_from_document(&doc, dir, aliases, Some((&file, &html)))?;
+        bind::validate_collection_page_binds(
+            &doc,
+            page.kind(),
+            funnel::BindSource {
+                file: &file,
+                source: &html,
+            },
+        )?;
+        if bind::html_has_bind(&doc) {
+            bind::validate_page_binds(
+                &doc,
+                funnel::BindSource {
+                    file: &file,
+                    source: &html,
+                },
+            )?;
+        }
         prepared.push(PreparedPage {
             source: page.clone(),
             html,
@@ -688,20 +705,12 @@ fn collection_param<'a>(params: &'a [String]) -> Result<&'a str> {
         })
 }
 
-fn html_data_bind(doc: &Document) -> Option<String> {
-    doc.children.iter().find_map(|n| match n {
-        crate::parse::Node::Element(el) if el.name.eq_ignore_ascii_case("html") => {
-            el.attr("data-bind").map(str::to_string)
-        }
-        _ => None,
-    })
+fn html_data_source(doc: &Document) -> Option<String> {
+    bind::html_collection_id(doc)
 }
 
-fn html_bind_needles(id: &str) -> [String; 2] {
-    [
-        format!("data-bind=\"{id}\""),
-        format!("data-bind='{id}'"),
-    ]
+fn html_source_needles(id: &str) -> [String; 4] {
+    bind::collection_needles(id)
 }
 
 fn emit_locale_paginated(
@@ -713,13 +722,13 @@ fn emit_locale_paginated(
     manifest: Option<&ManifestMeta>,
     warnings: &Mutex<Vec<Diagnostic>>,
 ) -> Result<EmitResult> {
-    let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
+    let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
             &["<html", "data-bind"],
-            "paginated page needs data-bind on <html> pointing at a statica/data id",
+            "paginated page needs data-bind on <html> (data-bind=\"id\" or data-bind=\"{…}\")",
         )
     })?;
-    let needles = html_bind_needles(&collection_id);
+    let needles = html_source_needles(&collection_id);
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
     let param = pagination_param(page, &needle_refs)?;
     let mut data_cache = std::collections::HashMap::new();
@@ -957,14 +966,14 @@ fn emit_paginated(
     warnings: &Mutex<Vec<Diagnostic>>,
     locale: Option<&str>,
 ) -> Result<EmitResult> {
-    let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
+    let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
             &["<html", "data-bind"],
-            "paginated page needs data-bind on <html> pointing at a statica/data id",
+            "paginated page needs data-bind on <html> (data-bind=\"id\" or data-bind=\"{…}\")",
         )
     })?;
 
-    let needles = html_bind_needles(&collection_id);
+    let needles = html_source_needles(&collection_id);
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
     let param = pagination_param(page, &needle_refs)?;
     let mut data_cache = std::collections::HashMap::new();
@@ -1024,14 +1033,14 @@ fn emit_collection(
     manifest: Option<&ManifestMeta>,
     warnings: &Mutex<Vec<Diagnostic>>,
 ) -> Result<EmitResult> {
-    let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
+    let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
             &["<html", "data-bind"],
-            "collection page needs data-bind on <html> pointing at a statica/data id",
+            "collection page needs data-bind on <html> (data-bind=\"id\" or data-bind=\"{…}\")",
         )
     })?;
 
-    let needles = html_bind_needles(&collection_id);
+    let needles = html_source_needles(&collection_id);
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
 
     let mut data_cache = std::collections::HashMap::new();
@@ -1128,14 +1137,14 @@ fn emit_locale_collection(
     manifest: Option<&ManifestMeta>,
     warnings: &Mutex<Vec<Diagnostic>>,
 ) -> Result<EmitResult> {
-    let collection_id = html_data_bind(&page.doc).ok_or_else(|| {
+    let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
             &["<html", "data-bind"],
-            "collection page needs data-bind on <html> pointing at a statica/data id",
+            "collection page needs data-bind on <html> (data-bind=\"id\" or data-bind=\"{…}\")",
         )
     })?;
 
-    let needles = html_bind_needles(&collection_id);
+    let needles = html_source_needles(&collection_id);
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
 
     let param = collection_param(&page.source.params).map_err(|e| {
