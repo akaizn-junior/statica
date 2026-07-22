@@ -506,6 +506,67 @@ fn i18n_fragment_inherits_parent_locale_for_data_t() {
 }
 
 #[test]
+fn i18n_translates_a11y_attributes() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("[locale]/about")).unwrap();
+    std::fs::create_dir_all(dir.join("content/i18n")).unwrap();
+    std::fs::write(
+        dir.join("content/i18n/en.json"),
+        r#"{
+  "skip": "Skip to main content",
+  "photo": { "alt": "Sunset over the hills" },
+  "form": { "email_placeholder": "Your email address" }
+}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/i18n/pt.json"),
+        r#"{
+  "skip": "Saltar para o conteúdo principal",
+  "photo": { "alt": "Pôr do sol sobre as colinas" },
+  "form": { "email_placeholder": "O seu endereço de email" }
+}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("[locale]/about/index.html"),
+        r##"<!doctype html>
+<html lang="en">
+  <body>
+    <a href="#main" aria-label="Skip to main content" data-t-aria-label="skip"></a>
+    <img src="/sunset.jpg" alt="Sunset over the hills" data-t-alt="photo.alt" />
+    <input type="email" placeholder="Your email address" data-t-placeholder="form.email_placeholder" />
+  </body>
+</html>"##,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.i18n = statica_core::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into(), "pt".into()],
+        ..Default::default()
+    };
+
+    build(&opts).expect("build");
+
+    let en = std::fs::read_to_string(dir.join("dist/en/about/index.html")).unwrap();
+    assert!(en.contains("aria-label=\"Skip to main content\""));
+    assert!(en.contains("alt=\"Sunset over the hills\""));
+    assert!(en.contains("placeholder=\"Your email address\""));
+    assert!(!en.contains("data-t-"));
+
+    let pt = std::fs::read_to_string(dir.join("dist/pt/about/index.html")).unwrap();
+    assert!(pt.contains("aria-label=\"Saltar para o conteúdo principal\""));
+    assert!(pt.contains("alt=\"Pôr do sol sobre as colinas\""));
+    assert!(pt.contains("placeholder=\"O seu endereço de email\""));
+    assert!(!pt.contains("data-t-"));
+}
+
+#[test]
 fn i18n_pagination_chunks_once_for_shared_data() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("[locale]/blog/[page]")).unwrap();

@@ -7,7 +7,7 @@
 //! 3. **Parse** — html5ever → owned AST; post-parse authoring lower (carriers → slots).
 //! 4. **Funnel** — load `<script type="statica/data">` sources (JSON, JS literals, Markdown).
 //! 5. **Expand** — static (1:1), collection (1:N items), or pagination (1:N page chunks).
-//! 6. **Bind** — slots + `${…}` attrs + `data-t` i18n + fragment/`data-each` expansion + form wiring.
+//! 6. **Bind** — slots + `${…}` attrs + `data-t` / `data-t-{attr}` i18n + fragment/`data-each` expansion + form wiring.
 //! 7. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).
 //! 8. **Emit** — write HTML; transform CSS to browser-ready; optional asset process; sitemap / RSS.
 //! 9. **Minify** — optional final pass on HTML, CSS, and JS in `out_dir`.
@@ -68,7 +68,7 @@ pub use loc::Diagnostic;
 pub use minify::{MinifyKind, MinifyOptions, MinifyReport};
 pub use feeds::{RssOptions, SitemapOptions};
 pub use forms::{FormProvider, FormsOptions};
-pub use i18n::{I18nCatalogs, I18nOptions};
+pub use i18n::{A11Y_TRANSLATABLE_ATTRS, I18nCatalogs, I18nOptions, DATA_T_ATTR_PREFIX};
 pub use paginate::PaginationRule;
 pub use parse::Document;
 pub use runtime::STATICA_JS;

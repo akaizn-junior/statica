@@ -16,6 +16,40 @@ pub const LOCALE_PARAM: &str = "locale";
 /// Token in funnel `src` paths resolved to the active locale at build time.
 pub const LOCALE_SRC_TOKEN: &str = "${locale}";
 
+/// Translate element text content from the catalog.
+pub const DATA_T: &str = "data-t";
+
+/// Prefix for per-attribute translation markers: `data-t-{attr}` → `{attr}`.
+pub const DATA_T_ATTR_PREFIX: &str = "data-t-";
+
+/// Accessibility-related attributes that authors typically translate via `data-t-{attr}`.
+pub const A11Y_TRANSLATABLE_ATTRS: &[&str] = &[
+    "alt",
+    "aria-braillelabel",
+    "aria-brailleroledescription",
+    "aria-description",
+    "aria-errormessage",
+    "aria-label",
+    "aria-placeholder",
+    "aria-roledescription",
+    "aria-valuetext",
+    "placeholder",
+    "title",
+];
+
+/// Whether an attribute name is a `data-t-{target}` translation marker.
+#[must_use]
+pub fn is_data_t_attr(name: &str) -> bool {
+    name.starts_with(DATA_T_ATTR_PREFIX) && name.len() > DATA_T_ATTR_PREFIX.len()
+}
+
+/// Target attribute for a `data-t-{target}` marker (e.g. `data-t-aria-label` → `aria-label`).
+#[must_use]
+pub fn target_attr_from_data_t_key(name: &str) -> Option<&str> {
+    name.strip_prefix(DATA_T_ATTR_PREFIX)
+        .filter(|target| !target.is_empty())
+}
+
 /// Whether a funnel `src` path contains a locale token.
 #[must_use]
 pub fn src_has_locale_token(src: &str) -> bool {
@@ -237,49 +271,79 @@ pub fn lookup_key(catalog: &Value, key: &str) -> Option<String> {
 
 /// Replace `data-t="key"` element content with the catalog string (fallback: inner text).
 /// For `<meta>` / `<link>`, updates `content` or `href` instead.
+///
+/// `data-t-{attr}="key"` translates `{attr}` from the catalog (fallback: current `{attr}` value).
 pub fn apply_data_t(nodes: &mut [Node], catalog: &Value) {
     for node in nodes {
         if let Node::Element(el) = node {
-            if let Some(key) = el.attrs.get("data-t").cloned() {
-                let text = if el.name.eq_ignore_ascii_case("link") {
-                    let fallback = el
-                        .attrs
-                        .get("href")
-                        .cloned()
-                        .unwrap_or_default();
-                    let text = lookup_key(catalog, &key).unwrap_or(fallback);
-                    el.attrs.insert("href".into(), text.clone());
-                    text
-                } else if el.name.eq_ignore_ascii_case("meta") {
-                    let fallback = el
-                        .attrs
-                        .get("content")
-                        .cloned()
-                        .unwrap_or_default();
-                    let text = lookup_key(catalog, &key).unwrap_or(fallback);
-                    el.attrs.insert("content".into(), text.clone());
-                    text
-                } else {
-                    let fallback = direct_text_content(&el.children);
-                    let text = lookup_key(catalog, &key).unwrap_or(fallback);
-                    el.children = vec![Node::Text(text.clone())];
-                    text
-                };
-                let _ = text;
-                el.attrs.shift_remove("data-t");
-            }
+            apply_data_t_on_element(el, catalog);
             apply_data_t(&mut el.children, catalog);
         }
     }
 }
 
-/// Remove `data-t` without translating — used when the parent page has no active locale.
+fn apply_data_t_on_element(el: &mut crate::parse::Element, catalog: &Value) {
+    if let Some(key) = el.attrs.get(DATA_T).cloned() {
+        if el.name.eq_ignore_ascii_case("link") {
+            let fallback = el.attrs.get("href").cloned().unwrap_or_default();
+            let text = lookup_key(catalog, &key).unwrap_or(fallback);
+            el.attrs.insert("href".into(), text);
+        } else if el.name.eq_ignore_ascii_case("meta") {
+            let fallback = el.attrs.get("content").cloned().unwrap_or_default();
+            let text = lookup_key(catalog, &key).unwrap_or(fallback);
+            el.attrs.insert("content".into(), text);
+        } else {
+            let fallback = direct_text_content(&el.children);
+            let text = lookup_key(catalog, &key).unwrap_or(fallback);
+            el.children = vec![Node::Text(text)];
+        }
+        el.attrs.shift_remove(DATA_T);
+    }
+    apply_data_t_attr_translations(el, catalog);
+}
+
+fn apply_data_t_attr_translations(el: &mut crate::parse::Element, catalog: &Value) {
+    let markers: Vec<(String, String)> = el
+        .attrs
+        .iter()
+        .filter_map(|(name, key)| {
+            target_attr_from_data_t_key(name).map(|target| (target.to_string(), key.clone()))
+        })
+        .collect();
+
+    for (target_attr, translation_key) in markers {
+        let marker = format!("{DATA_T_ATTR_PREFIX}{target_attr}");
+        let fallback = el
+            .attrs
+            .get(&target_attr)
+            .cloned()
+            .unwrap_or_default();
+        let text = lookup_key(catalog, &translation_key).unwrap_or(fallback);
+        el.attrs.insert(target_attr, text);
+        el.attrs.shift_remove(&marker);
+    }
+}
+
+/// Remove `data-t` / `data-t-*` without translating — used when the parent page has no active locale.
 pub fn strip_data_t(nodes: &mut [Node]) {
     for node in nodes {
         if let Node::Element(el) = node {
-            el.attrs.shift_remove("data-t");
+            strip_data_t_on_element(el);
             strip_data_t(&mut el.children);
         }
+    }
+}
+
+fn strip_data_t_on_element(el: &mut crate::parse::Element) {
+    el.attrs.shift_remove(DATA_T);
+    let markers: Vec<String> = el
+        .attrs
+        .keys()
+        .filter(|name| is_data_t_attr(name))
+        .cloned()
+        .collect();
+    for marker in markers {
+        el.attrs.shift_remove(&marker);
     }
 }
 
@@ -355,7 +419,7 @@ mod tests {
         let catalog = json!({"label": "Olá"});
         let mut nodes = vec![Node::Element(Element {
             name: "span".into(),
-            attrs: IndexMap::from([("data-t".into(), "label".into())]),
+            attrs: IndexMap::from([(DATA_T.into(), "label".into())]),
             children: vec![Node::Text("hello".into())],
             void: false,
         })];
@@ -364,8 +428,120 @@ mod tests {
             Node::Element(e) => e,
             _ => panic!("expected element"),
         };
-        assert!(!el.attrs.contains_key("data-t"));
+        assert!(!el.attrs.contains_key(DATA_T));
         assert!(matches!(&el.children[0], Node::Text(t) if t == "Olá"));
+    }
+
+    #[test]
+    fn data_t_attr_translates_aria_label() {
+        let catalog = json!({"nav": {"skip": "Saltar para o conteúdo"}});
+        let mut nodes = vec![Node::Element(Element {
+            name: "a".into(),
+            attrs: IndexMap::from([
+                ("href".into(), "#main".into()),
+                ("aria-label".into(), "Skip to content".into()),
+                ("data-t-aria-label".into(), "nav.skip".into()),
+            ]),
+            children: vec![],
+            void: false,
+        })];
+        apply_data_t(&mut nodes, &catalog);
+        let el = match &nodes[0] {
+            Node::Element(e) => e,
+            _ => panic!("expected element"),
+        };
+        assert_eq!(el.attr("aria-label"), Some("Saltar para o conteúdo"));
+        assert!(!el.attrs.contains_key("data-t-aria-label"));
+    }
+
+    #[test]
+    fn data_t_attr_translates_alt_and_placeholder() {
+        let catalog = json!({
+            "photo": { "alt": "Pôr do sol" },
+            "form": { "email_placeholder": "O seu email" }
+        });
+        let mut nodes = vec![
+            Node::Element(Element {
+                name: "img".into(),
+                attrs: IndexMap::from([
+                    ("src".into(), "sunset.jpg".into()),
+                    ("alt".into(), "Sunset".into()),
+                    ("data-t-alt".into(), "photo.alt".into()),
+                ]),
+                children: vec![],
+                void: true,
+            }),
+            Node::Element(Element {
+                name: "input".into(),
+                attrs: IndexMap::from([
+                    ("type".into(), "email".into()),
+                    ("placeholder".into(), "Your email".into()),
+                    ("data-t-placeholder".into(), "form.email_placeholder".into()),
+                ]),
+                children: vec![],
+                void: true,
+            }),
+        ];
+        apply_data_t(&mut nodes, &catalog);
+        let img = match &nodes[0] {
+            Node::Element(e) => e,
+            _ => panic!("expected img"),
+        };
+        let input = match &nodes[1] {
+            Node::Element(e) => e,
+            _ => panic!("expected input"),
+        };
+        assert_eq!(img.attr("alt"), Some("Pôr do sol"));
+        assert_eq!(input.attr("placeholder"), Some("O seu email"));
+    }
+
+    #[test]
+    fn data_t_attr_falls_back_to_existing_attr_value() {
+        let catalog = json!({});
+        let mut nodes = vec![Node::Element(Element {
+            name: "button".into(),
+            attrs: IndexMap::from([
+                ("aria-label".into(), "Close dialog".into()),
+                ("data-t-aria-label".into(), "missing.key".into()),
+            ]),
+            children: vec![Node::Text("×".into())],
+            void: false,
+        })];
+        apply_data_t(&mut nodes, &catalog);
+        let el = match &nodes[0] {
+            Node::Element(e) => e,
+            _ => panic!("expected element"),
+        };
+        assert_eq!(el.attr("aria-label"), Some("Close dialog"));
+    }
+
+    #[test]
+    fn strip_data_t_removes_attr_markers() {
+        let mut nodes = vec![Node::Element(Element {
+            name: "img".into(),
+            attrs: IndexMap::from([
+                ("alt".into(), "Photo".into()),
+                ("data-t-alt".into(), "photo.alt".into()),
+            ]),
+            children: vec![],
+            void: true,
+        })];
+        strip_data_t(&mut nodes);
+        let el = match &nodes[0] {
+            Node::Element(e) => e,
+            _ => panic!("expected element"),
+        };
+        assert!(!el.attrs.contains_key("data-t-alt"));
+        assert_eq!(el.attr("alt"), Some("Photo"));
+    }
+
+    #[test]
+    fn a11y_translatable_attrs_are_data_t_targets() {
+        for attr in A11Y_TRANSLATABLE_ATTRS {
+            let marker = format!("{DATA_T_ATTR_PREFIX}{attr}");
+            assert!(is_data_t_attr(&marker));
+            assert_eq!(target_attr_from_data_t_key(&marker), Some(*attr));
+        }
     }
 
     #[test]

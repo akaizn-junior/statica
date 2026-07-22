@@ -6,7 +6,8 @@
   "nav": {
     "home": "Início",
     "en": "English",
-    "pt": "Português"
+    "pt": "Português",
+    "skip": "Saltar para o conteúdo principal"
   },
   "form": {
     "email": "Email",
