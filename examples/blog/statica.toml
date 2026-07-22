@@ -6,7 +6,7 @@ copy_assets = true
 [aliases]
 symbol = "@"
 
-[aliases.paths]
+[aliases.urls]
 Google = "https://fonts.googleapis.com/css2"
 
 [sitemap]

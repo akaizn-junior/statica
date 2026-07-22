@@ -22,14 +22,6 @@ fn builds_blog_fixture() {
         endpoint: "https://formspree.io/f/{id}".into(),
         ids: [("contact".into(), "example".into())].into(),
     };
-    opts.aliases = statica_core::AliasOptions {
-        paths: [(
-            "Google".into(),
-            "https://fonts.googleapis.com/css2".into(),
-        )]
-        .into(),
-        ..Default::default()
-    };
     opts.pagination = vec![statica_core::PaginationRule {
         route: "blog/[page]".into(),
         page_size: 2,

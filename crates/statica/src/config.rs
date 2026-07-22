@@ -66,14 +66,18 @@ pub struct StaticaConfig {
     pub i18n: I18nConfig,
 }
 
-/// `[aliases]` — `@Name:tail` → resolved URL or path (see `docs/guide.md`).
+/// `[aliases]` — `@Name/tail` → resolved URL or path (see `docs/guide.md`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AliasesConfig {
     /// Leading symbol for alias references (default `@`).
     pub symbol: String,
-    /// Alias name → base URL or local path prefix.
-    pub paths: std::collections::HashMap<String, String>,
+    /// Local path prefixes (`[aliases.paths]`).
+    #[serde(default)]
+    pub paths: HashMap<String, String>,
+    /// URL prefixes (`[aliases.urls]`).
+    #[serde(default)]
+    pub urls: HashMap<String, String>,
 }
 
 impl Default for AliasesConfig {
@@ -87,18 +91,47 @@ impl From<AliasOptions> for AliasesConfig {
         Self {
             symbol: opts.symbol,
             paths: opts.paths,
+            urls: opts.urls,
         }
     }
 }
 
 impl AliasesConfig {
+    pub fn validate(&self) -> Result<()> {
+        for (name, base) in &self.paths {
+            if is_url_alias_base(base) {
+                anyhow::bail!(
+                    "[aliases.paths].{name} must be a local path, not a URL (use [aliases.urls] for URLs)"
+                );
+            }
+        }
+        for (name, base) in &self.urls {
+            if !is_url_alias_base(base) {
+                anyhow::bail!(
+                    "[aliases.urls].{name} must be a URL (http:// or https://)"
+                );
+            }
+        }
+        for name in self.paths.keys() {
+            if self.urls.contains_key(name) {
+                anyhow::bail!("alias `{name}` is defined in both [aliases.paths] and [aliases.urls]");
+            }
+        }
+        Ok(())
+    }
+
     #[must_use]
     pub fn to_core(&self) -> AliasOptions {
         AliasOptions {
             symbol: self.symbol.clone(),
             paths: self.paths.clone(),
+            urls: self.urls.clone(),
         }
     }
+}
+
+fn is_url_alias_base(base: &str) -> bool {
+    base.starts_with("http://") || base.starts_with("https://")
 }
 
 /// `[forms]` — wire `<form statica>` to a provider endpoint at build time.
@@ -533,8 +566,10 @@ impl StaticaConfig {
         }
         let text = fs::read_to_string(&path)
             .with_context(|| format!("failed to read {}", path.display()))?;
-        toml::from_str(&text)
-            .with_context(|| format!("invalid {} ({})", CONFIG_FILE, path.display()))
+        let cfg: StaticaConfig = toml::from_str(&text)
+            .with_context(|| format!("invalid {} ({})", CONFIG_FILE, path.display()))?;
+        cfg.aliases.validate()?;
+        Ok(cfg)
     }
 
     /// Apply `[env]` files/vars, then resolve form env placeholders.
@@ -694,13 +729,15 @@ asset_dirs = ["public", "assets", "static"]
 ignore_dirs = [".dist", "dist", "target", ".git"]
 site_url = ""                  # e.g. "https://example.com" — needed for sitemap/RSS
 
-# Authoring aliases — @Name:tail in hrefs (symbol defaults to @)
+# Authoring aliases — @Name/tail in hrefs (symbol defaults to @)
 [aliases]
 symbol = "@"
 
-[aliases.paths]
+[aliases.urls]
 Google = "https://fonts.googleapis.com/css2"
-# fonts = "./assets/fonts"     # local: @fonts:outfit.css → ./assets/fonts/outfit.css
+
+[aliases.paths]
+# fonts = "./assets/fonts"     # local: @fonts/outfit.css → ./assets/fonts/outfit.css
 
 # HTML emit: strip authoring tags from .dist
 [emit]
@@ -1120,8 +1157,10 @@ contact = "from-config"
 [aliases]
 symbol = "@"
 
-[aliases.paths]
+[aliases.urls]
 Google = "https://fonts.googleapis.com/css2"
+
+[aliases.paths]
 fonts = "./assets/fonts"
 "#,
         )
@@ -1129,7 +1168,7 @@ fonts = "./assets/fonts"
         let cfg = StaticaConfig::load(&dir).unwrap();
         assert_eq!(cfg.aliases.symbol, "@");
         assert_eq!(
-            cfg.aliases.paths.get("Google").map(String::as_str),
+            cfg.aliases.urls.get("Google").map(String::as_str),
             Some("https://fonts.googleapis.com/css2")
         );
         assert_eq!(
@@ -1145,6 +1184,39 @@ fonts = "./assets/fonts"
             statica_core::join_alias(resolved.base, resolved.tail),
             "https://fonts.googleapis.com/css2?family=Outfit&display=swap"
         );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rejects_urls_in_aliases_paths() {
+        let dir = temp_dir();
+        fs::write(
+            dir.join(CONFIG_FILE),
+            r#"
+[aliases.paths]
+Google = "https://fonts.googleapis.com/css2"
+"#,
+        )
+        .unwrap();
+        let err = StaticaConfig::load(&dir).unwrap_err().to_string();
+        assert!(err.contains("[aliases.paths].Google"), "{err}");
+        assert!(err.contains("[aliases.urls]"), "{err}");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rejects_non_urls_in_aliases_urls() {
+        let dir = temp_dir();
+        fs::write(
+            dir.join(CONFIG_FILE),
+            r#"
+[aliases.urls]
+fonts = "./assets/fonts"
+"#,
+        )
+        .unwrap();
+        let err = StaticaConfig::load(&dir).unwrap_err().to_string();
+        assert!(err.contains("[aliases.urls].fonts"), "{err}");
         let _ = fs::remove_dir_all(dir);
     }
 

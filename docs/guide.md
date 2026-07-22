@@ -237,14 +237,16 @@ Priority: `[env]` in config → `.env` → `.dev.vars`. Set `load_files = false`
 
 ## Aliases
 
-Path aliases are defined in `statica.toml`. The symbol defaults to `@`. Reference them with regular path syntax: `@Name/tail`.
+Path aliases are defined in `statica.toml`. The symbol defaults to `@`. Reference them with regular path syntax: `@Name/tail`. Local paths go in `[aliases.paths]`; URLs in `[aliases.urls]` only.
 
 ```toml
 [aliases]
 symbol = "@"
 
-[aliases.paths]
+[aliases.urls]
 Google = "https://fonts.googleapis.com/css2"
+
+[aliases.paths]
 fonts = "./assets/fonts"
 static = "./static"
 ```
@@ -411,8 +413,11 @@ site_url = ""                  # needed for sitemap / RSS
 [aliases]
 symbol = "@"
 
-[aliases.paths]
+[aliases.urls]
 Google = "https://fonts.googleapis.com/css2"
+# fonts = "./assets/fonts"
+
+[aliases.paths]
 # fonts = "./assets/fonts"
 
 [emit]

@@ -1,7 +1,8 @@
 //! Path / URL aliases for authoring (`@Name/tail` → resolved path or URL).
 //!
-//! Aliases are defined in `statica.toml` under `[aliases.paths]`. Use the configured
-//! symbol (default `@`) plus a `/`-separated tail — e.g. `@Google/?family=Outfit&display=swap`.
+//! Aliases are defined in `statica.toml` under `[aliases.paths]` (local) and
+//! `[aliases.urls]` (URLs). Use the configured symbol (default `@`) plus a
+//! `/`-separated tail — e.g. `@Google/?family=Outfit&display=swap`.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -17,25 +18,39 @@ const PATH_ATTRS: &[&str] = &["href", "src", "poster", "action"];
 pub struct AliasOptions {
     /// Leading symbol for alias references (default `@`).
     pub symbol: String,
-    /// Name → base URL or local path prefix.
+    /// Name → local path prefix (`[aliases.paths]`).
     pub paths: HashMap<String, String>,
+    /// Name → URL prefix (`[aliases.urls]`).
+    pub urls: HashMap<String, String>,
 }
 
 impl Default for AliasOptions {
     fn default() -> Self {
-        let mut paths = HashMap::new();
-        paths.insert(
+        let mut urls = HashMap::new();
+        urls.insert(
             "Google".into(),
             "https://fonts.googleapis.com/css2".into(),
         );
         Self {
             symbol: "@".into(),
-            paths,
+            paths: HashMap::new(),
+            urls,
         }
     }
 }
 
 impl AliasOptions {
+    fn lookup(&self, name: &str) -> Option<&str> {
+        self.paths
+            .get(name)
+            .or_else(|| self.urls.get(name))
+            .map(String::as_str)
+    }
+
+    fn knows(&self, name: &str) -> bool {
+        self.paths.contains_key(name) || self.urls.contains_key(name)
+    }
+
     /// Parse `@Name/tail` when `value` starts with [`Self::symbol`].
     #[must_use]
     pub fn parse<'a>(&'a self, value: &'a str) -> Option<ResolvedAlias<'a>> {
@@ -51,7 +66,7 @@ impl AliasOptions {
         if name.is_empty() {
             return None;
         }
-        let base = self.paths.get(name)?;
+        let base = self.lookup(name)?;
         Some(ResolvedAlias { base, tail })
     }
 
@@ -66,7 +81,7 @@ impl AliasOptions {
     pub fn unknown_alias_name<'a>(&'a self, value: &'a str) -> Option<&'a str> {
         let rest = value.trim().strip_prefix(&self.symbol)?;
         let name = rest.split('/').next().unwrap_or("");
-        if name.is_empty() || self.paths.contains_key(name) {
+        if name.is_empty() || self.knows(name) {
             None
         } else {
             Some(name)
@@ -130,7 +145,7 @@ pub fn resolve_path(
             value,
             attr,
             format!(
-                "unknown alias `{}{name}` (define it under [aliases.paths] in statica.toml)",
+                "unknown alias `{}{name}` (define it under [aliases.paths] or [aliases.urls] in statica.toml)",
                 aliases.symbol
             ),
         ));
@@ -251,6 +266,7 @@ mod tests {
         let aliases = AliasOptions {
             symbol: "@".into(),
             paths,
+            urls: HashMap::new(),
         };
         let resolved = resolve_path("@ui/button.html", &aliases, None, "href").unwrap();
         assert_eq!(resolved, "ui/button.html");
@@ -301,9 +317,7 @@ mod tests {
         )
         .unwrap();
         let mut aliases = AliasOptions::default();
-        aliases
-            .paths
-            .insert("assets".into(), "./static".into());
+        aliases.paths.insert("assets".into(), "./static".into());
 
         resolve_paths_in_document(&mut doc, &aliases, None).unwrap();
         let html = crate::parse::serialize_document(&doc);
