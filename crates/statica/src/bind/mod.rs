@@ -108,9 +108,12 @@ pub fn validate_page_binds(doc: &Document, source: BindSource<'_>) -> Result<()>
 }
 
 /// Collection / pagination templates must declare `<html data-bind>`.
+///
+/// Locale-only routes (`[locale]/` with no other params) may bind `{locale}` without a funnel script.
 pub fn validate_collection_page_binds(
     doc: &Document,
     kind: PageKind,
+    locale_only: bool,
     source: BindSource<'_>,
 ) -> Result<()> {
     if kind != PageKind::Collection {
@@ -119,7 +122,9 @@ pub fn validate_collection_page_binds(
     if html_bind_raw(doc).is_none() {
         return Ok(());
     }
-    require_collection_id(doc, source)?;
+    if !(locale_only && funnel::data_script_ids(doc).is_empty()) {
+        require_collection_id(doc, source)?;
+    }
     validate_page_binds(doc, source)
 }
 

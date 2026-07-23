@@ -15,7 +15,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use statica_core::{build, rebuild_paths, BuildOptions, BuildReport, BuildRouteRow, Diagnostic, PageKind};
+use statica::{build, rebuild_paths, BuildOptions, BuildReport, BuildRouteRow, Diagnostic, PageKind};
 
 use crate::cli::ConfigCli;
 use crate::config::{StaticaConfig, CONFIG_FILE};

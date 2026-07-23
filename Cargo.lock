@@ -3134,24 +3134,6 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "statica"
 version = "0.12.0"
 dependencies = [
- "anyhow",
- "axum",
- "clap",
- "clap_mangen",
- "local-ip-address",
- "notify",
- "owo-colors",
- "serde",
- "statica-core",
- "tokio",
- "toml",
- "tower-http",
-]
-
-[[package]]
-name = "statica-core"
-version = "0.12.0"
-dependencies = [
  "chrono",
  "glob",
  "hex",
@@ -3179,6 +3161,24 @@ dependencies = [
  "sitemap-rs",
  "thiserror 1.0.69",
  "walkdir",
+]
+
+[[package]]
+name = "statica-cli"
+version = "0.12.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "clap",
+ "clap_mangen",
+ "local-ip-address",
+ "notify",
+ "owo-colors",
+ "serde",
+ "statica",
+ "tokio",
+ "toml",
+ "tower-http",
 ]
 
 [[package]]

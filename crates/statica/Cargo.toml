@@ -3,32 +3,40 @@ name = "statica"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "statica — Powered HTML"
+description = "statica — Powered HTML pipeline (parse, funnel, bind, scope, emit)"
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 documentation = "https://docs.rs/statica"
 readme = "../../README.md"
-keywords.workspace = true
-categories.workspace = true
-
-[[bin]]
-name = "statica"
-path = "src/main.rs"
+keywords = ["ssg", "static-site", "html"]
+categories = ["web-programming", "parser-implementations"]
 
 [dependencies]
-anyhow.workspace = true
-axum.workspace = true
-clap.workspace = true
-notify.workspace = true
-owo-colors.workspace = true
-local-ip-address = "0.6"
+chrono.workspace = true
+hex.workspace = true
+html5ever.workspace = true
+image.workspace = true
+lightningcss.workspace = true
+minify-html.workspace = true
+markup5ever_rcdom.workspace = true
+oxc_allocator.workspace = true
+oxc_ast.workspace = true
+oxc_codegen.workspace = true
+oxc_mangler.workspace = true
+oxc_minifier.workspace = true
+oxc_parser.workspace = true
+oxc_span.workspace = true
+oxipng.workspace = true
+rayon = "1"
+rss.workspace = true
 serde.workspace = true
-statica-core = { workspace = true }
-tokio.workspace = true
-toml.workspace = true
-tower-http.workspace = true
-
-[build-dependencies]
-clap = { workspace = true }
-clap_mangen = "0.2"
+serde_json.workspace = true
+sha2.workspace = true
+sitemap-rs.workspace = true
+thiserror.workspace = true
+walkdir.workspace = true
+glob.workspace = true
+pulldown-cmark.workspace = true
+serde_yaml.workspace = true
+indexmap = "2"

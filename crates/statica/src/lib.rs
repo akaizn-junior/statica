@@ -1,4 +1,4 @@
-//! statica-core — discover → pre → parse → funnel → expand → bind → scope → emit
+//! statica — discover → pre → parse → funnel → expand → bind → scope → emit
 //!
 //! # Pipeline
 //!

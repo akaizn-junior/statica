@@ -6,16 +6,16 @@ alwaysApply: false
 
 # statica Rust
 
-Read [AGENTS.md](../../AGENTS.md). Crate-specific: [statica-core/AGENTS.md](../../crates/statica-core/AGENTS.md), [statica/AGENTS.md](../../crates/statica/AGENTS.md).
+Read [AGENTS.md](../../AGENTS.md). Crate-specific: [statica/AGENTS.md](../../crates/statica/AGENTS.md), [statica-cli/AGENTS.md](../../crates/statica-cli/AGENTS.md).
 
 ## Boundary
 
-- `statica-core`: pipeline only — never reads `statica.toml`
-- `statica` CLI: config, flags, watch/serve → maps to `BuildOptions`
+- `statica`: pipeline only — never reads `statica.toml`
+- `statica-cli`: config, flags, watch/serve → maps to `BuildOptions`
 
 ## Style
 
-- Core errors: `statica_core::Error` + `Diagnostic` for authoring mistakes
+- Core errors: `statica::Error` + `Diagnostic` for authoring mistakes
 - CLI errors: `anyhow` with `.context()`
 - Tests: call `build(&opts)`, assert emitted HTML; see `build_fixture.rs`
 - Clippy pedantic in core (see `lib.rs` allows)
@@ -24,9 +24,9 @@ Read [AGENTS.md](../../AGENTS.md). Crate-specific: [statica-core/AGENTS.md](../.
 ## Before submitting
 
 ```bash
-cargo test -p statica-core
 cargo test -p statica
-cargo build -p statica --release
+cargo test -p statica-cli
+cargo build -p statica-cli --release
 ```
 
 Dogfood new features in `examples/blog` first.

@@ -1,4 +1,4 @@
-name: Release
+ƒstatname: Release
 
 # Runs when tag-release.yml (or a manual `git push origin vX.Y.Z`) pushes v*.
 on:
@@ -64,7 +64,7 @@ jobs:
           EOF
 
       - name: Build release
-        run: cargo build -p statica --release --target ${{ matrix.target }}
+        run: cargo build -p statica-cli --release --target ${{ matrix.target }}
 
       - name: Stage binary
         shell: bash
@@ -169,13 +169,13 @@ jobs:
             `$1${v}`,
           );
           cargo = cargo.replace(
-            /(statica-core = \{ version = ")[^"]+/,
+            /(statica = \{ version = ")[^"]+/,
             `$1${v}`,
           );
           fs.writeFileSync("Cargo.toml", cargo);
           NODE
           grep -A6 '\[workspace.package\]' Cargo.toml
-          grep 'statica-core =' Cargo.toml
+          grep 'statica =' Cargo.toml
 
       - name: Create GitHub Release
         env:
@@ -204,12 +204,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo publish -p statica-core --allow-dirty
+          cargo publish -p statica --allow-dirty
           for i in $(seq 1 15); do
-            if cargo publish -p statica --allow-dirty; then
+            if cargo publish -p statica-cli --allow-dirty; then
               exit 0
             fi
-            echo "Waiting for crates.io to index statica-core (attempt ${i})…"
+            echo "Waiting for crates.io to index statica (attempt ${i})…"
             sleep 20
           done
           echo "Failed to publish statica after retries"

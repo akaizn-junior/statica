@@ -28,7 +28,7 @@ if (!platformPkg) {
   fail(
     `statica does not ship a prebuilt binary for ${key}.\n` +
       `Supported: ${Object.keys(PLATFORMS).join(", ")}.\n` +
-      `Install via Rust instead: cargo install statica --locked`,
+      `Install via Rust instead: cargo install statica-cli --locked`,
   );
 }
 
@@ -59,7 +59,7 @@ function resolveBinary() {
     `Could not find the statica binary from optional dependency ${platformPkg}.\n` +
       `Optional dependencies may have been skipped. Reinstall without --omit=optional\n` +
       `(pnpm: do not set optional=false; yarn: avoid --ignore-optional).\n` +
-      `Or install via Rust: cargo install statica --locked`,
+      `Or install via Rust: cargo install statica-cli --locked`,
   );
 }
 

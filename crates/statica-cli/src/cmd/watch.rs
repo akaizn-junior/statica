@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use statica_core::BuildOptions;
+use statica::BuildOptions;
 
 use crate::cli::ConfigCli;
 use crate::config::PreviewConfig;

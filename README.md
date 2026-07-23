@@ -22,10 +22,10 @@ Flow: **Funnel → Pages → static HTML**
 **Rust (crates.io):**
 
 ```bash
-cargo install statica --locked
+cargo install statica-cli --locked
 ```
 
-Library API: depend on [`statica-core`](https://crates.io/crates/statica-core) and call `statica_core::build`.
+Library API: depend on [`statica`](https://crates.io/crates/statica) and call `statica::build`.
 
 **JavaScript (npm):**
 
@@ -33,7 +33,7 @@ Library API: depend on [`statica-core`](https://crates.io/crates/statica-core) a
 npm i -D @statica/cli
 ```
 
-Same CLI binary as `cargo install statica`. Optional platform packages — no postinstall scripts.
+Same CLI binary as `cargo install statica-cli`. Optional platform packages — no postinstall scripts.
 
 ```bash
 npx statica build .
@@ -43,7 +43,7 @@ npx statica build .
 From this repo (dev):
 
 ```bash
-cargo install --path crates/statica --force
+cargo install --path crates/statica-cli --force
 ```
 
 ## Quick start
@@ -93,7 +93,7 @@ statica watch --preview host=127.0.0.1,port=9000
 
 ### Man pages
 
-Generated from clap on every `cargo build -p statica`:
+Generated from clap on every `cargo build -p statica-cli`:
 
 ```bash
 man docs/man/statica.1
@@ -174,8 +174,8 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 
 ## Crate layout
 
-- `crates/statica` — CLI (cwd/project resolve, config, SPECs, watch/serve, man pages)
-- `crates/statica-core` — discover → funnel → bind → scope → emit
+- `crates/statica-cli` — CLI (cwd/project resolve, config, SPECs, watch/serve, man pages)
+- `crates/statica` — discover → funnel → bind → scope → emit
 - `examples/blog` — dogfood fixture
 - `docs/` — guide + man pages
 

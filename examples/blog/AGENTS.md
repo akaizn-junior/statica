@@ -4,7 +4,7 @@ Dogfood statica site. Canonical reference for authoring. Read [../../AGENTS.md](
 
 ## Purpose
 
-This directory demonstrates every major statica feature: Markdown funnel, collections, pagination, fragments, fonts, forms, i18n, RSS, sitemap. Integration tests in `crates/statica-core/tests/build_fixture.rs` build this fixture.
+This directory demonstrates every major statica feature: Markdown funnel, collections, pagination, fragments, fonts, forms, i18n, RSS, sitemap. Integration tests in `crates/statica/tests/build_fixture.rs` build this fixture.
 
 When unsure how to author something, **copy from here** before inventing patterns.
 
@@ -95,6 +95,6 @@ index = true
 ## When editing this fixture
 
 - Keep it minimal — one clear example per feature
-- Run `cargo test -p statica-core builds_blog_fixture` after changes
+- Run `cargo test -p statica builds_blog_fixture` after changes
 - Update `docs/guide.md` if you introduce a new authoring pattern
 - Do not add JavaScript frameworks or build tools — statica IS the build tool

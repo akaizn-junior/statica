@@ -2,7 +2,7 @@
 
 **statica** — **Powered HTML**
 
-npm port of the Rust `statica` CLI — same binary as `cargo install statica`.
+npm port of the Rust `statica` CLI — same binary as `cargo install statica-cli`.
 
 Prebuilt binaries ship as **optional dependencies** (esbuild / Biome pattern). No postinstall scripts, no JS API, no exports.
 
@@ -45,11 +45,11 @@ statica watch
 | `@statica/cli-linux-arm64-gnu` | Linux arm64 (glibc) |
 | `@statica/cli-win32-x64` | Windows x64 |
 
-Unsupported platform? Use Rust: `cargo install statica --locked`.
+Unsupported platform? Use Rust: `cargo install statica-cli --locked`.
 
 ## Library / embed
 
-Programmatic builds: depend on Rust [`statica-core`](https://crates.io/crates/statica-core) (`statica_core::build`). A JS `@statica/core` port may come later.
+Programmatic builds: depend on Rust [`statica`](https://crates.io/crates/statica) (`statica::build`). A JS `@statica/core` port may come later.
 
 ## License
 

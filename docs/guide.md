@@ -10,7 +10,7 @@ Write valid HTML. statica resolves fragments, runs local JS funnels, expands col
 
 | Ecosystem | CLI | Library |
 | --------- | --- | ------- |
-| Rust | `cargo install statica --locked` | `statica-core` → `statica_core::build` |
+| Rust | `cargo install statica-cli --locked` | `statica` → `statica::build` |
 | JavaScript | `npm i -D @statica/cli` → `statica …` / `npx statica …` | Rust crate only (npm `@statica/core` later) |
 
 `@statica/cli` is the npm port of the Rust CLI: prebuilt binary + launcher via optional platform packages. No postinstall downloads, no JS exports — use in scripts and `npx` only.
@@ -415,7 +415,7 @@ Preview uses **axum** + **tower-http** `ServeDir` (indexes, gzip, index fallback
 
 ### Man pages
 
-Regenerated from clap on every `cargo build -p statica` into `docs/man/`:
+Regenerated from clap on every `cargo build -p statica-cli` into `docs/man/`:
 
 ```bash
 man docs/man/statica.1
@@ -508,8 +508,8 @@ Sitemap pagination (many URLs) is separate from UI pagination: when URL count ex
 
 | Crate | Role |
 | ----- | ---- |
-| `crates/statica` | CLI: cwd/project resolve, `statica.toml`, SPEC flags, watch/serve/scaffold, man pages |
-| `crates/statica-core` | Pipeline: discover → funnel → bind → scope → emit (+ feeds, pagination, assets) |
+| `crates/statica-cli` | CLI: cwd/project resolve, `statica.toml`, SPEC flags, watch/serve/scaffold, man pages |
+| `crates/statica` | Pipeline: discover → funnel → bind → scope → emit (+ feeds, pagination, assets) |
 | `examples/blog` | Dogfood fixture (Markdown funnel, pagination, RSS, sitemap, fonts, forms, i18n) |
 | `examples/bench-1k` | Stress fixture (~1k collection pages) |
 

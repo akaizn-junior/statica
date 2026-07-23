@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use statica_core::{build, BuildOptions};
+use statica::{build, BuildOptions};
 
 #[test]
 fn builds_blog_fixture() {
@@ -10,20 +10,20 @@ fn builds_blog_fixture() {
     let mut opts = BuildOptions::new(&root);
     opts.out_dir = out.clone();
     opts.clean = true;
-    opts.i18n = statica_core::I18nOptions {
+    opts.i18n = statica::I18nOptions {
         enabled: true,
         default_locale: "en".into(),
         locales: vec!["en".into(), "pt".into()],
         ..Default::default()
     };
-    opts.forms = statica_core::FormsOptions {
+    opts.forms = statica::FormsOptions {
         enabled: true,
-        provider: statica_core::FormProvider::Formspree,
+        provider: statica::FormProvider::Formspree,
         endpoint: "https://formspree.io/f/{id}".into(),
         ids: [("contact".into(), "example".into())].into(),
     };
     opts.manifest = true;
-    opts.pagination = vec![statica_core::PaginationRule {
+    opts.pagination = vec![statica::PaginationRule {
         route: "blog/[page]".into(),
         page_size: 2,
         limit: 0,
@@ -264,7 +264,7 @@ fn page_undeclared_bind_field_errors() {
 
 #[test]
 fn parses_with_html5ever_not_regex() {
-    let doc = statica_core::parse::parse_document(
+    let doc = statica::parse::parse_document(
         r#"<!doctype html><html><body><h1 id="x">Hi</h1></body></html>"#,
     )
     .unwrap();
@@ -341,9 +341,9 @@ fn statica_form_wires_formspree_action() {
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
     opts.clean = true;
-    opts.forms = statica_core::FormsOptions {
+    opts.forms = statica::FormsOptions {
         enabled: true,
-        provider: statica_core::FormProvider::Formspree,
+        provider: statica::FormProvider::Formspree,
         endpoint: "https://formspree.io/f/{id}".into(),
         ids: [("contact".into(), "xyzabc".into())].into(),
     };
@@ -442,7 +442,7 @@ fn i18n_expands_locale_param_from_config() {
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
     opts.clean = true;
-    opts.i18n = statica_core::I18nOptions {
+    opts.i18n = statica::I18nOptions {
         enabled: true,
         default_locale: "en".into(),
         locales: vec!["en".into(), "pt".into()],
@@ -493,7 +493,7 @@ fn i18n_emits_root_redirect_to_default_locale() {
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
     opts.clean = true;
-    opts.i18n = statica_core::I18nOptions {
+    opts.i18n = statica::I18nOptions {
         enabled: true,
         default_locale: "en".into(),
         locales: vec!["en".into(), "pt".into()],
@@ -536,7 +536,7 @@ fn i18n_skips_root_redirect_when_author_has_root_page() {
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
     opts.clean = true;
-    opts.i18n = statica_core::I18nOptions {
+    opts.i18n = statica::I18nOptions {
         enabled: true,
         default_locale: "en".into(),
         locales: vec!["en".into()],
@@ -593,7 +593,7 @@ fn i18n_loads_locale_specific_funnel_data() {
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
     opts.clean = true;
-    opts.i18n = statica_core::I18nOptions {
+    opts.i18n = statica::I18nOptions {
         enabled: true,
         default_locale: "en".into(),
         locales: vec!["en".into(), "pt".into()],
@@ -662,7 +662,7 @@ fn i18n_fragment_inherits_parent_locale_for_data_t() {
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
     opts.clean = true;
-    opts.i18n = statica_core::I18nOptions {
+    opts.i18n = statica::I18nOptions {
         enabled: true,
         default_locale: "en".into(),
         locales: vec!["en".into(), "pt".into()],
@@ -724,7 +724,7 @@ fn i18n_translates_a11y_attributes() {
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
     opts.clean = true;
-    opts.i18n = statica_core::I18nOptions {
+    opts.i18n = statica::I18nOptions {
         enabled: true,
         default_locale: "en".into(),
         locales: vec!["en".into(), "pt".into()],
@@ -789,13 +789,13 @@ fn i18n_pagination_chunks_once_for_shared_data() {
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
     opts.clean = true;
-    opts.i18n = statica_core::I18nOptions {
+    opts.i18n = statica::I18nOptions {
         enabled: true,
         default_locale: "en".into(),
         locales: vec!["en".into(), "pt".into()],
         ..Default::default()
     };
-    opts.pagination = vec![statica_core::PaginationRule {
+    opts.pagination = vec![statica::PaginationRule {
         route: "[locale]/blog/[page]".into(),
         page_size: 2,
         sort_by: "published_at".into(),
@@ -847,9 +847,9 @@ fn minifies_final_html_output() {
 
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
-    opts.minify = statica_core::MinifyOptions {
+    opts.minify = statica::MinifyOptions {
         enabled: true,
-        ..statica_core::MinifyOptions::default()
+        ..statica::MinifyOptions::default()
     };
 
     build(&opts).expect("build");
@@ -896,15 +896,15 @@ fn responsive_images_wrap_img_in_picture() {
 
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
-    opts.process = statica_core::AssetProcessOptions {
+    opts.process = statica::AssetProcessOptions {
         enabled: true,
         images: true,
         css: false,
         js: false,
         fonts: false,
-        image: statica_core::ImageProcessOptions {
+        image: statica::ImageProcessOptions {
             widths: vec![400, 800],
-            ..statica_core::ImageProcessOptions::default()
+            ..statica::ImageProcessOptions::default()
         },
     };
 

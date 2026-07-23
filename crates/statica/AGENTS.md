@@ -1,62 +1,72 @@
-# AGENTS.md — statica CLI
+# AGENTS.md — statica
 
-Rust CLI binary. Read [../../AGENTS.md](../../AGENTS.md) for project-wide context.
+Rust library: the statica build pipeline. Read [../../AGENTS.md](../../AGENTS.md) for project-wide context.
 
 ## Responsibility
 
-The `statica` crate is the user-facing CLI:
+`statica` transforms a site directory into static HTML. It receives [`BuildOptions`](src/build.rs) and returns a [`BuildReport`](src/build.rs). It **never reads `statica.toml`** — that is the CLI's job.
 
-- Resolve project root (walk up for `statica.toml`, honor `project` / `--project`)
-- Load config from TOML, `.env`, `.dev.vars`, and CLI SPEC flags
-- Map everything to `statica_core::BuildOptions`
-- Watch, serve, scaffold (`new`), man page generation
+## Pipeline
 
-Core pipeline code belongs in `statica-core`, not here.
+Documented in [`src/lib.rs`](src/lib.rs):
 
-## Module map
+```
+discover → pre → parse → funnel → expand → bind → scope → emit → minify
+```
 
 | Module | Purpose |
 | ------ | ------- |
-| `main.rs` | Entry, subcommand dispatch |
-| `cli.rs` | clap definitions + long help text |
-| `cli_config.rs` | SPEC flag parsing (`--rss 'title=Blog,limit=20'`) |
-| `config.rs` | `statica.toml` load/map (~1300 lines, includes unit tests) |
-| `env.rs` | `.env` / `.dev.vars` loading |
-| `style.rs` | Terminal colors (owo-colors, TTY/`NO_COLOR`) |
-| `cmd/build.rs` | Build command |
-| `cmd/serve.rs` | Preview server (axum + tower-http) |
-| `cmd/watch.rs` | File watcher + rebuild + serve |
-| `cmd/new.rs` | Project scaffold |
-| `build.rs` | Man page generation via clap_mangen |
+| `discover` | Find `**/index.html`, detect `[param]` routes |
+| `parse/` | pre → html5ever → normalize → owned AST |
+| `funnel/` | Load `<script type="statica/data">` (JSON, JS literals, Markdown) |
+| `bind/` | Slots, `${…}` attrs, `data-each`, fragments, i18n, forms |
+| `scope/` | Hash-scoped CSS/JS for fragments |
+| `emit` | Write HTML; CSS transform; asset copy/process |
+| `feeds` | Sitemap + RSS |
+| `paginate` | Chunk arrays into page objects |
+| `i18n` | Locale expansion, `data-t` translation |
 
 ## Conventions
 
-### Config
-
-- Config file constant: `CONFIG_FILE` = `"statica.toml"` in `config.rs`
-- Serde structs: `#[serde(default, deny_unknown_fields)]`
-- CLI SPEC strings override TOML; document new flags in clap help and `docs/guide.md`
-
 ### Errors
 
-Use `anyhow::Result` with `.context("…")` for path and operation context. Map `statica_core::Error` at the boundary.
+Use `crate::error::Error` and `Diagnostic` for authoring problems. Diagnostics must include `file:line:column` and optional source snippets via [`loc.rs`](src/loc.rs).
 
-### Man pages
+```rust
+// Authoring mistake → Diagnostic
+// I/O or internal → Error::Io, etc.
+```
 
-Regenerated on every `cargo build -p statica` into `docs/man/`. Update clap doc comments in `cli.rs` when changing CLI behavior — do not hand-edit `.1` files.
+The CLI maps these to `anyhow::Error` at the boundary.
 
-### Async
+### Public API
 
-Only `serve` and `watch` use tokio/axum. Keep the rest synchronous.
+Re-export from `lib.rs`. Keep the surface minimal:
+
+- `build`, `BuildOptions`, `BuildReport`
+- Options structs for features (i18n, pagination, forms, minify, etc.)
+- `Document` for parse results when needed externally
 
 ### Tests
 
-Unit tests co-located in `config.rs`, `env.rs`, `cmd/util.rs`. Test SPEC parsing and config mapping, not the pipeline (that's core's job).
+- **Integration:** [`tests/build_fixture.rs`](tests/build_fixture.rs) — full pipeline against `examples/blog` or inline temp dirs
+- **Unit:** `mod tests { }` co-located in source files
+- Assert on **emitted HTML strings**, not internal state
+- Temp dir helper pattern at bottom of `build_fixture.rs`
 
-### Adding a CLI flag
+### Adding a pipeline feature
 
-1. Add to clap in `cli.rs` with help text
-2. Parse in `cli_config.rs` if SPEC-style
-3. Map to `BuildOptions` field in `config.rs` or command handler
-4. Update `docs/guide.md`
-5. Rebuild to regenerate man pages
+1. Identify the correct stage — binding logic belongs in `bind/`, not `emit`
+2. Add unit tests in the module
+3. Add integration test in `build_fixture.rs` with minimal HTML fixture
+4. Update `docs/guide.md` if user-facing
+
+### Dependencies
+
+Key crates: html5ever, lightningcss, oxc, pulldown-cmark, rayon (parallel expansion), sitemap-rs, rss.
+
+Do not add heavy dependencies without clear need. Prefer extending existing modules.
+
+### Clippy
+
+Pedantic warnings enabled in `lib.rs` with targeted allows. Match existing allow list when adding modules.

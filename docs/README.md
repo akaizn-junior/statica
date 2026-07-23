@@ -6,7 +6,7 @@
 | --- | -------- |
 | [../README.md](../README.md) | Overview, install (cargo / `@statica/cli`), CLI SPECs, authoring summary |
 | [guide.md](guide.md) | Full authoring + config reference |
-| [man/](man/) | Unix man pages (regenerated from clap on `cargo build -p statica`) |
+| [man/](man/) | Unix man pages (regenerated from clap on `cargo build -p statica-cli`) |
 
 ```bash
 man docs/man/statica.1

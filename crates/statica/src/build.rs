@@ -576,6 +576,7 @@ fn prepare_pages(
         bind::validate_collection_page_binds(
             &doc,
             page.kind(),
+            page.params.len() == 1 && page.params[0] == i18n::LOCALE_PARAM,
             funnel::BindSource {
                 file: &file,
                 source: &html,
@@ -748,7 +749,11 @@ fn emit_locale_paginated(
                 &opts.i18n,
             )?;
             let chunks = paginate::chunk_items(&items, rule, &page.source.route, &param);
-            if chunks.is_empty() {
+            let localized: Vec<_> = chunks
+                .iter()
+                .map(|chunk| paginate::apply_locale_to_chunk(chunk, loc))
+                .collect();
+            if localized.is_empty() {
                 push_empty_pagination_warning(page, warnings, &collection_id, &needle_refs)?;
                 continue;
             }
@@ -757,7 +762,7 @@ fn emit_locale_paginated(
                 page,
                 registry,
                 rule,
-                &chunks,
+                &localized,
                 &param,
                 Some(loc.as_str()),
                 i18n_catalogs,

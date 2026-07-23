@@ -136,7 +136,7 @@ Two posts in → two folders out.
 
 A **statica** site — Powered HTML.
 
-Install the CLI with Rust (`cargo install statica --locked`) or npm (`npm i -D @statica/cli`), then:
+Install the CLI with Rust (`cargo install statica-cli --locked`) or npm (`npm i -D @statica/cli`), then:
 
 ```bash
 statica

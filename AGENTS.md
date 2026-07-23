@@ -17,7 +17,7 @@ Flow: **Funnel → Pages → static HTML** (default output: `.dist/`)
 
 This repo contains two things:
 
-1. **The statica engine** — Rust workspace (`crates/statica`, `crates/statica-core`)
+1. **The statica engine** — Rust workspace (`crates/statica`, `crates/statica-cli`)
 2. **Example sites** — `examples/blog` (dogfood fixture), bench fixtures
 
 Do not treat statica like React, Vue, or Next.js. There is no client-side framework, no JSX, no virtual DOM. HTML + statica attributes **are** the template language.
@@ -26,11 +26,11 @@ Do not treat statica like React, Vue, or Next.js. There is no client-side framew
 
 ```bash
 # Build CLI (also regenerates man pages in docs/man/)
-cargo build -p statica --release
+cargo build -p statica-cli --release
 
 # Run tests
-cargo test -p statica-core
 cargo test -p statica
+cargo test -p statica-cli
 
 # Build the dogfood site
 statica build examples/blog
@@ -42,7 +42,7 @@ statica watch
 statica build .
 ```
 
-CI runs `cargo build -p statica --release` and `cargo test` on push/PR. Pushing a version bump to `main` tags `v{version}` and dispatches the global release build (binaries, GitHub Release, crates.io, npm).
+CI runs `cargo build -p statica-cli --release` and `cargo test` on push/PR. Pushing a version bump to `main` tags `v{version}` and dispatches the global release build (binaries, GitHub Release, crates.io, npm).
 
 ## Documentation map
 
@@ -51,11 +51,11 @@ CI runs `cargo build -p statica --release` and `cargo test` on push/PR. Pushing 
 | Full authoring + config reference | [docs/guide.md](docs/guide.md) |
 | Human overview + install | [README.md](README.md) |
 | Working example site | [examples/blog/](examples/blog/) |
-| Pipeline architecture | [crates/statica-core/src/lib.rs](crates/statica-core/src/lib.rs) |
-| All config options | [crates/statica/src/config.rs](crates/statica/src/config.rs) |
-| Expected build behavior | [crates/statica-core/tests/build_fixture.rs](crates/statica-core/tests/build_fixture.rs) |
-| Rust core conventions | [crates/statica-core/AGENTS.md](crates/statica-core/AGENTS.md) |
-| CLI crate conventions | [crates/statica/AGENTS.md](crates/statica/AGENTS.md) |
+| Pipeline architecture | [crates/statica/src/lib.rs](crates/statica/src/lib.rs) |
+| All config options | [crates/statica-cli/src/config.rs](crates/statica-cli/src/config.rs) |
+| Expected build behavior | [crates/statica/tests/build_fixture.rs](crates/statica/tests/build_fixture.rs) |
+| Rust core conventions | [crates/statica/AGENTS.md](crates/statica/AGENTS.md) |
+| CLI crate conventions | [crates/statica-cli/AGENTS.md](crates/statica-cli/AGENTS.md) |
 | Site authoring in examples | [examples/blog/AGENTS.md](examples/blog/AGENTS.md) |
 
 ---
@@ -174,20 +174,20 @@ Do:
 
 ## Contributing to the Rust engine
 
-When editing `crates/statica` or `crates/statica-core`, read the nested AGENTS.md in that crate.
+When editing `crates/statica` or `crates/statica-cli`, read the nested AGENTS.md in that crate.
 
 ### Architecture boundary (critical)
 
 | Crate | Owns |
 | ----- | ---- |
-| `statica` (CLI) | `statica.toml`, env files, CLI flags, watch/serve/scaffold, man pages |
-| `statica-core` | Pipeline: discover → pre → parse → funnel → expand → bind → scope → emit |
+| `statica-cli` | `statica.toml`, env files, CLI flags, watch/serve/scaffold, man pages |
+| `statica` | Pipeline: discover → pre → parse → funnel → expand → bind → scope → emit |
 
-**Core never reads config files.** The CLI maps TOML + flags → `BuildOptions` and calls `statica_core::build(&opts)`.
+**Core never reads config files.** The CLI maps TOML + flags → `BuildOptions` and calls `statica::build(&opts)`.
 
 ### Error handling
 
-- **Core:** typed `statica_core::Error` with `Diagnostic` for authoring mistakes (`file:line:column` + snippet)
+- **Core:** typed `statica::Error` with `Diagnostic` for authoring mistakes (`file:line:column` + snippet)
 - **CLI:** `anyhow::Result` with `.context()` at the boundary
 
 ### Testing
@@ -217,7 +217,7 @@ Authoring HTML is parsed with **html5ever**, not regex.
 2. Add integration test in `build_fixture.rs` for end-to-end behavior
 3. Add unit tests for edge cases in the relevant module
 4. Update guide + README if user-facing
-5. Man pages regenerate automatically on `cargo build -p statica` — update clap help text in `cli.rs` if CLI changed
+5. Man pages regenerate automatically on `cargo build -p statica-cli` — update clap help text in `cli.rs` if CLI changed
 
 ---
 

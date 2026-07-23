@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "crates/statica",
-    "crates/statica-core",
+    "crates/statica-cli",
 ]
 
 [workspace.package]
@@ -51,4 +51,4 @@ minify-html = "0.18.1"
 glob = "0.3"
 pulldown-cmark = "0.13"
 serde_yaml = "0.9"
-statica-core = { version = "0.12.0", path = "crates/statica-core" }
+statica = { version = "0.12.0", path = "crates/statica" }

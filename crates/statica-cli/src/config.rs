@@ -3,7 +3,7 @@
 //! # Responsibilities
 //!
 //! - Load optional `statica.toml` from a config directory (defaults if absent).
-//! - Map user settings into [`statica_core::BuildOptions`].
+//! - Map user settings into [`statica::BuildOptions`].
 //! - Apply CLI SPEC overrides via [`StaticaConfig::apply_cli`].
 //!
 //! Core never reads config files; only the CLI does.
@@ -21,7 +21,7 @@ use std::str::FromStr;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use statica_core::{
+use statica::{
     AliasOptions, AssetProcessOptions, BuildOptions, FormsOptions, I18nOptions,
     ImageProcessOptions, MinifyOptions, PaginationRule, RssOptions, SitemapOptions,
 };
@@ -1218,7 +1218,7 @@ fonts = "./assets/fonts"
             .parse("@Google/?family=Outfit&display=swap")
             .unwrap();
         assert_eq!(
-            statica_core::join_alias(resolved.base, resolved.tail),
+            statica::join_alias(resolved.base, resolved.tail),
             "https://fonts.googleapis.com/css2?family=Outfit&display=swap"
         );
         let _ = fs::remove_dir_all(dir);
