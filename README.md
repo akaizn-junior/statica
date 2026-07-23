@@ -35,6 +35,15 @@ npm i -D @statica/cli
 
 Same CLI binary as `cargo install statica-cli`. Optional platform packages — no postinstall scripts.
 
+**Homebrew:**
+
+```bash
+brew tap akaizn-junior/statica
+brew install statica
+```
+
+Prebuilt macOS and Linux binaries from GitHub releases. See [homebrew/README.md](homebrew/README.md) for tap setup.
+
 ```bash
 npx statica build .
 # package.json scripts: "build": "statica build ."

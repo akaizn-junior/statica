@@ -1,6 +1,6 @@
 {
   "name": "@statica/cli-linux-x64-gnu",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Prebuilt statica CLI binary for linux-x64-gnu",
   "license": "MIT",
   "type": "commonjs",

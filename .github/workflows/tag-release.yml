@@ -2,7 +2,7 @@ name: Tag release
 
 # When the workspace version on main has no matching tag yet, push v{version}.
 # Tag pushes from GITHUB_TOKEN do not trigger other workflows, so we dispatch
-# release.yml explicitly (binaries, GitHub Release, crates.io, npm).
+# release.yml explicitly (binaries, GitHub Release, crates.io, npm, Homebrew).
 on:
   push:
     branches: [main, master]

@@ -12,6 +12,7 @@ Write valid HTML. statica resolves fragments, runs local JS funnels, expands col
 | --------- | --- | ------- |
 | Rust | `cargo install statica-cli --locked` | `statica` → `statica::build` |
 | JavaScript | `npm i -D @statica/cli` → `statica …` / `npx statica …` | Rust crate only (npm `@statica/core` later) |
+| Homebrew | `brew tap akaizn-junior/statica && brew install statica` | Rust crate only |
 
 `@statica/cli` is the npm port of the Rust CLI: prebuilt binary + launcher via optional platform packages. No postinstall downloads, no JS exports — use in scripts and `npx` only.
 

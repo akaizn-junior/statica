@@ -241,3 +241,36 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: cd npm/@statica/cli && npm publish --access public
+
+      - name: Generate Homebrew formula
+        run: |
+          node scripts/update-homebrew-formula.mjs \
+            --version "${{ steps.ver.outputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --assets-dir ./release-assets \
+            --output ./homebrew/statica.rb
+
+      - name: Publish Homebrew tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${HOMEBREW_TAP_TOKEN}" ]]; then
+            echo "HOMEBREW_TAP_TOKEN not set; skipping Homebrew tap update"
+            exit 0
+          fi
+          TAP="${{ github.repository_owner }}/homebrew-statica"
+          git clone --depth 1 "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${TAP}.git" homebrew-tap
+          mkdir -p homebrew-tap/Formula
+          cp homebrew/statica.rb homebrew-tap/Formula/statica.rb
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/statica.rb
+          if git diff --staged --quiet; then
+            echo "Homebrew formula unchanged"
+            exit 0
+          fi
+          git commit -m "statica ${{ steps.ver.outputs.version }}"
+          git push origin HEAD

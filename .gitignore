@@ -11,3 +11,7 @@
 # npm platform binaries (packed by scripts/pack-npm.mjs); keep .gitkeep
 npm/@statica/cli-*/bin/statica
 npm/@statica/cli-*/bin/statica.exe
+
+# generated on release by scripts/update-homebrew-formula.mjs
+homebrew/statica.rb
+artifacts/
