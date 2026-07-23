@@ -1,4 +1,4 @@
-ƒstatname: Release
+name: Release
 
 # Runs when tag-release.yml (or a manual `git push origin vX.Y.Z`) pushes v*.
 on:
@@ -43,7 +43,7 @@ jobs:
             os: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
@@ -88,14 +88,14 @@ jobs:
           ls -la "$OUT" "$ASSET"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: statica-${{ matrix.target }}
           path: staged/${{ matrix.target }}/
           if-no-files-found: error
 
       - name: Upload release asset file
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-asset-${{ matrix.target }}
           path: |
@@ -108,7 +108,7 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
@@ -116,20 +116,20 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
       - name: Download staged binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: statica-*
           path: artifacts
           merge-multiple: false
 
       - name: Download release assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: release-asset-*
           path: release-assets
