@@ -1,6 +1,6 @@
 {
   "name": "@statica/cli-linux-arm64-gnu",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "description": "Prebuilt statica CLI binary for linux-arm64-gnu",
   "license": "MIT",
   "type": "commonjs",
