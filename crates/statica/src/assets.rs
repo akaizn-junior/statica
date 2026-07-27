@@ -127,55 +127,44 @@ fn copy_tree(
     let mut files = Vec::new();
     collect_files(src, dst, &mut files)?;
 
-    let results: Vec<(bool, Option<Diagnostic>, Option<(String, crate::images::ResponsiveImage)>)> =
-        files
-            .par_iter()
-            .map(|(from, to)| {
-                if let Some(parent) = to.parent() {
-                    let _ = fs::create_dir_all(parent);
-                }
-                match emit_file(from, to, out_dir, process) {
-                    Ok(outcome) => (outcome.processed, None, outcome.manifest_entry),
-                    Err(e) => {
-                        let file = from.display().to_string();
-                        if let Err(copy_err) = fs::copy(from, to) {
-                            return (
-                                false,
-                                Some(Diagnostic::at_file(
-                                    file.clone(),
-                                    format!("asset copy failed: {copy_err}"),
-                                )),
-                                None,
-                            );
-                        }
-                        (
-                            false,
-                            Some(Diagnostic::at_file(
-                                file,
-                                format!("asset process failed ({e}); copied raw"),
-                            )),
-                            None,
-                        )
-                    }
-                }
-            })
-            .collect();
+    let results: Vec<CopyOutcome> = files
+        .par_iter()
+        .map(|(from, to)| copy_one_file(from, to, out_dir, process))
+        .collect();
 
     let mut report = ProcessReport::default();
-    for (did_process, warn, entry) in results {
-        if did_process {
-            report.processed += 1;
-        } else {
-            report.copied += 1;
-        }
-        if let Some(w) = warn {
-            report.warnings.push(w);
-        }
-        if let Some((key, image)) = entry {
-            report.images.insert(key, image);
-        }
+    for result in results {
+        result.record(&mut report);
     }
     Ok(report)
+}
+
+fn copy_one_file(
+    from: &Path,
+    to: &Path,
+    out_dir: &Path,
+    process: &AssetProcessOptions,
+) -> CopyOutcome {
+    if let Some(parent) = to.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    match emit_file(from, to, out_dir, process) {
+        Ok(outcome) => CopyOutcome::Emitted(outcome),
+        Err(e) => {
+            let file = from.display().to_string();
+            if let Err(copy_err) = fs::copy(from, to) {
+                return CopyOutcome::Failed {
+                    warning: Diagnostic::at_file(file, format!("asset copy failed: {copy_err}")),
+                };
+            }
+            CopyOutcome::CopiedWithWarning {
+                warning: Diagnostic::at_file(
+                    file,
+                    format!("asset process failed ({e}); copied raw"),
+                ),
+            }
+        }
+    }
 }
 
 fn collect_files(
@@ -198,9 +187,44 @@ fn collect_files(
     Ok(())
 }
 
-struct EmitOutcome {
-    processed: bool,
-    manifest_entry: Option<(String, crate::images::ResponsiveImage)>,
+enum CopyOutcome {
+    Emitted(EmitOutcome),
+    CopiedWithWarning { warning: Diagnostic },
+    Failed { warning: Diagnostic },
+}
+
+impl CopyOutcome {
+    fn record(self, report: &mut ProcessReport) {
+        match self {
+            Self::Emitted(outcome) => outcome.record(report),
+            Self::CopiedWithWarning { warning } | Self::Failed { warning } => {
+                report.copied += 1;
+                report.warnings.push(warning);
+            }
+        }
+    }
+}
+
+enum EmitOutcome {
+    Copied,
+    Processed,
+    ResponsiveImage {
+        key: String,
+        image: crate::images::ResponsiveImage,
+    },
+}
+
+impl EmitOutcome {
+    fn record(self, report: &mut ProcessReport) {
+        match self {
+            Self::Copied => report.copied += 1,
+            Self::Processed => report.processed += 1,
+            Self::ResponsiveImage { key, image } => {
+                report.processed += 1;
+                report.images.insert(key, image);
+            }
+        }
+    }
 }
 
 /// Returns whether the file was transformed (not a byte-for-byte copy).
@@ -213,16 +237,13 @@ fn emit_file(
     let ext = from
         .extension()
         .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase())
+        .map(str::to_ascii_lowercase)
         .unwrap_or_default();
     let kind = AssetKind::from_ext(&ext);
 
     if !process.allows(kind) {
         fs::copy(from, to)?;
-        return Ok(EmitOutcome {
-            processed: false,
-            manifest_entry: None,
-        });
+        return Ok(EmitOutcome::Copied);
     }
 
     match (kind, ext.as_str()) {
@@ -231,46 +252,25 @@ fn emit_file(
             let out = crate::minify::minify_css(&css)
                 .map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
-            Ok(EmitOutcome {
-                processed: true,
-                manifest_entry: None,
-            })
+            Ok(EmitOutcome::Processed)
         }
         (AssetKind::Js, _) => {
             let js = fs::read_to_string(from)?;
             let out = crate::minify::minify_js(from, &js)
                 .map_err(|e| Error::at_file(from.display().to_string(), e))?;
             fs::write(to, out)?;
-            Ok(EmitOutcome {
-                processed: true,
-                manifest_entry: None,
-            })
+            Ok(EmitOutcome::Processed)
         }
         (AssetKind::Image, ext) if images::is_responsive_source(ext) => {
-            let resp =
-                images::process_responsive_image(from, to, out_dir, &process.image).map_err(
-                    |e| Error::at_file(from.display().to_string(), e.to_string()),
-                )?;
+            let resp = images::process_responsive_image(from, to, out_dir, &process.image)
+                .map_err(|e| Error::at_file(from.display().to_string(), e.to_string()))?;
             let key = resp.source_url.clone();
-            Ok(EmitOutcome {
-                processed: true,
-                manifest_entry: Some((key, resp)),
-            })
+            Ok(EmitOutcome::ResponsiveImage { key, image: resp })
         }
         // gif/svg/avif/ico and fonts: selected for processing but no transform yet → copy.
-        (AssetKind::Image | AssetKind::Font, _) => {
+        (AssetKind::Image | AssetKind::Font | AssetKind::Other, _) => {
             fs::copy(from, to)?;
-            Ok(EmitOutcome {
-                processed: false,
-                manifest_entry: None,
-            })
-        }
-        (AssetKind::Other, _) => {
-            fs::copy(from, to)?;
-            Ok(EmitOutcome {
-                processed: false,
-                manifest_entry: None,
-            })
+            Ok(EmitOutcome::Copied)
         }
     }
 }

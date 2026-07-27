@@ -98,39 +98,51 @@ pub fn minify_output_dir(out_dir: &Path, opts: &MinifyOptions) -> Result<MinifyR
         })
         .collect();
 
-    let results: Vec<(bool, Option<Diagnostic>)> = files
+    let results: Vec<MinifyOutcome> = files
         .par_iter()
         .map(|path| match minify_file(path, opts) {
-            Ok(true) => (true, None),
-            Ok(false) => (false, None),
-            Err(e) => (false, Some(e)),
+            Ok(outcome) => outcome,
+            Err(warning) => MinifyOutcome::SkippedWithWarning { warning },
         })
         .collect();
 
     let mut report = MinifyReport::default();
-    for (did_minify, warn) in results {
-        if did_minify {
-            report.files += 1;
-        }
-        if let Some(w) = warn {
-            report.warnings.push(w);
-        }
+    for result in results {
+        result.record(&mut report);
     }
     Ok(report)
 }
 
-/// Returns `true` when the file was rewritten.
-fn minify_file(path: &Path, opts: &MinifyOptions) -> std::result::Result<bool, Diagnostic> {
+enum MinifyOutcome {
+    Rewritten,
+    Unchanged,
+    SkippedWithWarning { warning: Diagnostic },
+}
+
+impl MinifyOutcome {
+    fn record(self, report: &mut MinifyReport) {
+        match self {
+            Self::Rewritten => report.files += 1,
+            Self::Unchanged => {}
+            Self::SkippedWithWarning { warning } => report.warnings.push(warning),
+        }
+    }
+}
+
+fn minify_file(
+    path: &Path,
+    opts: &MinifyOptions,
+) -> std::result::Result<MinifyOutcome, Diagnostic> {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase())
+        .map(str::to_ascii_lowercase)
         .unwrap_or_default();
     let Some(kind) = MinifyKind::from_ext(&ext) else {
-        return Ok(false);
+        return Ok(MinifyOutcome::Unchanged);
     };
     if !opts.allows(kind) {
-        return Ok(false);
+        return Ok(MinifyOutcome::Unchanged);
     }
 
     let source = fs::read_to_string(path).map_err(|e| {
@@ -139,22 +151,20 @@ fn minify_file(path: &Path, opts: &MinifyOptions) -> std::result::Result<bool, D
 
     let out = match kind {
         MinifyKind::Html => minify_html(&source, opts),
-        MinifyKind::Css => minify_css(&source).map_err(|msg| {
-            Diagnostic::at_file(path.display().to_string(), msg)
-        })?,
-        MinifyKind::Js => minify_js(path, &source).map_err(|msg| {
-            Diagnostic::at_file(path.display().to_string(), msg)
-        })?,
+        MinifyKind::Css => minify_css(&source)
+            .map_err(|msg| Diagnostic::at_file(path.display().to_string(), msg))?,
+        MinifyKind::Js => minify_js(path, &source)
+            .map_err(|msg| Diagnostic::at_file(path.display().to_string(), msg))?,
     };
 
     if out == source {
-        return Ok(false);
+        return Ok(MinifyOutcome::Unchanged);
     }
 
     fs::write(path, out).map_err(|e| {
         Diagnostic::at_file(path.display().to_string(), format!("write failed: {e}"))
     })?;
-    Ok(true)
+    Ok(MinifyOutcome::Rewritten)
 }
 
 #[must_use]

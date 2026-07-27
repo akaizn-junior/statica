@@ -457,9 +457,9 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
         phases.push(BuildPhase {
             name: "assets",
             duration_ms: assets_ms,
-            detail,
+            detail: detail.clone(),
         });
-        log.step(&format!("assets  {} ({assets_ms}ms)", phases.last().unwrap().detail));
+        log.step(&format!("assets  {detail} ({assets_ms}ms)"));
 
         if opts.process.enabled && opts.process.images && !assets.images.is_empty() {
             let t = Instant::now();
