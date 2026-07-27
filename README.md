@@ -1,21 +1,8 @@
 # statica
 
-**Powered HTML**
-
-statica turns valid HTML into a static site: fragments, local JS funnels, collections, pagination, scoped components, and browser-ready CSS — then emits files.
-
-> Always lowercase **statica**.
+**Just HTML**. statica is a static web builder that just works!
 
 Full reference: [docs/guide.md](docs/guide.md) · Man pages: [docs/man/](docs/man/)
-
-## Two cores
-
-| Concept | Role |
-| ------- | ---- |
-| **Funnel** | Build-time local JS value literals via `<script type="statica/data" src id>` |
-| **Pages** | Every `**/index.html` — folder path is the route (incl. `[slug]` / `[page]`) |
-
-Flow: **Funnel → Pages → static HTML**
 
 ## Install
 
@@ -25,15 +12,11 @@ Flow: **Funnel → Pages → static HTML**
 cargo install statica-cli --locked
 ```
 
-Library API: depend on [`statica`](https://crates.io/crates/statica) and call `statica::build`.
-
 **JavaScript (npm):**
 
 ```bash
 npm i -D @statica/cli
 ```
-
-Same CLI binary as `cargo install statica-cli`. Optional platform packages — no postinstall scripts.
 
 **Homebrew:**
 
@@ -71,8 +54,6 @@ statica -h
 statica -v
 ```
 
-Prefer the installed binary (`statica …`) over `cargo run`.
-
 ## CLI
 
 ```text
@@ -101,8 +82,6 @@ statica watch --preview host=127.0.0.1,port=9000
 ```
 
 ### Man pages
-
-Generated from clap on every `cargo build -p statica-cli`:
 
 ```bash
 man docs/man/statica.1
@@ -191,3 +170,7 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 ## License
 
 MIT
+
+## Author
+
+(c) 2026 Simão Nziaka
