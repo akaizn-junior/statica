@@ -4,12 +4,12 @@ use clap::{ArgAction, Args, Parser, Subcommand};
 
 pub use crate::cli_config::ConfigCli;
 
-/// statica — Powered HTML
+/// statica — Just HTML
 #[derive(Parser, Debug)]
 #[command(
     name = "statica",
     version,
-    about = "statica — Powered HTML",
+    about = "statica — Just HTML",
     long_about = LONG_ABOUT,
     after_long_help = AFTER_LONG_HELP,
     disable_version_flag = true,
@@ -52,7 +52,7 @@ The site root is that config directory, or `project` / `--project` under it."
 pub enum Commands {
     /// Build the site into the configured output directory
     #[command(
-        about = "Build Funnel → pages → output directory",
+        about = "Build pages into the output directory",
         long_about = BUILD_ABOUT,
         after_long_help = BUILD_AFTER
     )]
@@ -109,12 +109,12 @@ Writes a starter site (pages, fragments, sample funnel JSON) and a documented `s
 }
 
 const LONG_ABOUT: &str = "\
-statica — Powered HTML
+statica — Just HTML
 
-Turns HTML pages, fragments, and local JSON funnels into a static site.
+Turns HTML pages, fragments, and local data funnels into a static site.
 Transforms modern CSS to browser-ready output.
 
-Flow: Funnel → Pages → output directory (default: .dist)
+Flow: discover → funnel → bind → scope → emit (default out_dir: .dist)
 
 With no subcommand, statica builds PATH (default: `.`):
   statica
@@ -133,7 +133,7 @@ Project location:
 const AFTER_LONG_HELP: &str = "\
 Examples:
   statica                         Build cwd (find statica.toml walking up)
-  statica build examples/blog
+  statica examples/blog
   statica build --project site    Use project=site under found statica.toml
   statica build --process         Optimize public/ CSS, JS, images
   statica build --minify          Shrink HTML, CSS, JS in out_dir
@@ -161,7 +161,7 @@ See also:
   docs/guide.md, man statica(1)";
 
 const BUILD_ABOUT: &str = "\
-Build Funnel → pages → output directory.
+Build pages into the output directory.
 
 Discovers every **/index.html under PATH, loads funnels and fragments,
 renders pages (including [slug] collections and [[pagination]]), and writes
@@ -170,7 +170,7 @@ HTML to out_dir (from statica.toml / flags, default .dist).";
 const BUILD_AFTER: &str = "\
 Examples:
   statica build
-  statica build examples/blog
+  statica examples/blog
   statica build --process --no-sitemap --rss-limit 20
   statica build --verbose             Step logs + route summary
 

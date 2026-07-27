@@ -1,11 +1,11 @@
 # statica documentation
 
-**Powered HTML**
+**Just HTML**
 
 | Doc | Contents |
 | --- | -------- |
-| [../README.md](../README.md) | Overview, install (cargo / `@statica/cli`), CLI SPECs, authoring summary |
-| [guide.md](guide.md) | Full authoring + config reference |
+| [../README.md](../README.md) | Install, quick start, and getting a new site going |
+| [guide.md](guide.md) | Direct authoring and config reference |
 | [man/](man/) | Unix man pages (regenerated from clap on `cargo build -p statica-cli`) |
 
 ```bash

@@ -11,7 +11,7 @@ When unsure how to author something, **copy from here** before inventing pattern
 ## Build
 
 ```bash
-statica build examples/blog
+statica examples/blog
 # or from this directory:
 statica
 ```

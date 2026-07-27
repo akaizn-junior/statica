@@ -6,10 +6,11 @@ Rust CLI binary. Read [../../AGENTS.md](../../AGENTS.md) for project-wide contex
 
 The `statica-cli` crate is the user-facing CLI:
 
-- Resolve project root (walk up for `statica.toml`, honor `project` / `--project`)
+- Resolve `PATH` against the process cwd, walk up for `statica.toml`, then honor `project` / `--project`
 - Load config from TOML, `.env`, `.dev.vars`, and CLI SPEC flags
 - Map everything to `statica::BuildOptions`
 - Watch, serve, scaffold (`new`), man page generation
+- Treat `statica [PATH]` as the default build command; `statica build [PATH]` is the explicit form
 
 Core pipeline code belongs in `statica`, not here.
 
@@ -36,6 +37,7 @@ Core pipeline code belongs in `statica`, not here.
 - Config file constant: `CONFIG_FILE` = `"statica.toml"` in `config.rs`
 - Serde structs: `#[serde(default, deny_unknown_fields)]`
 - CLI SPEC strings override TOML; document new flags in clap help and `docs/guide.md`
+- Path resolution must stay cwd-based: never resolve user paths relative to the binary install location.
 
 ### Errors
 
@@ -58,5 +60,5 @@ Unit tests co-located in `config.rs`, `env.rs`, `cmd/util.rs`. Test SPEC parsing
 1. Add to clap in `cli.rs` with help text
 2. Parse in `cli_config.rs` if SPEC-style
 3. Map to `BuildOptions` field in `config.rs` or command handler
-4. Update `docs/guide.md`
+4. Update `docs/guide.md` and `README.md`
 5. Rebuild to regenerate man pages

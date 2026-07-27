@@ -6,14 +6,14 @@ Instructions for AI coding agents working in this repository.
 
 ## What this is
 
-**statica** is a static site generator: **Powered HTML**. Authors write valid HTML; the build resolves fragments, runs build-time data funnels, expands collections and pagination, scopes component CSS/JS, and emits static files.
+**statica** is a static web builder: **Just HTML**. Authors write valid HTML; the build resolves fragments, runs build-time data funnels, expands collections and pagination, scopes component CSS/JS, and emits static files.
 
 | Concept | Role |
 | ------- | ---- |
 | **Funnel** | Build-time data via `<script type="statica/data" src id>` |
 | **Pages** | Every `**/index.html` — folder path is the route (`[slug]`, `[page]`, `[locale]`) |
 
-Flow: **Funnel → Pages → static HTML** (default output: `.dist/`)
+Flow: **discover → funnel → bind → scope → emit** (default output: `.dist/`)
 
 This repo contains two things:
 
@@ -32,14 +32,14 @@ cargo build -p statica-cli --release
 cargo test -p statica
 cargo test -p statica-cli
 
-# Build the dogfood site
-statica build examples/blog
+# Build the dogfood site (default command is build)
+statica examples/blog
 
-# Dev loop (from a site directory)
+# Dev loop (watch + serve)
 statica watch
 
-# Prefer installed binary over cargo run
-statica build .
+# Prefer installed binary over cargo run; `statica` builds cwd
+statica
 ```
 
 CI runs `cargo build -p statica-cli --release` and `cargo test` on push/PR. Pushing a version bump to `main` tags `v{version}` and dispatches the global release build (binaries, GitHub Release, crates.io, npm, Homebrew tap).
@@ -48,8 +48,8 @@ CI runs `cargo build -p statica-cli --release` and `cargo test` on push/PR. Push
 
 | Need | Read |
 | ---- | ---- |
-| Full authoring + config reference | [docs/guide.md](docs/guide.md) |
-| Human overview + install | [README.md](README.md) |
+| Direct authoring + config reference | [docs/guide.md](docs/guide.md) |
+| Install + new-site flow | [README.md](README.md) |
 | Working example site | [examples/blog/](examples/blog/) |
 | Pipeline architecture | [crates/statica/src/lib.rs](crates/statica/src/lib.rs) |
 | All config options | [crates/statica-cli/src/config.rs](crates/statica-cli/src/config.rs) |
@@ -60,6 +60,15 @@ CI runs `cargo build -p statica-cli --release` and `cargo test` on push/PR. Push
 
 ---
 
+## CLI flow
+
+- `statica [PATH]` is the default build command; `statica build [PATH]` is equivalent.
+- `statica watch [PATH]` rebuilds and serves; `statica serve [PATH]` previews `out_dir`; `statica new <NAME>` scaffolds.
+- Resolve `PATH` against the process **cwd**, then walk up for `statica.toml`.
+- The site root is the config directory, or `project` / `--project` under it.
+- CLI SPEC strings override TOML for nested config (`--rss`, `--sitemap`, `--process`, `--minify`, `--pagination`, `--i18n`, `--preview`).
+- When changing CLI behavior, update clap help, docs/guide.md, README.md, and regenerate man pages with `cargo build -p statica-cli --release`.
+
 ## Writing statica sites (the statica way)
 
 When creating or editing HTML sites that statica builds — whether in `examples/`, scaffolds from `statica new`, or user projects — follow these rules.
@@ -69,6 +78,7 @@ When creating or editing HTML sites that statica builds — whether in `examples
 - **Routing is filesystem-based.** `about/index.html` → `/about/`. Dynamic segments use bracket folders: `posts/[slug]/index.html`.
 - **Data is build-time only.** Funnel scripts load JSON, JS value literals, or Markdown directories at build time. Production output is plain static HTML — no runtime data fetching.
 - **Fragments are HTML components.** `<template id="…">` in a fragment file, imported with `<link rel="statica/fragment">`, mounted with `<slot id="…">`.
+- **Default build command is short.** Prefer examples like `statica .` or `statica examples/blog`; use `statica build …` when documenting the explicit subcommand.
 
 ### The three-part fragment contract
 
@@ -131,6 +141,19 @@ Page context includes: `items`, `page`, `total_pages`, `prev_href`, `next_href`,
 
 - Write modern CSS in `<style>` (nesting, `@media (width >= 40rem)`, etc.). statica compiles with lightningcss; fragment styles are scoped via `[data-s="id-hash"]`.
 - Fragment `<script type="module">` uses `$` to scope DOM queries to the fragment instance. Production builds inline the helper.
+- Inline `<style>` in pages and fragments is always transformed.
+- Linked `.css` under asset dirs is transformed only when `[process].css` / `--process css=true` is enabled.
+- Final output minification is controlled by `[minify]` / `--minify` for emitted HTML, CSS, and JS, including inline `<style>` / `<script>`.
+
+### Asset pipeline
+
+| Asset kind | Tool |
+| ---------- | ---- |
+| CSS | lightningcss |
+| JS | oxc |
+| HTML | minify-html |
+| Images | oxipng + image |
+| Fonts | copied as-is |
 
 ### Paths and aliases
 

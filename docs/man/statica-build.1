@@ -2,11 +2,11 @@
 .el .ds Aq '
 .TH statica-build 1  "build 0.12.2" 
 .SH NAME
-statica\-build \- Build Funnel → pages → output directory
+statica\-build \- Build pages into the output directory
 .SH SYNOPSIS
 \fBstatica build\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-minify\fR] [\fB\-\-no\-minify\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-\-manifest\fR] [\fB\-\-no\-manifest\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
-Build Funnel → pages → output directory.
+Build pages into the output directory.
 .PP
 Discovers every **/index.html under PATH, loads funnels and fragments,
 renders pages (including [slug] collections and [[pagination]]), and writes
@@ -138,7 +138,7 @@ Walks up for `statica.toml`. Use `\-\-project` (or `project` in the toml) for a 
 .SH EXTRA
 Examples:
   statica build
-  statica build examples/blog
+  statica examples/blog
   statica build \-\-process \-\-no\-sitemap \-\-rss\-limit 20
   statica build \-\-verbose             Step logs + route summary
 

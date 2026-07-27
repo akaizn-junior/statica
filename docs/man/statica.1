@@ -2,16 +2,16 @@
 .el .ds Aq '
 .TH statica 1  "statica 0.12.2" 
 .SH NAME
-statica \- statica — Powered HTML
+statica \- statica — Just HTML
 .SH SYNOPSIS
 \fBstatica\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-minify\fR] [\fB\-\-no\-minify\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-\-manifest\fR] [\fB\-\-no\-manifest\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
-statica — Powered HTML
+statica — Just HTML
 .PP
-Turns HTML pages, fragments, and local JSON funnels into a static site.
+Turns HTML pages, fragments, and local data funnels into a static site.
 Transforms modern CSS to browser\-ready output.
 .PP
-Flow: Funnel → Pages → output directory (default: .dist)
+Flow: discover → funnel → bind → scope → emit (default out_dir: .dist)
 .PP
 With no subcommand, statica builds PATH (default: `.`):
   statica
@@ -154,7 +154,7 @@ The site root is that config directory, or `project` / `\-\-project` under it.
 .SH SUBCOMMANDS
 .TP
 statica\-build(1)
-Build Funnel → pages → output directory
+Build pages into the output directory
 .TP
 statica\-serve(1)
 Serve out_dir over HTTP (preview a build)
@@ -167,7 +167,7 @@ Create a new statica project scaffold
 .SH EXTRA
 Examples:
   statica                         Build cwd (find statica.toml walking up)
-  statica build examples/blog
+  statica examples/blog
   statica build \-\-project site    Use project=site under found statica.toml
   statica build \-\-process         Optimize public/ CSS, JS, images
   statica build \-\-minify          Shrink HTML, CSS, JS in out_dir
