@@ -30,7 +30,16 @@
     clippy::must_use_candidate,
     clippy::return_self_not_must_use,
     clippy::wildcard_imports,
-    clippy::struct_excessive_bools
+    clippy::struct_excessive_bools,
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    clippy::similar_names,
+    clippy::doc_markdown,
+    clippy::doc_link_with_quotes,
+    clippy::needless_raw_string_hashes,
+    clippy::items_after_test_module,
+    clippy::items_after_statements,
+    clippy::manual_let_else
 )]
 
 mod aliases;

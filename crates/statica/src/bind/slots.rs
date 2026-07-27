@@ -5,11 +5,13 @@ use serde_json::Value;
 use crate::funnel;
 use crate::parse::Node;
 
-pub fn fill_named_slots(nodes: &mut Vec<Node>, ctx: &Value) {
+pub fn fill_named_slots(nodes: &mut [Node], ctx: &Value) {
     let mut i = 0;
     while i < nodes.len() {
         let replace = match &nodes[i] {
-            Node::Element(el) if el.is_slot() && el.attr("name").is_some() && el.attr("id").is_none() => {
+            Node::Element(el)
+                if el.is_slot() && el.attr("name").is_some() && el.attr("id").is_none() =>
+            {
                 Some(el.attr("name").unwrap_or("").to_string())
             }
             _ => None,

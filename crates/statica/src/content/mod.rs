@@ -41,11 +41,7 @@ fn is_content_file(path: &Path) -> bool {
 
 fn load_file(path: &Path) -> Result<Value> {
     let text = fs::read_to_string(path).map_err(|e| Error::read(path.display().to_string(), e))?;
-    match path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-    {
+    match path.extension().and_then(|e| e.to_str()).unwrap_or("") {
         "md" | "markdown" => markdown::parse_markdown_file(&text, path),
         _ => parse_js_value(&text)
             .map_err(|message| Error::invalid_js_value(path.display().to_string(), message)),
@@ -81,7 +77,7 @@ fn load_glob(site_root: &Path, page_dir: &Path, pattern: &str) -> Result<Value> 
     let pattern = normalize(&pattern_path).to_string_lossy().to_string();
     let mut paths: Vec<PathBuf> = glob(&pattern)
         .map_err(|e| Error::invalid_content(&pattern, e.to_string()))?
-        .filter_map(|entry| entry.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|p| is_content_file(p))
         .collect();
     paths.sort();
@@ -151,11 +147,7 @@ mod tests {
     #[test]
     fn loads_json_array() {
         let dir = temp_dir();
-        fs::write(
-            dir.join("posts.json"),
-            r#"[{"slug":"a","headline":"A"}]"#,
-        )
-        .unwrap();
+        fs::write(dir.join("posts.json"), r#"[{"slug":"a","headline":"A"}]"#).unwrap();
         let value = load_content(&dir, &dir, "posts.json").unwrap();
         assert_eq!(value, json!([{"slug": "a", "headline": "A"}]));
     }
@@ -180,7 +172,10 @@ Build stamps this into **static HTML**.
         let obj = value.as_object().unwrap();
         assert_eq!(obj["slug"], "hello-world");
         assert_eq!(obj["headline"], "Hello world");
-        assert!(obj["html"].as_str().unwrap().contains("<strong>static HTML</strong>"));
+        assert!(obj["html"]
+            .as_str()
+            .unwrap()
+            .contains("<strong>static HTML</strong>"));
     }
 
     #[test]

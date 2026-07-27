@@ -2,6 +2,7 @@
 
 use html5ever::parse_document as html5ever_parse;
 use html5ever::tendril::TendrilSink;
+use html5ever::ParseOpts;
 use markup5ever_rcdom::{Handle, NodeData, RcDom};
 
 use crate::error::{Error, Result};
@@ -17,7 +18,7 @@ pub fn parse_document(input: &str) -> Result<Document> {
 }
 
 fn parse_document_inner(input: &str) -> Result<Document> {
-    let dom = html5ever_parse(RcDom::default(), Default::default())
+    let dom = html5ever_parse(RcDom::default(), ParseOpts::default())
         .from_utf8()
         .read_from(&mut input.as_bytes())
         .map_err(|e| Error::msg(format!("html parse failed: {e}")))?;
@@ -123,9 +124,9 @@ fn convert_handle(handle: &Handle) -> Option<Node> {
                 children,
             }))
         }
-        NodeData::Document
-        | NodeData::Doctype { .. }
-        | NodeData::ProcessingInstruction { .. } => None,
+        NodeData::Document | NodeData::Doctype { .. } | NodeData::ProcessingInstruction { .. } => {
+            None
+        }
     }
 }
 
@@ -141,18 +142,26 @@ mod select_slot_tests {
         assert_eq!(select.len(), 1);
         let children = &select[0].children;
         assert!(
-            children.iter().any(|n| matches!(n, crate::parse::Node::Element(e) if e.is_slot())),
+            children
+                .iter()
+                .any(|n| matches!(n, crate::parse::Node::Element(e) if e.is_slot())),
             "expected slot child, got: {:?}",
-            children.iter().map(|n| match n {
-                crate::parse::Node::Element(e) => e.name.clone(),
-                crate::parse::Node::Text(t) => format!("text:{t}"),
-                crate::parse::Node::Comment(c) => format!("comment:{c}"),
-            }).collect::<Vec<_>>()
+            children
+                .iter()
+                .map(|n| match n {
+                    crate::parse::Node::Element(e) => e.name.clone(),
+                    crate::parse::Node::Text(t) => format!("text:{t}"),
+                    crate::parse::Node::Comment(c) => format!("comment:{c}"),
+                })
+                .collect::<Vec<_>>()
         );
-        let slot = children.iter().find_map(|n| match n {
-            crate::parse::Node::Element(e) if e.is_slot() => Some(e),
-            _ => None,
-        }).unwrap();
+        let slot = children
+            .iter()
+            .find_map(|n| match n {
+                crate::parse::Node::Element(e) if e.is_slot() => Some(e),
+                _ => None,
+            })
+            .unwrap();
         assert_eq!(slot.attr("id"), Some("select-option"));
         assert_eq!(slot.attr("data-each"), Some("items"));
     }

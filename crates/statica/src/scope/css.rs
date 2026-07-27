@@ -51,11 +51,7 @@ fn scope_block(css: &str, scope_id: &str) -> String {
                     }
                     depth += 1;
                 }
-                b'}' => {
-                    if depth > 0 {
-                        depth -= 1;
-                    }
-                }
+                b'}' => depth = depth.saturating_sub(1),
                 _ => {}
             }
             i += 1;
@@ -185,10 +181,7 @@ mod tests {
 
     #[test]
     fn scopes_inside_media() {
-        let out = scope_style_text(
-            "@media (min-width: 40rem) { .card { color: red } }",
-            "x",
-        );
+        let out = scope_style_text("@media (min-width: 40rem) { .card { color: red } }", "x");
         assert!(out.contains("@media"));
         assert!(out.contains(".card[data-s=\"x\"]"), "{out}");
         assert!(!out.contains("@media[data-s"), "{out}");

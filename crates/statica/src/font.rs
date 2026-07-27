@@ -93,6 +93,7 @@ fn push_preconnect(
     }
 }
 
+#[derive(Clone, Copy)]
 enum CrossOrigin {
     None,
     Anonymous,

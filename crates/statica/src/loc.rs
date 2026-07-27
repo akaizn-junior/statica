@@ -101,7 +101,7 @@ pub fn find_pos_any<'a>(source: &str, needles: &[&'a str]) -> Option<(usize, u32
             continue;
         }
         if let Some((offset, line, column)) = find_pos(source, needle) {
-            if best.map_or(true, |(o, _, _, _)| offset < o) {
+            if best.is_none_or(|(o, _, _, _)| offset < o) {
                 best = Some((offset, line, column, needle));
             }
         }
@@ -116,7 +116,9 @@ pub fn snippet(source: &str, line: u32, column: u32, highlight_len: usize) -> St
     let gutter = line.to_string();
     let pad = " ".repeat(gutter.len());
     let caret_col = (column as usize).saturating_sub(1).min(text.len());
-    let len = highlight_len.max(1).min(text.len().saturating_sub(caret_col).max(1));
+    let len = highlight_len
+        .max(1)
+        .min(text.len().saturating_sub(caret_col).max(1));
     format!(
         "{pad} |\n{gutter} | {text}\n{pad} | {}{}",
         " ".repeat(caret_col),
@@ -151,7 +153,12 @@ mod tests {
 
     #[test]
     fn diagnostic_display() {
-        let d = Diagnostic::at("ui/x.html", "<a href=\"${href}\">", &["${href}"], "not bound");
+        let d = Diagnostic::at(
+            "ui/x.html",
+            "<a href=\"${href}\">",
+            &["${href}"],
+            "not bound",
+        );
         let s = d.to_string();
         assert!(s.starts_with("ui/x.html:1:"));
         assert!(s.contains("not bound"));

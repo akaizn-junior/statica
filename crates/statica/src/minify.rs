@@ -15,7 +15,6 @@ use oxc_span::SourceType;
 use rayon::prelude::*;
 use walkdir::WalkDir;
 
-use crate::error::Result;
 use crate::loc::Diagnostic;
 
 /// Which output kinds to minify when processing is enabled.
@@ -83,14 +82,14 @@ pub struct MinifyReport {
 }
 
 /// Minify every HTML / CSS / JS file under `out_dir` according to `opts`.
-pub fn minify_output_dir(out_dir: &Path, opts: &MinifyOptions) -> Result<MinifyReport> {
+pub fn minify_output_dir(out_dir: &Path, opts: &MinifyOptions) -> MinifyReport {
     if !opts.enabled {
-        return Ok(MinifyReport::default());
+        return MinifyReport::default();
     }
 
     let files: Vec<PathBuf> = WalkDir::new(out_dir)
         .into_iter()
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| e.file_type().is_file())
         .filter_map(|e| {
             let ext = e.path().extension()?.to_str()?.to_ascii_lowercase();
@@ -110,7 +109,7 @@ pub fn minify_output_dir(out_dir: &Path, opts: &MinifyOptions) -> Result<MinifyR
     for result in results {
         result.record(&mut report);
     }
-    Ok(report)
+    report
 }
 
 enum MinifyOutcome {
@@ -169,14 +168,15 @@ fn minify_file(
 
 #[must_use]
 pub fn minify_html(source: &str, opts: &MinifyOptions) -> String {
-    let mut cfg = minify_html::Cfg::default();
-    cfg.minify_css = opts.css;
-    cfg.minify_js = opts.js;
+    let cfg = minify_html::Cfg {
+        minify_css: opts.css,
+        minify_js: opts.js,
+        ..minify_html::Cfg::default()
+    };
     let bytes = minify_html::minify(source.as_bytes(), &cfg);
     String::from_utf8_lossy(&bytes).into_owned()
 }
 
-#[must_use]
 pub fn minify_css(source: &str) -> std::result::Result<String, String> {
     crate::css::transform_css(source, true)
 }
@@ -267,7 +267,7 @@ mod tests {
             enabled: true,
             ..MinifyOptions::default()
         };
-        let report = minify_output_dir(&dir, &opts).unwrap();
+        let report = minify_output_dir(&dir, &opts);
         assert_eq!(report.files, 2);
         let html = fs::read_to_string(&page).unwrap();
         assert!(!html.contains('\n') || html.len() < 50);

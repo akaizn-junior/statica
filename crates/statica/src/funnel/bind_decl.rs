@@ -3,9 +3,7 @@
 use std::collections::HashSet;
 
 use oxc_allocator::Allocator;
-use oxc_ast::ast::{
-    BindingPattern, BindingProperty, ObjectPattern, PropertyKey, Statement,
-};
+use oxc_ast::ast::{BindingPattern, BindingProperty, ObjectPattern, PropertyKey, Statement};
 use oxc_parser::Parser;
 use oxc_span::SourceType;
 use serde_json::Value;
@@ -55,6 +53,7 @@ impl BindDecl {
     }
 
     /// Flat destructure helper for tests / call sites: `{a, b}` → paths `[a]`, `[b]`.
+    #[cfg(test)]
     #[must_use]
     pub fn destructure_flat(names: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self::Destructure(
@@ -103,9 +102,7 @@ pub fn parse_bind_decl(raw: Option<&str>) -> std::result::Result<BindDecl, Strin
     }
 
     match &decl.declarations[0].id {
-        BindingPattern::BindingIdentifier(id) => {
-            Ok(BindDecl::Named(id.name.as_str().to_string()))
-        }
+        BindingPattern::BindingIdentifier(id) => Ok(BindDecl::Named(id.name.as_str().to_string())),
         BindingPattern::ObjectPattern(obj) => {
             let mut binds = Vec::new();
             collect_object_pattern(raw, obj, &[], &mut binds)?;
@@ -187,9 +184,7 @@ fn collect_binding_property(
                 },
             )
         }
-        BindingPattern::ObjectPattern(nested) => {
-            collect_object_pattern(raw, nested, &path, out)
-        }
+        BindingPattern::ObjectPattern(nested) => collect_object_pattern(raw, nested, &path, out),
         BindingPattern::ArrayPattern(_) => Err(format!(
             "data-bind=`{raw}`: array destructure is not supported"
         )),
@@ -205,10 +200,7 @@ fn push_bind(
     bind: DestructureBind,
 ) -> std::result::Result<(), String> {
     if out.iter().any(|b| b.name == bind.name) {
-        return Err(format!(
-            "data-bind=`{raw}`: duplicate name `{}`",
-            bind.name
-        ));
+        return Err(format!("data-bind=`{raw}`: duplicate name `{}`", bind.name));
     }
     out.push(bind);
     Ok(())
@@ -238,9 +230,7 @@ pub fn bind_context(decl: &BindDecl, value: &Value) -> Value {
         BindDecl::Destructure(binds) => {
             let mut map = serde_json::Map::new();
             for bind in binds {
-                let v = read_path(value, &bind.path)
-                    .cloned()
-                    .unwrap_or(Value::Null);
+                let v = read_path(value, &bind.path).cloned().unwrap_or(Value::Null);
                 map.insert(bind.name.clone(), v);
             }
             Value::Object(map)
@@ -291,7 +281,11 @@ fn validate_mount_element(
     source: BindSource<'_>,
 ) -> Result<()> {
     if el.is_slot() && el.attr("id").is_some() {
-        if let Some(each) = el.attr("data-each").map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(each) = el
+            .attr("data-each")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             let root = path_root(each);
             if root != "." {
                 let dq = format!("data-each=\"{each}\"");
@@ -299,7 +293,11 @@ fn validate_mount_element(
                 ensure_bound(fragment_id, scope, each, root, source, &[&dq, &sq])?;
             }
         }
-        if let Some(bind) = el.attr("data-bind").map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(bind) = el
+            .attr("data-bind")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             let root = path_root(bind);
             if root != "." {
                 let dq = format!("data-bind=\"{bind}\"");
@@ -340,7 +338,14 @@ fn validate_element(
         if let Some(name) = el.attr("name").map(str::trim).filter(|s| !s.is_empty()) {
             let dq = format!("name=\"{name}\"");
             let sq = format!("name='{name}'");
-            ensure_bound(fragment_id, scope, name, path_root(name), source, &[&dq, &sq])?;
+            ensure_bound(
+                fragment_id,
+                scope,
+                name,
+                path_root(name),
+                source,
+                &[&dq, &sq],
+            )?;
         }
     }
     if !el.is_script() && !el.is_style() {
@@ -499,7 +504,10 @@ mod tests {
         let decl = BindDecl::Named("button".into());
         let nodes = vec![el(
             "a",
-            &[("class", "button ${button.variant}"), ("href", "${button.href}")],
+            &[
+                ("class", "button ${button.variant}"),
+                ("href", "${button.href}"),
+            ],
             vec![],
         )];
         validate_template_binds("button", &decl, &nodes, src(html)).unwrap();
@@ -507,8 +515,7 @@ mod tests {
 
     #[test]
     fn destructure_allows_listed_names() {
-        let html =
-            r#"<a class="button ${variant}" href="${href}"><slot name="label"></slot></a>"#;
+        let html = r#"<a class="button ${variant}" href="${href}"><slot name="label"></slot></a>"#;
         let decl = BindDecl::destructure_flat(["variant", "href", "label"]);
         let nodes = vec![el(
             "a",
@@ -520,8 +527,7 @@ mod tests {
 
     #[test]
     fn named_slot_must_be_bound() {
-        let html =
-            r#"<a class="button ${variant}" href="${href}"><slot name="label"></slot></a>"#;
+        let html = r#"<a class="button ${variant}" href="${href}"><slot name="label"></slot></a>"#;
         let decl = BindDecl::destructure_flat(["variant", "href"]);
         let nodes = vec![el(
             "a",

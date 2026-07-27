@@ -43,7 +43,7 @@ pub fn discover_pages(root: &Path, ignore_dirs: &[String]) -> Result<Vec<PageSou
             }
             !ignore_dirs.iter().any(|d| d == name.as_ref())
         })
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
     {
         if !entry.file_type().is_file() {
             continue;

@@ -13,7 +13,6 @@ use crate::parse::{self, Document, Element, Node};
 
 #[derive(Debug, Clone)]
 pub struct Fragment {
-    pub id: String,
     pub path: PathBuf,
     pub template: Element,
     /// Bind scope from `<template data-bind="name">` or `data-bind="{a, b}"`.
@@ -84,8 +83,8 @@ impl FragmentRegistry {
 
         let href = aliases::resolve_path(href, aliases, page, "href")?;
         let path = resolve_local_path(&self.site_root, from_dir, &href, page, &href)?;
-        let raw = fs::read_to_string(&path)
-            .map_err(|e| Error::read(path.display().to_string(), e))?;
+        let raw =
+            fs::read_to_string(&path).map_err(|e| Error::read(path.display().to_string(), e))?;
         let file = path.display().to_string();
         let file_doc = parse::parse_fragment(&raw).map_err(|e| e.in_file(&file, &raw))?;
         let base_dir = path.parent().unwrap_or(from_dir);
@@ -139,7 +138,6 @@ impl FragmentRegistry {
         let has_locale_data = funnel::document_has_locale_data(&file_doc);
 
         let frag = Fragment {
-            id: id.to_string(),
             path,
             template: template_el.clone(),
             bind,
@@ -148,9 +146,9 @@ impl FragmentRegistry {
             has_locale_data,
         };
         self.fragments.insert(id.to_string(), frag);
-        self.fragments.get(id).ok_or_else(|| {
-            Error::at_file("<registry>", format!("missing fragment id `{id}`"))
-        })
+        self.fragments
+            .get(id)
+            .ok_or_else(|| Error::at_file("<registry>", format!("missing fragment id `{id}`")))
     }
 
     /// Merge static fragment funnel data with locale-specific sources when the parent page locale is known.
@@ -226,7 +224,10 @@ fn resolve_local_path(
             format!("path not found: {path}"),
         ));
     }
-    Err(Error::at_file(path.clone(), format!("path not found: {path}")))
+    Err(Error::at_file(
+        path.clone(),
+        format!("path not found: {path}"),
+    ))
 }
 
 /// Clone template element children as a mountable node list (without the `<template>` wrapper).

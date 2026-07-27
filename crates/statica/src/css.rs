@@ -15,7 +15,6 @@ use lightningcss::targets::{Features, Targets};
 ///
 /// Enables nesting + custom media parsing, then compiles nesting, media range
 /// syntax, modern colors, logical properties, and related features.
-#[must_use]
 pub fn transform_css(source: &str, minify: bool) -> Result<String, String> {
     let mut flags = ParserFlags::empty();
     flags.insert(ParserFlags::NESTING);

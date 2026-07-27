@@ -92,12 +92,7 @@ fn slot_to_script(slot_html: &str) -> Result<String> {
 
     let open_end = find_gt(slot_html, 0)?;
     let mut attrs = slot_html[..open_end]
-        .split_at(
-            slot_html[..open_end]
-                .find('<')
-                .map(|i| i + 1)
-                .unwrap_or(0),
-        )
+        .split_at(slot_html[..open_end].find('<').map_or(0, |i| i + 1))
         .1
         .trim();
     if let Some(stripped) = attrs.strip_prefix("slot") {
@@ -240,8 +235,7 @@ mod tests {
 
     #[test]
     fn rewrites_slot_inside_optgroup() {
-        let raw =
-            r#"<select><optgroup label="G"><slot id="b" data-each="items"></slot></optgroup></select>"#;
+        let raw = r#"<select><optgroup label="G"><slot id="b" data-each="items"></slot></optgroup></select>"#;
         let out = preprocess(raw).unwrap();
         assert!(out.contains(r#"type="statica/slot""#));
         assert!(out.contains(r#"id="b""#));

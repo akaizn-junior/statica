@@ -152,8 +152,7 @@ pub fn process_responsive_image(
     let source_ext = from
         .extension()
         .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase())
-        .unwrap_or_else(|| "jpg".into());
+        .map_or_else(|| "jpg".into(), str::to_ascii_lowercase);
     if !is_responsive_source(&source_ext) {
         return Err(Error::at_file(
             from.display().to_string(),
@@ -255,9 +254,9 @@ pub fn apply_responsive_html(
     out_dir: &Path,
     manifest: &ImageManifest,
     opts: &ImageProcessOptions,
-) -> Result<ResponsiveHtmlReport> {
+) -> ResponsiveHtmlReport {
     if !opts.responsive || manifest.is_empty() {
-        return Ok(ResponsiveHtmlReport::default());
+        return ResponsiveHtmlReport::default();
     }
 
     let mut report = ResponsiveHtmlReport::default();
@@ -271,7 +270,7 @@ pub fn apply_responsive_html(
         rewrite_responsive_html_file(path, manifest, opts).record(&mut report);
     }
 
-    Ok(report)
+    report
 }
 
 enum ResponsiveHtmlOutcome {
@@ -351,7 +350,7 @@ fn transform_document_imgs(
 }
 
 fn transform_nodes(
-    nodes: &mut Vec<Node>,
+    nodes: &mut [Node],
     manifest: &ImageManifest,
     opts: &ImageProcessOptions,
     inside_picture: bool,
@@ -437,9 +436,7 @@ fn build_picture_from_img(
             children: Vec::new(),
             void: true,
         };
-        source
-            .attrs
-            .insert("type".into(), resp.mime_for(format).into());
+        source.attrs.insert("type".into(), resp.mime_for(format));
         source.attrs.insert("srcset".into(), srcset);
         source.attrs.insert("sizes".into(), sizes.clone());
         picture.children.push(Node::Element(source));
@@ -447,8 +444,7 @@ fn build_picture_from_img(
 
     let fallback = resp
         .largest_for_format(&resp.source_format)
-        .map(|v| v.url.clone())
-        .unwrap_or_else(|| resp.source_url.clone());
+        .map_or_else(|| resp.source_url.clone(), |v| v.url.clone());
     let fallback_srcset = resp.srcset_for_format(&resp.source_format);
 
     let mut img_el = img.clone();
@@ -508,7 +504,10 @@ fn scaled_height(orig_w: u32, orig_h: u32, new_w: u32) -> u32 {
     if orig_w == 0 {
         return orig_h;
     }
-    ((u64::from(orig_h) * u64::from(new_w)) / u64::from(orig_w)).min(u64::from(u32::MAX)) as u32
+    u32::try_from(
+        ((u64::from(orig_h) * u64::from(new_w)) / u64::from(orig_w)).min(u64::from(u32::MAX)),
+    )
+    .expect("scaled height is clamped to u32::MAX")
 }
 
 fn variant_output_path(base: &Path, width: u32, format: &str) -> PathBuf {
@@ -518,9 +517,10 @@ fn variant_output_path(base: &Path, width: u32, format: &str) -> PathBuf {
 }
 
 fn url_path_for_output(out_dir: &Path, path: &Path) -> String {
-    path.strip_prefix(out_dir)
-        .map(|rel| format!("/{}", rel.to_string_lossy().replace('\\', "/")))
-        .unwrap_or_else(|_| format!("/{}", path.to_string_lossy().replace('\\', "/")))
+    path.strip_prefix(out_dir).map_or_else(
+        |_| format!("/{}", path.to_string_lossy().replace('\\', "/")),
+        |rel| format!("/{}", rel.to_string_lossy().replace('\\', "/")),
+    )
 }
 
 fn normalize_src(src: &str) -> String {

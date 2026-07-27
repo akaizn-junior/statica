@@ -23,7 +23,7 @@ pub struct DataSource {
 }
 
 pub fn document_has_locale_data(doc: &Document) -> bool {
-    doc.find(|e| is_data_script(e)).into_iter().any(|el| {
+    doc.find(is_data_script).into_iter().any(|el| {
         el.attr("src")
             .map(str::trim)
             .filter(|s| !s.is_empty())
@@ -33,7 +33,7 @@ pub fn document_has_locale_data(doc: &Document) -> bool {
 
 /// Whether a specific funnel `<script type="statica/data" id="…">` uses `${locale}` in `src`.
 pub fn data_script_has_locale_token(doc: &Document, id: &str) -> bool {
-    doc.find(|e| is_data_script(e)).into_iter().any(|el| {
+    doc.find(is_data_script).into_iter().any(|el| {
         el.attr("id") == Some(id)
             && el
                 .attr("src")
@@ -83,6 +83,7 @@ pub fn load_locale_data_from_document(
     )
 }
 
+#[derive(Clone, Copy)]
 enum DataScriptFilter<'a> {
     WithoutLocaleToken,
     WithLocaleTokenOnly { locale: &'a str },
@@ -98,7 +99,7 @@ fn load_data_scripts(
     filter: DataScriptFilter<'_>,
 ) -> Result<HashMap<String, DataSource>> {
     let mut out = HashMap::new();
-    for el in doc.find(|e| is_data_script(e)) {
+    for el in doc.find(is_data_script) {
         let id = match el.attr("id").map(str::trim).filter(|s| !s.is_empty()) {
             Some(id) => id.to_string(),
             None => {
@@ -109,16 +110,13 @@ fn load_data_scripts(
                 ));
             }
         };
-        let src = match el.attr("src").map(str::trim).filter(|s| !s.is_empty()) {
-            Some(src) => src,
-            None => {
-                let id_dq = format!("id=\"{id}\"");
-                return Err(site_err(
-                    site,
-                    &["type=\"statica/data\"", id_dq.as_str()],
-                    format!("statica/data#{id} missing src"),
-                ));
-            }
+        let Some(src) = el.attr("src").map(str::trim).filter(|s| !s.is_empty()) else {
+            let id_dq = format!("id=\"{id}\"");
+            return Err(site_err(
+                site,
+                &["type=\"statica/data\"", id_dq.as_str()],
+                format!("statica/data#{id} missing src"),
+            ));
         };
         let src = aliases::resolve_path(src, aliases, site, "src")?;
         let has_locale_token = i18n::src_has_locale_token(&src);
@@ -128,21 +126,24 @@ fn load_data_scripts(
             _ => {}
         }
         let src = match filter {
-            DataScriptFilter::WithLocaleTokenOnly { locale } => i18n::interpolate_locale(&src, locale),
+            DataScriptFilter::WithLocaleTokenOnly { locale } => {
+                i18n::interpolate_locale(&src, locale)
+            }
             DataScriptFilter::WithoutLocaleToken => src,
         };
         let cache_key = content_cache_key(site_root, page_dir, &src);
         let value = if let Some(v) = cache.get(&cache_key) {
             v.clone()
         } else {
-            let parsed = content::load_content(site_root, page_dir, &src).map_err(|e| match site {
-                Some((file, source)) => {
-                    let dq = format!("src=\"{src}\"");
-                    let sq = format!("src='{src}'");
-                    Error::at(file, source, &[&dq, &sq, src.as_str()], e.to_string())
-                }
-                None => e,
-            })?;
+            let parsed =
+                content::load_content(site_root, page_dir, &src).map_err(|e| match site {
+                    Some((file, source)) => {
+                        let dq = format!("src=\"{src}\"");
+                        let sq = format!("src='{src}'");
+                        Error::at(file, source, &[&dq, &sq, src.as_str()], e.to_string())
+                    }
+                    None => e,
+                })?;
             cache.insert(cache_key.clone(), parsed.clone());
             parsed
         };
@@ -158,11 +159,7 @@ fn load_data_scripts(
     Ok(out)
 }
 
-fn site_err(
-    site: Option<(&str, &str)>,
-    needles: &[&str],
-    message: impl Into<String>,
-) -> Error {
+fn site_err(site: Option<(&str, &str)>, needles: &[&str], message: impl Into<String>) -> Error {
     match site {
         Some((file, source)) => Error::at(file, source, needles, message),
         None => Error::at_file("<unknown>", message),
@@ -241,7 +238,6 @@ pub fn path_as_str(value: &Value, path: &str) -> String {
 
 pub fn value_to_html(value: &Value) -> String {
     match value {
-        Value::Null => String::new(),
         Value::String(s) => {
             if s.contains('<') && s.contains('>') {
                 s.clone()
@@ -251,7 +247,7 @@ pub fn value_to_html(value: &Value) -> String {
         }
         Value::Number(n) => n.to_string(),
         Value::Bool(b) => b.to_string(),
-        Value::Array(_) | Value::Object(_) => String::new(),
+        Value::Null | Value::Array(_) | Value::Object(_) => String::new(),
     }
 }
 
@@ -340,12 +336,7 @@ pub fn find_fragment_links(doc: &Document) -> Vec<(String, String)> {
                 .is_some_and(|r| r.split_whitespace().any(|p| p == "statica/fragment"))
     })
     .into_iter()
-    .filter_map(|el| {
-        Some((
-            el.attr("id")?.to_string(),
-            el.attr("href")?.to_string(),
-        ))
-    })
+    .filter_map(|el| Some((el.attr("id")?.to_string(), el.attr("href")?.to_string())))
     .collect()
 }
 
@@ -419,6 +410,9 @@ mod tests {
         // field_as_str keeps null/missing as absent for route keys
         assert!(field_as_str(&json!({"slug": null}), "slug").is_none());
         assert!(field_as_str(&json!({}), "slug").is_none());
-        assert_eq!(field_as_str(&json!({"slug": "a"}), "slug").as_deref(), Some("a"));
+        assert_eq!(
+            field_as_str(&json!({"slug": "a"}), "slug").as_deref(),
+            Some("a")
+        );
     }
 }

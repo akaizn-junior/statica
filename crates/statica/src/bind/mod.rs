@@ -8,20 +8,20 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
+use crate::discover::PageKind;
 use crate::error::{Error, Result};
 use crate::fragment::{self, FragmentRegistry};
-use crate::discover::PageKind;
 use crate::funnel::{self, BindDecl, BindSource, DataSource};
+use crate::i18n;
+use crate::manifest::ManifestMeta;
 use crate::parse::{Document, Element, Node};
 use crate::scope;
 use crate::{AliasOptions, FormsOptions};
-use crate::manifest::ManifestMeta;
-use crate::i18n;
 
 pub use attrs::fill_attr_templates_in_nodes;
 pub use slots::{clear_remaining_named_slots, fill_default_slots, fill_named_slots};
 
-fn html_element<'a>(doc: &'a Document) -> Option<&'a Element> {
+fn html_element(doc: &Document) -> Option<&Element> {
     doc.children.iter().find_map(|n| match n {
         Node::Element(el) if el.name.eq_ignore_ascii_case("html") => Some(el),
         _ => None,
@@ -53,9 +53,7 @@ pub fn require_collection_id(doc: &Document, source: BindSource<'_>) -> Result<S
     let ids = funnel::data_script_ids(doc);
     let message = match ids.len() {
         0 => "collection page needs data-bind=\"id\" or data-bind=\"{…}\" with a funnel script",
-        _ => {
-            "multiple funnel scripts — set data-bind=\"id\" on <html> to the collection id"
-        }
+        _ => "multiple funnel scripts — set data-bind=\"id\" on <html> to the collection id",
     };
     Err(Error::at(
         source.file,
@@ -70,10 +68,7 @@ fn html_bind_raw(doc: &Document) -> Option<&str> {
 }
 
 pub fn collection_needles(id: &str) -> [String; 2] {
-    [
-        format!("data-bind=\"{id}\""),
-        format!("data-bind='{id}'"),
-    ]
+    [format!("data-bind=\"{id}\""), format!("data-bind='{id}'")]
 }
 
 /// Whether the page declares a `<html data-bind>` scope.
@@ -216,7 +211,9 @@ pub fn expand_usage_slots_in_nodes(
     let mut i = 0;
     while i < nodes.len() {
         let replace = match &nodes[i] {
-            Node::Element(el) if el.is_slot() && el.attr("id").is_some() && el.attr("name").is_none() => {
+            Node::Element(el)
+                if el.is_slot() && el.attr("id").is_some() && el.attr("name").is_none() =>
+            {
                 let id = el.attr("id").unwrap_or("").to_string();
                 let children_html_nodes = el.children.clone();
                 let each = el.attr("data-each").map(str::to_string);
@@ -357,9 +354,8 @@ fn render_fragment_nodes(
     site: Option<(&str, &str)>,
 ) -> Result<Vec<Node>> {
     let frag = registry.get(id).ok_or_else(|| {
-        let msg = format!(
-            "missing fragment id `{id}` (no <link rel=\"statica/fragment\" id=\"{id}\">)"
-        );
+        let msg =
+            format!("missing fragment id `{id}` (no <link rel=\"statica/fragment\" id=\"{id}\">)");
         match site {
             Some((file, source)) => {
                 let dq = format!("id=\"{id}\"");

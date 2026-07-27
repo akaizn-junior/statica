@@ -42,7 +42,7 @@ impl Document {
     }
 
     /// Collect references matching a predicate (immutable).
-    pub fn find<'a>(&'a self, mut pred: impl FnMut(&Element) -> bool) -> Vec<&'a Element> {
+    pub fn find(&self, mut pred: impl FnMut(&Element) -> bool) -> Vec<&Element> {
         let mut out = Vec::new();
         for child in &self.children {
             find_in_node(child, &mut pred, &mut out);

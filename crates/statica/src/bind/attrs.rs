@@ -18,7 +18,7 @@ fn fill_attrs(el: &mut Element, ctx: &Value) {
     if el.is_script() || el.is_style() {
         return;
     }
-    for (_k, v) in el.attrs.iter_mut() {
+    for v in el.attrs.values_mut() {
         if v.contains("${") {
             *v = expand_template(v, ctx);
         }

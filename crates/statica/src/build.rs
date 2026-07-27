@@ -194,8 +194,8 @@ impl PreparedPage {
         self.source.path.parent().unwrap_or_else(|| Path::new("."))
     }
 
-    fn active_locale<'a>(&self, locale: Option<&'a str>, i18n: &'a I18nOptions) -> Option<&'a str> {
-        locale.or_else(|| {
+    fn active_locale<'a>(locale: Option<&'a str>, i18n: &'a I18nOptions) -> Option<&'a str> {
+        locale.or({
             if i18n.enabled {
                 Some(i18n.default_locale.as_str())
             } else {
@@ -213,7 +213,7 @@ impl PreparedPage {
         i18n_catalogs: &I18nCatalogs,
         i18n: &I18nOptions,
     ) -> Result<std::collections::HashMap<String, DataSource>> {
-        let active_locale = self.active_locale(locale, i18n);
+        let active_locale = Self::active_locale(locale, i18n);
         if funnel::document_has_locale_data(&self.doc) && active_locale.is_none() {
             return Err(self.at(
                 &["type=\"statica/data\"", i18n::LOCALE_SRC_TOKEN],
@@ -261,7 +261,7 @@ impl PreparedPage {
     ) -> Result<String> {
         let file = self.file();
         let mut doc = self.doc.clone();
-        let active_locale = self.active_locale(locale, i18n);
+        let active_locale = Self::active_locale(locale, i18n);
         let catalog = locale.map(|loc| i18n_catalogs.for_locale(loc, i18n));
         if let Some(loc) = active_locale {
             i18n::set_html_lang(&mut doc, loc);
@@ -325,7 +325,7 @@ impl PreparedPage {
             i18n_catalogs
                 .for_locale(loc, i18n)
                 .get(collection_id)
-                .is_some_and(|v| v.is_array())
+                .is_some_and(Value::is_array)
         })
     }
 
@@ -372,7 +372,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
         duration_ms: discover_ms,
         detail: format!("{sources} sources"),
     });
-    log.step(&format!("discover  {sources} sources ({discover_ms}ms)"));
+    log.step(format!("discover  {sources} sources ({discover_ms}ms)"));
 
     let t = Instant::now();
     let (registry, prepared, data_sources) = prepare_pages(&pages, &opts.root, &opts.aliases)?;
@@ -384,7 +384,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
         duration_ms: prepare_ms,
         detail: format!("{data_sources} data, {fragments} fragments"),
     });
-    log.step(&format!(
+    log.step(format!(
         "funnel  {data_sources} data, {fragments} fragments ({prepare_ms}ms)"
     ));
 
@@ -425,7 +425,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
         duration_ms: emit_ms,
         detail: format!("{} pages", outputs.len()),
     });
-    log.step(&format!("emit  {} pages ({emit_ms}ms)", outputs.len()));
+    log.step(format!("emit  {} pages ({emit_ms}ms)", outputs.len()));
 
     let mut warnings = warnings
         .into_inner()
@@ -446,7 +446,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
             kind: BuildRouteKind::Static,
             pages: 1,
         });
-        log.step(&format!("redirect  / → /{}/", opts.i18n.default_locale));
+        log.step(format!("redirect  / → /{}/", opts.i18n.default_locale));
     }
 
     routes.sort_by(|a, b| a.route.cmp(&b.route));
@@ -460,7 +460,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
         assets_processed = assets.processed;
         warnings.extend(assets.warnings);
         let detail = if opts.process.enabled {
-            format!("{} processed", assets_processed)
+            format!("{assets_processed} processed")
         } else {
             format!("{} copied", assets.copied)
         };
@@ -469,7 +469,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
             duration_ms: assets_ms,
             detail: detail.clone(),
         });
-        log.step(&format!("assets  {detail} ({assets_ms}ms)"));
+        log.step(format!("assets  {detail} ({assets_ms}ms)"));
 
         if opts.process.enabled && opts.process.images && !assets.images.is_empty() {
             let t = Instant::now();
@@ -477,7 +477,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
                 &opts.out_dir,
                 &assets.images,
                 &opts.process.image,
-            )?;
+            );
             let img_ms = t.elapsed().as_millis();
             warnings.extend(responsive_html.warnings);
             if responsive_html.images_rewritten > 0 {
@@ -487,7 +487,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
                     duration_ms: img_ms,
                     detail: format!("{img_count} img tags"),
                 });
-                log.step(&format!("images  {img_count} img tags ({img_ms}ms)"));
+                log.step(format!("images  {img_count} img tags ({img_ms}ms)"));
             }
         }
     }
@@ -523,14 +523,14 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
         phases.push(BuildPhase {
             name: "feeds",
             duration_ms: feeds_ms,
-            detail: detail.to_string(),
+            detail: detail.clone(),
         });
-        log.step(&format!("feeds  {detail} ({feeds_ms}ms)"));
+        log.step(format!("feeds  {detail} ({feeds_ms}ms)"));
     }
 
     if opts.minify.enabled {
         let t = Instant::now();
-        let minified = minify::minify_output_dir(&opts.out_dir, &opts.minify)?;
+        let minified = minify::minify_output_dir(&opts.out_dir, &opts.minify);
         let minify_ms = t.elapsed().as_millis();
         warnings.extend(minified.warnings);
         phases.push(BuildPhase {
@@ -538,7 +538,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
             duration_ms: minify_ms,
             detail: format!("{} files", minified.files),
         });
-        log.step(&format!("minify  {} files ({minify_ms}ms)", minified.files));
+        log.step(format!("minify  {} files ({minify_ms}ms)", minified.files));
     }
 
     Ok(BuildReport {
@@ -718,7 +718,7 @@ fn emit_locales(
     })
 }
 
-fn collection_param<'a>(params: &'a [String]) -> Result<&'a str> {
+fn collection_param(params: &[String]) -> Result<&str> {
     params
         .iter()
         .find(|p| *p != i18n::LOCALE_PARAM)
