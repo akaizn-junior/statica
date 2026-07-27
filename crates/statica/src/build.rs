@@ -21,11 +21,11 @@ use crate::discover::{self, PageKind, PageSource};
 use crate::emit;
 use crate::error::{Error, Result};
 use crate::feeds::{self, FeedPage, RssOptions, SitemapOptions};
-use crate::manifest::{self, ManifestMeta};
 use crate::fragment::FragmentRegistry;
 use crate::funnel::{self, DataSource};
 use crate::i18n::{self, I18nCatalogs, I18nOptions};
 use crate::loc::Diagnostic;
+use crate::manifest::{self, ManifestMeta};
 use crate::minify::{self, MinifyOptions};
 use crate::paginate::{self, PaginationRule};
 use crate::parse::{self, Document};
@@ -111,12 +111,27 @@ pub struct BuildPhase {
 }
 
 /// Pages emitted for one discovered source route.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BuildRouteKind {
+    Static,
+    Collection,
+    Paginated,
+}
+
+impl From<PageKind> for BuildRouteKind {
+    fn from(kind: PageKind) -> Self {
+        match kind {
+            PageKind::Static => Self::Static,
+            PageKind::Collection => Self::Collection,
+        }
+    }
+}
+
+/// Pages emitted for one discovered source route.
 #[derive(Debug, Clone)]
 pub struct BuildRouteRow {
     pub route: String,
-    pub kind: PageKind,
-    /// True when expanded via `[[pagination]]` (still a `[param]` source route).
-    pub paginated: bool,
+    pub kind: BuildRouteKind,
     pub pages: usize,
 }
 
@@ -251,7 +266,8 @@ impl PreparedPage {
         if let Some(loc) = active_locale {
             i18n::set_html_lang(&mut doc, loc);
         }
-        let page_data = self.resolve_page_data(site_root, data_cache, aliases, locale, i18n_catalogs, i18n)?;
+        let page_data =
+            self.resolve_page_data(site_root, data_cache, aliases, locale, i18n_catalogs, i18n)?;
         bind::render_page_document(
             registry,
             &doc,
@@ -284,11 +300,10 @@ impl PreparedPage {
         Diagnostic::at(&self.file(), &self.html, needles, message)
     }
 
-    fn route_row(&self, pages: usize, kind: PageKind, paginated: bool) -> BuildRouteRow {
+    fn route_row(&self, pages: usize, kind: impl Into<BuildRouteKind>) -> BuildRouteRow {
         BuildRouteRow {
             route: self.source.route.clone(),
-            kind,
-            paginated,
+            kind: kind.into(),
             pages,
         }
     }
@@ -421,18 +436,17 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
 
     if i18n::should_emit_root_redirect(&opts.i18n, &pages, &opts.out_dir) {
         let redirect = opts.out_dir.join("index.html");
-        emit::write_html(&redirect, &i18n::root_redirect_html(&opts.i18n.default_locale))?;
+        emit::write_html(
+            &redirect,
+            &i18n::root_redirect_html(&opts.i18n.default_locale),
+        )?;
         outputs.push(redirect);
         routes.push(BuildRouteRow {
             route: String::new(),
-            kind: PageKind::Static,
-            paginated: false,
+            kind: BuildRouteKind::Static,
             pages: 1,
         });
-        log.step(&format!(
-            "redirect  / → /{}/",
-            opts.i18n.default_locale
-        ));
+        log.step(&format!("redirect  / → /{}/", opts.i18n.default_locale));
     }
 
     routes.sort_by(|a, b| a.route.cmp(&b.route));
@@ -440,12 +454,8 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     let mut assets_processed = 0;
     if opts.copy_assets {
         let t = Instant::now();
-        let assets = emit::copy_static_assets(
-            &opts.root,
-            &opts.out_dir,
-            &opts.asset_dirs,
-            &opts.process,
-        )?;
+        let assets =
+            emit::copy_static_assets(&opts.root, &opts.out_dir, &opts.asset_dirs, &opts.process)?;
         let assets_ms = t.elapsed().as_millis();
         assets_processed = assets.processed;
         warnings.extend(assets.warnings);
@@ -463,14 +473,15 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
 
         if opts.process.enabled && opts.process.images && !assets.images.is_empty() {
             let t = Instant::now();
-            let (img_count, img_warnings) = crate::images::apply_responsive_html(
+            let responsive_html = crate::images::apply_responsive_html(
                 &opts.out_dir,
                 &assets.images,
                 &opts.process.image,
             )?;
             let img_ms = t.elapsed().as_millis();
-            warnings.extend(img_warnings);
-            if img_count > 0 {
+            warnings.extend(responsive_html.warnings);
+            if responsive_html.images_rewritten > 0 {
+                let img_count = responsive_html.images_rewritten;
                 phases.push(BuildPhase {
                     name: "images",
                     duration_ms: img_ms,
@@ -527,10 +538,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
             duration_ms: minify_ms,
             detail: format!("{} files", minified.files),
         });
-        log.step(&format!(
-            "minify  {} files ({minify_ms}ms)",
-            minified.files
-        ));
+        log.step(&format!("minify  {} files ({minify_ms}ms)", minified.files));
     }
 
     Ok(BuildReport {
@@ -614,9 +622,26 @@ fn emit_prepared(
         emit_locales(opts, page, registry, i18n_catalogs, manifest)
     } else if let Some(rule) = opts.pagination_for(&page.source.route) {
         if page.has_locale_param(&opts.i18n) {
-            emit_locale_paginated(opts, page, registry, i18n_catalogs, rule, manifest, warnings)
+            emit_locale_paginated(
+                opts,
+                page,
+                registry,
+                i18n_catalogs,
+                rule,
+                manifest,
+                warnings,
+            )
         } else {
-            emit_paginated(opts, page, registry, i18n_catalogs, rule, manifest, warnings, None)
+            emit_paginated(
+                opts,
+                page,
+                registry,
+                i18n_catalogs,
+                rule,
+                manifest,
+                warnings,
+                None,
+            )
         }
     } else if page.has_locale_param(&opts.i18n) && page.source.kind() == PageKind::Collection {
         emit_locale_collection(opts, page, registry, i18n_catalogs, manifest, warnings)
@@ -640,7 +665,7 @@ fn emit_prepared(
                 emit::write_html(&out, &rendered)?;
                 Ok(EmitResult {
                     outputs: vec![out],
-                    route: page.route_row(1, PageKind::Static, false),
+                    route: page.route_row(1, PageKind::Static),
                 })
             }
             PageKind::Collection => {
@@ -689,7 +714,7 @@ fn emit_locales(
     }
     Ok(EmitResult {
         outputs: outs,
-        route: page.route_row(locales.len(), PageKind::Static, false),
+        route: page.route_row(locales.len(), PageKind::Static),
     })
 }
 
@@ -778,7 +803,7 @@ fn emit_locale_paginated(
             push_empty_pagination_warning(page, warnings, &collection_id, &needle_refs)?;
             return Ok(EmitResult {
                 outputs: Vec::new(),
-                route: page.route_row(0, PageKind::Collection, true),
+                route: page.route_row(0, BuildRouteKind::Paginated),
             });
         }
         for loc in &opts.i18n.locales {
@@ -805,7 +830,7 @@ fn emit_locale_paginated(
     let count = outs.len();
     Ok(EmitResult {
         outputs: outs,
-        route: page.route_row(count, PageKind::Collection, true),
+        route: page.route_row(count, BuildRouteKind::Paginated),
     })
 }
 
@@ -851,7 +876,8 @@ fn pagination_items_for_locale(
     i18n_catalogs: &I18nCatalogs,
     i18n: &I18nOptions,
 ) -> Result<Vec<Value>> {
-    let page_data = page.resolve_page_data(site_root, data_cache, aliases, locale, i18n_catalogs, i18n)?;
+    let page_data =
+        page.resolve_page_data(site_root, data_cache, aliases, locale, i18n_catalogs, i18n)?;
     let list = page_data.get(collection_id).ok_or_else(|| {
         page.at(
             needle_refs,
@@ -982,7 +1008,9 @@ fn emit_paginated(
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
     let param = pagination_param(page, &needle_refs)?;
     let mut data_cache = std::collections::HashMap::new();
-    let items = if locale.is_some() || page.collection_varies_by_locale(&collection_id, i18n_catalogs, &opts.i18n) {
+    let items = if locale.is_some()
+        || page.collection_varies_by_locale(&collection_id, i18n_catalogs, &opts.i18n)
+    {
         pagination_items_for_locale(
             page,
             &opts.root,
@@ -1004,7 +1032,7 @@ fn emit_paginated(
         push_empty_pagination_warning(page, warnings, &collection_id, &needle_refs)?;
         return Ok(EmitResult {
             outputs: Vec::new(),
-            route: page.route_row(0, PageKind::Collection, true),
+            route: page.route_row(0, BuildRouteKind::Paginated),
         });
     }
 
@@ -1026,7 +1054,7 @@ fn emit_paginated(
     let count = outs.len();
     Ok(EmitResult {
         outputs: outs,
-        route: page.route_row(count, PageKind::Collection, true),
+        route: page.route_row(count, BuildRouteKind::Paginated),
     })
 }
 
@@ -1086,13 +1114,15 @@ fn emit_collection(
         ));
         return Ok(EmitResult {
             outputs: Vec::new(),
-            route: page.route_row(0, PageKind::Collection, false),
+            route: page.route_row(0, PageKind::Collection),
         });
     }
 
-    let param = page.source.params.first().ok_or_else(|| {
-        page.at(&needle_refs, "collection without params")
-    })?;
+    let param = page
+        .source
+        .params
+        .first()
+        .ok_or_else(|| page.at(&needle_refs, "collection without params"))?;
 
     let mut seen = HashSet::with_capacity(items.len());
     let mut outs = Vec::with_capacity(items.len());
@@ -1130,7 +1160,7 @@ fn emit_collection(
     let count = outs.len();
     Ok(EmitResult {
         outputs: outs,
-        route: page.route_row(count, PageKind::Collection, false),
+        route: page.route_row(count, PageKind::Collection),
     })
 }
 
@@ -1152,12 +1182,8 @@ fn emit_locale_collection(
     let needles = html_source_needles(&collection_id);
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
 
-    let param = collection_param(&page.source.params).map_err(|e| {
-        page.at(
-            &needle_refs,
-            e.to_string(),
-        )
-    })?;
+    let param =
+        collection_param(&page.source.params).map_err(|e| page.at(&needle_refs, e.to_string()))?;
 
     let mut outs = Vec::new();
     let mut data_cache = std::collections::HashMap::new();
@@ -1228,7 +1254,7 @@ fn emit_locale_collection(
             ));
             return Ok(EmitResult {
                 outputs: Vec::new(),
-                route: page.route_row(0, PageKind::Collection, false),
+                route: page.route_row(0, PageKind::Collection),
             });
         }
         let mut seen = HashSet::new();
@@ -1253,7 +1279,7 @@ fn emit_locale_collection(
     let count = outs.len();
     Ok(EmitResult {
         outputs: outs,
-        route: page.route_row(count, PageKind::Collection, false),
+        route: page.route_row(count, PageKind::Collection),
     })
 }
 

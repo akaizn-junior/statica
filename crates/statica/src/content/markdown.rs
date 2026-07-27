@@ -20,10 +20,13 @@ pub fn markdown_to_html(source: &str) -> String {
 
 /// Parse a Markdown file: YAML frontmatter fields + `html` from the body.
 pub fn parse_markdown_file(source: &str, path: &Path) -> Result<Value> {
-    let (frontmatter, body) = split_frontmatter(source);
-    let mut map: Map<String, Value> = if let Some(fm) = frontmatter {
+    let parts = split_frontmatter(source);
+    let mut map: Map<String, Value> = if let Some(fm) = parts.frontmatter {
         serde_yaml::from_str(fm).map_err(|e| {
-            Error::invalid_content(path.display().to_string(), format!("invalid frontmatter: {e}"))
+            Error::invalid_content(
+                path.display().to_string(),
+                format!("invalid frontmatter: {e}"),
+            )
         })?
     } else {
         Map::new()
@@ -36,25 +39,42 @@ pub fn parse_markdown_file(source: &str, path: &Path) -> Result<Value> {
     }
 
     if !map.contains_key("html") {
-        map.insert("html".into(), Value::String(markdown_to_html(body)));
+        map.insert("html".into(), Value::String(markdown_to_html(parts.body)));
     }
 
     Ok(Value::Object(map))
 }
 
-fn split_frontmatter(source: &str) -> (Option<&str>, &str) {
+struct MarkdownParts<'a> {
+    frontmatter: Option<&'a str>,
+    body: &'a str,
+}
+
+fn split_frontmatter(source: &str) -> MarkdownParts<'_> {
     let trimmed = source.trim_start();
     if !trimmed.starts_with("---") {
-        return (None, source);
+        return MarkdownParts {
+            frontmatter: None,
+            body: source,
+        };
     }
     let rest = trimmed.strip_prefix("---").unwrap_or(trimmed);
     let rest = rest.strip_prefix('\n').unwrap_or(rest);
     if let Some(end) = rest.find("\n---") {
         let fm = rest[..end].trim();
-        let body = rest[end + 4..].strip_prefix('\n').unwrap_or(&rest[end + 4..]).trim_start();
-        return (Some(fm), body);
+        let body = rest[end + 4..]
+            .strip_prefix('\n')
+            .unwrap_or(&rest[end + 4..])
+            .trim_start();
+        return MarkdownParts {
+            frontmatter: Some(fm),
+            body,
+        };
     }
-    (None, source)
+    MarkdownParts {
+        frontmatter: None,
+        body: source,
+    }
 }
 
 #[cfg(test)]
@@ -64,18 +84,16 @@ mod tests {
 
     #[test]
     fn splits_yaml_frontmatter() {
-        let (fm, body) = split_frontmatter(
-            "---\nslug: a\n---\n\nHello **world**.",
-        );
-        assert_eq!(fm, Some("slug: a"));
-        assert_eq!(body, "Hello **world**.");
+        let parts = split_frontmatter("---\nslug: a\n---\n\nHello **world**.");
+        assert_eq!(parts.frontmatter, Some("slug: a"));
+        assert_eq!(parts.body, "Hello **world**.");
     }
 
     #[test]
     fn no_frontmatter_returns_full_body() {
-        let (fm, body) = split_frontmatter("# Hi\n");
-        assert!(fm.is_none());
-        assert_eq!(body, "# Hi\n");
+        let parts = split_frontmatter("# Hi\n");
+        assert!(parts.frontmatter.is_none());
+        assert_eq!(parts.body, "# Hi\n");
     }
 
     #[test]
@@ -87,13 +105,13 @@ mod tests {
 
     #[test]
     fn parse_adds_html_from_body() {
-        let value = parse_markdown_file(
-            "---\ntitle: Test\n---\n\n**bold**",
-            Path::new("test.md"),
-        )
-        .unwrap();
+        let value =
+            parse_markdown_file("---\ntitle: Test\n---\n\n**bold**", Path::new("test.md")).unwrap();
         assert_eq!(value["title"], "Test");
         assert_eq!(value["slug"], "test");
-        assert!(value["html"].as_str().unwrap().contains("<strong>bold</strong>"));
+        assert!(value["html"]
+            .as_str()
+            .unwrap()
+            .contains("<strong>bold</strong>"));
     }
 }

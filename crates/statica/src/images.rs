@@ -48,9 +48,7 @@ impl Default for ImageProcessOptions {
 impl ImageProcessOptions {
     #[must_use]
     pub fn wants_format(&self, ext: &str) -> bool {
-        self.formats
-            .iter()
-            .any(|f| f.eq_ignore_ascii_case(ext))
+        self.formats.iter().any(|f| f.eq_ignore_ascii_case(ext))
     }
 }
 
@@ -199,7 +197,9 @@ pub fn process_responsive_image(
                         ..oxipng::Options::from_preset(2)
                     },
                 )
-                .map_err(|e| Error::at_file(from.display().to_string(), format!("png optimize: {e}")))?;
+                .map_err(|e| {
+                    Error::at_file(from.display().to_string(), format!("png optimize: {e}"))
+                })?;
                 fs::write(&variant_path, optimized)?;
             } else {
                 fs::write(&variant_path, encoded)?;
@@ -245,17 +245,22 @@ pub fn process_responsive_image(
 }
 
 /// Rewrite `<img>` tags in HTML under `out_dir` using `manifest`.
+#[derive(Debug, Default)]
+pub struct ResponsiveHtmlReport {
+    pub images_rewritten: usize,
+    pub warnings: Vec<Diagnostic>,
+}
+
 pub fn apply_responsive_html(
     out_dir: &Path,
     manifest: &ImageManifest,
     opts: &ImageProcessOptions,
-) -> Result<(usize, Vec<Diagnostic>)> {
+) -> Result<ResponsiveHtmlReport> {
     if !opts.responsive || manifest.is_empty() {
-        return Ok((0, Vec::new()));
+        return Ok(ResponsiveHtmlReport::default());
     }
 
-    let mut updated = 0;
-    let mut warnings = Vec::new();
+    let mut report = ResponsiveHtmlReport::default();
 
     for entry in WalkDir::new(out_dir)
         .into_iter()
@@ -263,54 +268,83 @@ pub fn apply_responsive_html(
         .filter(|e| e.file_type().is_file())
     {
         let path = entry.path();
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.to_ascii_lowercase())
-            .unwrap_or_default();
-        if ext != "html" && ext != "htm" {
-            continue;
-        }
-
-        let html = match fs::read_to_string(path) {
-            Ok(s) => s,
-            Err(e) => {
-                warnings.push(Diagnostic::at_file(
-                    path.display().to_string(),
-                    format!("read html: {e}"),
-                ));
-                continue;
-            }
-        };
-
-        let mut doc = match parse::parse_document(&html) {
-            Ok(d) => d,
-            Err(e) => {
-                warnings.push(Diagnostic::at_file(path.display().to_string(), e.to_string()));
-                continue;
-            }
-        };
-
-        let count = transform_document_imgs(&mut doc, manifest, opts);
-        if count == 0 {
-            continue;
-        }
-
-        let out = parse::serialize_document(&doc);
-        if let Err(e) = fs::write(path, out) {
-            warnings.push(Diagnostic::at_file(
-                path.display().to_string(),
-                format!("write html: {e}"),
-            ));
-        } else {
-            updated += count;
-        }
+        rewrite_responsive_html_file(path, manifest, opts).record(&mut report);
     }
 
-    Ok((updated, warnings))
+    Ok(report)
 }
 
-fn transform_document_imgs(doc: &mut Document, manifest: &ImageManifest, opts: &ImageProcessOptions) -> usize {
+enum ResponsiveHtmlOutcome {
+    Skipped,
+    Rewritten { image_count: usize },
+    Warning { diagnostic: Diagnostic },
+}
+
+impl ResponsiveHtmlOutcome {
+    fn record(self, report: &mut ResponsiveHtmlReport) {
+        match self {
+            Self::Skipped => {}
+            Self::Rewritten { image_count } => report.images_rewritten += image_count,
+            Self::Warning { diagnostic } => report.warnings.push(diagnostic),
+        }
+    }
+}
+
+fn rewrite_responsive_html_file(
+    path: &Path,
+    manifest: &ImageManifest,
+    opts: &ImageProcessOptions,
+) -> ResponsiveHtmlOutcome {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase)
+        .unwrap_or_default();
+    if ext != "html" && ext != "htm" {
+        return ResponsiveHtmlOutcome::Skipped;
+    }
+
+    let html = match fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(e) => {
+            return ResponsiveHtmlOutcome::Warning {
+                diagnostic: Diagnostic::at_file(
+                    path.display().to_string(),
+                    format!("read html: {e}"),
+                ),
+            };
+        }
+    };
+
+    let mut doc = match parse::parse_document(&html) {
+        Ok(d) => d,
+        Err(e) => {
+            return ResponsiveHtmlOutcome::Warning {
+                diagnostic: Diagnostic::at_file(path.display().to_string(), e.to_string()),
+            };
+        }
+    };
+
+    let image_count = transform_document_imgs(&mut doc, manifest, opts);
+    if image_count == 0 {
+        return ResponsiveHtmlOutcome::Skipped;
+    }
+
+    let out = parse::serialize_document(&doc);
+    if let Err(e) = fs::write(path, out) {
+        return ResponsiveHtmlOutcome::Warning {
+            diagnostic: Diagnostic::at_file(path.display().to_string(), format!("write html: {e}")),
+        };
+    }
+
+    ResponsiveHtmlOutcome::Rewritten { image_count }
+}
+
+fn transform_document_imgs(
+    doc: &mut Document,
+    manifest: &ImageManifest,
+    opts: &ImageProcessOptions,
+) -> usize {
     let mut count = 0;
     transform_nodes(&mut doc.children, manifest, opts, false, &mut count);
     count
@@ -403,7 +437,9 @@ fn build_picture_from_img(
             children: Vec::new(),
             void: true,
         };
-        source.attrs.insert("type".into(), resp.mime_for(format).into());
+        source
+            .attrs
+            .insert("type".into(), resp.mime_for(format).into());
         source.attrs.insert("srcset".into(), srcset);
         source.attrs.insert("sizes".into(), sizes.clone());
         picture.children.push(Node::Element(source));
@@ -424,9 +460,7 @@ fn build_picture_from_img(
     }
     img_el.attrs.insert("sizes".into(), sizes);
     if !img_el.attrs.contains_key("width") {
-        img_el
-            .attrs
-            .insert("width".into(), resp.width.to_string());
+        img_el.attrs.insert("width".into(), resp.width.to_string());
     }
     if !img_el.attrs.contains_key("height") {
         img_el
@@ -525,7 +559,11 @@ fn mime_for_ext(ext: &str) -> String {
     .into()
 }
 
-fn encode_image(img: &DynamicImage, format: &str, quality: u8) -> std::result::Result<Vec<u8>, String> {
+fn encode_image(
+    img: &DynamicImage,
+    format: &str,
+    quality: u8,
+) -> std::result::Result<Vec<u8>, String> {
     let mut out = Cursor::new(Vec::new());
     match format.to_ascii_lowercase().as_str() {
         "png" => {

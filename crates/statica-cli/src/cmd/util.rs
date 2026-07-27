@@ -15,7 +15,9 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use statica::{build, rebuild_paths, BuildOptions, BuildReport, BuildRouteRow, Diagnostic, PageKind};
+use statica::{
+    build, rebuild_paths, BuildOptions, BuildReport, BuildRouteKind, BuildRouteRow, Diagnostic,
+};
 
 use crate::cli::ConfigCli;
 use crate::config::{StaticaConfig, CONFIG_FILE};
@@ -45,8 +47,15 @@ pub fn resolve_against_cwd(dir: &Path) -> Result<PathBuf> {
     } else {
         cwd.join(dir)
     };
-    resolve_existing(&joined)
-        .with_context(|| format!("could not resolve project path `{}` (cwd {})", dir.display(), env::current_dir().map(|p| p.display().to_string()).unwrap_or_default()))
+    resolve_existing(&joined).with_context(|| {
+        format!(
+            "could not resolve project path `{}` (cwd {})",
+            dir.display(),
+            env::current_dir()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default()
+        )
+    })
 }
 
 /// Site root after config is loaded (applies `project` subpath).
@@ -180,13 +189,10 @@ pub fn log_build(report: &BuildReport, out_dir: &Path, verb: &str, verbose: bool
 }
 
 fn route_type_label(row: &BuildRouteRow) -> (&'static str, &'static str) {
-    if row.paginated {
-        ("◐", "paginated")
-    } else {
-        match row.kind {
-            PageKind::Static => ("○", "static"),
-            PageKind::Collection => ("λ", "collection"),
-        }
+    match row.kind {
+        BuildRouteKind::Static => ("○", "static"),
+        BuildRouteKind::Collection => ("λ", "collection"),
+        BuildRouteKind::Paginated => ("◐", "paginated"),
     }
 }
 

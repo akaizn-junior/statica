@@ -47,8 +47,8 @@ mod feeds;
 mod font;
 mod forms;
 mod fragment;
-mod i18n;
 mod funnel;
+mod i18n;
 mod images;
 mod loc;
 mod manifest;
@@ -58,20 +58,24 @@ pub mod parse;
 mod runtime;
 mod scope;
 
-pub use aliases::{join_alias, resolve_local_href, resolve_path, resolve_paths_in_document, AliasOptions};
+pub use aliases::{
+    join_alias, resolve_local_href, resolve_path, resolve_paths_in_document, AliasOptions,
+};
 pub use assets::AssetProcessOptions;
-pub use build::{build, rebuild_paths, BuildOptions, BuildPhase, BuildReport, BuildRouteRow};
+pub use build::{
+    build, rebuild_paths, BuildOptions, BuildPhase, BuildReport, BuildRouteKind, BuildRouteRow,
+};
 pub use build_log::BuildLog;
 pub use css::{transform_and_scope, transform_css};
 pub use discover::PageKind;
 pub use error::{Error, Result};
-pub use loc::Diagnostic;
-pub use images::{ImageManifest, ImageProcessOptions, ResponsiveImage};
-pub use minify::{MinifyKind, MinifyOptions, MinifyReport};
 pub use feeds::{RssOptions, SitemapOptions};
-pub use manifest::{ManifestMeta, MANIFEST_FILE, MANIFEST_HREF};
 pub use forms::{FormProvider, FormsOptions};
-pub use i18n::{A11Y_TRANSLATABLE_ATTRS, I18nCatalogs, I18nOptions, DATA_T_ATTR_PREFIX};
+pub use i18n::{I18nCatalogs, I18nOptions, A11Y_TRANSLATABLE_ATTRS, DATA_T_ATTR_PREFIX};
+pub use images::{ImageManifest, ImageProcessOptions, ResponsiveImage};
+pub use loc::Diagnostic;
+pub use manifest::{ManifestMeta, MANIFEST_FILE, MANIFEST_HREF};
+pub use minify::{MinifyKind, MinifyOptions, MinifyReport};
 pub use paginate::PaginationRule;
 pub use parse::Document;
 pub use runtime::STATICA_JS;

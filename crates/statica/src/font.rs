@@ -66,8 +66,8 @@ fn expand_font_link(
     let mut out = Vec::new();
 
     if aliases::is_google_fonts_css(href) {
-        push_preconnect(&mut out, GOOGLE_FONTS_ORIGIN, false, state);
-        push_preconnect(&mut out, GOOGLE_FONTS_STATIC, true, state);
+        push_preconnect(&mut out, GOOGLE_FONTS_ORIGIN, CrossOrigin::None, state);
+        push_preconnect(&mut out, GOOGLE_FONTS_STATIC, CrossOrigin::Anonymous, state);
     }
 
     out.push(stylesheet_link(href, el));
@@ -77,21 +77,25 @@ fn expand_font_link(
 fn push_preconnect(
     out: &mut Vec<Node>,
     href: &'static str,
-    crossorigin: bool,
+    crossorigin: CrossOrigin,
     state: &mut ExpandState,
 ) {
     if !state.preconnect_done.insert(href) {
         return;
     }
-    if crossorigin {
-        out.push(link_node(&[
+    match crossorigin {
+        CrossOrigin::None => out.push(link_node(&[("rel", "preconnect"), ("href", href)])),
+        CrossOrigin::Anonymous => out.push(link_node(&[
             ("rel", "preconnect"),
             ("href", href),
             ("crossorigin", ""),
-        ]));
-    } else {
-        out.push(link_node(&[("rel", "preconnect"), ("href", href)]));
+        ])),
     }
+}
+
+enum CrossOrigin {
+    None,
+    Anonymous,
 }
 
 fn stylesheet_link(href: &str, src: &Element) -> Node {
@@ -164,9 +168,8 @@ mod tests {
         );
 
         assert!(html.contains(r#"<link rel="preconnect" href="https://fonts.googleapis.com""#));
-        assert!(html.contains(
-            r#"<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="""#
-        ));
+        assert!(html
+            .contains(r#"<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="""#));
         assert!(html.contains("fonts.googleapis.com/css2?family=Outfit:wght@100..900"));
         assert!(html.contains("display=swap"));
         assert!(html.contains(r#"rel="stylesheet""#));
