@@ -3,9 +3,10 @@
 mod bind_decl;
 mod json;
 
+pub(crate) use bind_decl::is_identifier;
 pub use bind_decl::{
-    bind_context, parse_bind_decl, validate_page_template_binds, validate_template_binds, BindDecl,
-    BindSource,
+    bind_context, parse_bind_decl, validate_page_template_binds,
+    validate_template_binds_with_roots, BindDecl, BindSource,
 };
 pub use json::{
     data_link_has_locale_token, data_link_ids, document_has_locale_data, field_as_str,

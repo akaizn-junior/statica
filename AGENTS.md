@@ -94,7 +94,7 @@ Every fragment needs matching `id` on all three parts:
 
 <!-- 3. Template (in ui/post-card.html) -->
 <template id="post-card" data-bind="{slug, headline}">
-  <a href="/posts/${slug}/"><slot name="headline"></slot></a>
+  <a href="/posts/${slug}/" data-t="${headline}">Post</a>
 </template>
 ```
 
@@ -102,9 +102,9 @@ Every fragment needs matching `id` on all three parts:
 
 | Use case | Syntax | Notes |
 | -------- | ------ | ----- |
-| Page text content | `<slot name="item.field">` | Never put `<slot>` inside attributes |
+| Page text content | `data-t="${item.field}"` | Literal `data-t="Text"` renders `Text`; placeholders are dotted identifier paths only, never JS expressions |
 | Page attributes | `${item.field}` | Page roots are `data`, `item`, `page`, `i18n` |
-| Fragment text content | `<slot name="field">` | Field must be declared in fragment `data-bind` |
+| Fragment text content | `data-t="${field}"` | Field must be declared in fragment `data-bind`; slots are for fragment mounts/default content |
 | Fragment attributes | `${field}` | Same fragment `data-bind` rule |
 | Whole object | `data-bind="posts"` on fragments | Use `${posts.field}` or nested slots |
 | Page context narrowing | `<html data-bind="{item, page}">` | Optional destructure of `{data, item, page, i18n}` |
@@ -138,7 +138,7 @@ Every fragment needs matching `id` on all three parts:
 
 Page context roots are `data`, `item`, `page`, and `i18n`; pagination metadata lives at `page.pagination`. See [docs/guide.md](docs/guide.md).
 
-**i18n page** — `[locale]/` segment + `[i18n]` config. Use `data-t="key"` for translatable text; `${i18n.locale}` in attributes only (not text nodes).
+**i18n page** — `[locale]/` segment + `[i18n]` config. Use `data-t="${key}"` for translatable text; `${i18n.locale}` works in attributes and `data-t`, not text nodes.
 
 ### CSS and JS in fragments
 
@@ -182,10 +182,10 @@ my-site/
 Do **not**:
 
 - Introduce React/Vue/Svelte components or a bundler-centric workflow unless explicitly requested
-- Use `${field}` in text nodes — use `<slot name="field">` instead
+- Use `${field}` directly in text nodes — use `data-t="${field}"` instead
 - Put `<slot>` inside HTML attributes
 - Mix `[page]` and `[slug]` under the same route tree (e.g. both `posts/[slug]` and `posts/[page]`)
-- Assume undeclared fields bind automatically — every `${…}` and named slot must appear in `data-bind`
+- Assume undeclared fields bind automatically — every `${…}` in attributes or `data-t` must be a dotted identifier path bound by `data-bind`
 - Use runtime fetch/API calls for content that should be static
 - Capitalize "Statica" in user-facing copy — always **statica**
 

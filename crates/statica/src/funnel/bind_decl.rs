@@ -252,13 +252,30 @@ pub fn bind_context(decl: &BindDecl, value: &Value) -> Value {
 }
 
 /// Fail the build if `${…}` / named slots reference names not declared in `data-bind`.
+#[cfg(test)]
 pub fn validate_template_binds(
     fragment_id: &str,
     decl: &BindDecl,
     nodes: &[Node],
     source: BindSource<'_>,
 ) -> Result<()> {
+    validate_template_binds_with_roots(fragment_id, decl, nodes, source, &[])
+}
+
+/// Fail the build if `${…}` / named slots reference names not declared in `data-bind`
+/// or provided by an external build-time context such as i18n catalogs.
+pub fn validate_template_binds_with_roots(
+    fragment_id: &str,
+    decl: &BindDecl,
+    nodes: &[Node],
+    source: BindSource<'_>,
+    extra_roots: &[String],
+) -> Result<()> {
     let scope = decl.scope_names();
+    let mut scope = scope;
+    for root in extra_roots {
+        scope.insert(root.as_str());
+    }
     validate_nodes(fragment_id, &scope, nodes, source)
 }
 
@@ -304,12 +321,7 @@ fn validate_mount_element(
             .map(str::trim)
             .filter(|s| !s.is_empty())
         {
-            let root = path_root(each);
-            if root != "." {
-                let dq = format!("data-each=\"{each}\"");
-                let sq = format!("data-each='{each}'");
-                ensure_bound(fragment_id, scope, each, root, source, &[&dq, &sq])?;
-            }
+            validate_data_expr(fragment_id, scope, each, source)?;
         }
     }
     for node in &el.children {
@@ -358,23 +370,42 @@ fn validate_element(
         if let Some(name) = el.attr("name").map(str::trim).filter(|s| !s.is_empty()) {
             let dq = format!("name=\"{name}\"");
             let sq = format!("name='{name}'");
-            ensure_bound(
-                fragment_id,
-                scope,
-                name,
-                path_root(name),
-                source,
-                &[&dq, &sq],
-            )?;
+            match DottedPath::parse(name) {
+                Some(path) => {
+                    ensure_bound(fragment_id, scope, name, path.root(), source, &[&dq, &sq])?;
+                }
+                None => return Err(invalid_path_error(source, name, &[&dq, &sq])),
+            }
         }
     }
     if !el.is_script() && !el.is_style() && !is_statica_link(el) {
         for (_k, v) in &el.attrs {
             if v.contains("${") {
-                for path in template_paths(v) {
-                    let root = path_root(&path);
-                    let authored = format!("${{{path}}}");
-                    ensure_bound(fragment_id, scope, &authored, root, source, &[&authored])?;
+                for placeholder in template_placeholders(v) {
+                    match placeholder {
+                        TemplatePlaceholder::Path(path) => {
+                            let authored = format!("${{{}}}", path.as_str());
+                            ensure_bound(
+                                fragment_id,
+                                scope,
+                                &authored,
+                                path.root(),
+                                source,
+                                &[&authored],
+                            )?;
+                        }
+                        TemplatePlaceholder::Expression(expr) => {
+                            let authored = format!("${{{expr}}}");
+                            return Err(Error::at(
+                                source.file,
+                                source.source,
+                                &[&authored],
+                                format!(
+                                    "template placeholder `{authored}` must be a dotted identifier path, not a JS expression"
+                                ),
+                            ));
+                        }
+                    }
                 }
             }
         }
@@ -388,6 +419,23 @@ fn is_statica_link(el: &Element) -> bool {
             rel.split_whitespace()
                 .any(|part| part == "statica/data" || part == "statica/fragment")
         })
+}
+
+fn validate_data_expr(
+    fragment_id: &str,
+    scope: &HashSet<&str>,
+    expr: &str,
+    source: BindSource<'_>,
+) -> Result<()> {
+    if expr == "." {
+        return Ok(());
+    }
+    let dq = format!("data-each=\"{expr}\"");
+    let sq = format!("data-each='{expr}'");
+    match DottedPath::parse(expr) {
+        Some(path) => ensure_bound(fragment_id, scope, expr, path.root(), source, &[&dq, &sq]),
+        None => Err(invalid_path_error(source, expr, &[&dq, &sq])),
+    }
 }
 
 fn ensure_bound(
@@ -411,11 +459,71 @@ fn ensure_bound(
     ))
 }
 
-fn path_root(path: &str) -> &str {
-    path.split('.').find(|p| !p.is_empty()).unwrap_or(path)
+fn invalid_path_error(source: BindSource<'_>, path: &str, needles: &[&str]) -> Error {
+    Error::at(
+        source.file,
+        source.source,
+        needles,
+        format!("`{path}` must be a dotted identifier path, not a JS expression"),
+    )
 }
 
-fn template_paths(raw: &str) -> Vec<String> {
+pub(crate) fn is_identifier(part: &str) -> bool {
+    let mut chars = part.chars();
+    matches!(chars.next(), Some(first) if is_identifier_start(first))
+        && chars.all(is_identifier_continue)
+}
+
+fn is_identifier_start(c: char) -> bool {
+    c == '_' || c.is_ascii_alphabetic()
+}
+
+fn is_identifier_continue(c: char) -> bool {
+    c == '_' || c.is_ascii_alphanumeric()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DottedPath(String);
+
+impl DottedPath {
+    fn parse(raw: &str) -> Option<Self> {
+        let raw = raw.trim();
+        if raw.is_empty() || !raw.split('.').all(is_identifier) {
+            return None;
+        }
+        Some(Self(raw.to_string()))
+    }
+
+    fn root(&self) -> &str {
+        self.0.split('.').next().unwrap_or(self.0.as_str())
+    }
+
+    fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TemplatePlaceholder {
+    Path(DottedPath),
+    Expression(String),
+}
+
+impl TemplatePlaceholder {
+    fn parse(raw: &str) -> Option<Self> {
+        let raw = raw.trim();
+        if raw.is_empty() {
+            return None;
+        }
+        Some(if let Some(path) = DottedPath::parse(raw) {
+            Self::Path(path)
+        } else {
+            Self::Expression(raw.to_string())
+        })
+    }
+}
+
+fn template_placeholders(raw: &str) -> Vec<TemplatePlaceholder> {
     let mut out = Vec::new();
     let bytes = raw.as_bytes();
     let mut i = 0;
@@ -423,8 +531,8 @@ fn template_paths(raw: &str) -> Vec<String> {
         if bytes[i] == b'$' && i + 1 < bytes.len() && bytes[i + 1] == b'{' {
             if let Some(end) = raw[i + 2..].find('}') {
                 let path = raw[i + 2..i + 2 + end].trim();
-                if !path.is_empty() {
-                    out.push(path.to_string());
+                if let Some(placeholder) = TemplatePlaceholder::parse(path) {
+                    out.push(placeholder);
                 }
                 i = i + 2 + end + 1;
                 continue;
@@ -527,6 +635,17 @@ mod tests {
     }
 
     #[test]
+    fn parses_template_placeholders_as_paths_or_expressions() {
+        assert_eq!(
+            template_placeholders("Hi ${item.title} ${a + b} ${ }"),
+            vec![
+                TemplatePlaceholder::Path(DottedPath("item.title".into())),
+                TemplatePlaceholder::Expression("a + b".into()),
+            ]
+        );
+    }
+
+    #[test]
     fn named_bind_allows_prop_paths() {
         let html = r#"<a class="button ${button.variant}" href="${button.href}"></a>"#;
         let decl = BindDecl::Named("button".into());
@@ -568,6 +687,46 @@ mod tests {
                 assert!(d.message.contains("`label` is not bound"));
                 assert_eq!((d.line, d.column), (1, 51));
                 assert!(d.snippet.contains("name=\"label\""));
+            }
+            other => panic!("unexpected: {other}"),
+        }
+    }
+
+    #[test]
+    fn data_t_template_must_be_bound() {
+        let html = r#"<h1 data-t="${headline}">Fallback</h1>"#;
+        let decl = BindDecl::destructure_flat(["slug"]);
+        let nodes = vec![el(
+            "h1",
+            &[("data-t", "${headline}")],
+            vec![Node::Text("Fallback".into())],
+        )];
+        let err = validate_template_binds("card", &decl, &nodes, src(html)).unwrap_err();
+        match err {
+            Error::Diag(d) => {
+                assert!(d.message.contains("`headline` is not bound"));
+                assert_eq!((d.line, d.column), (1, 13));
+                assert!(d.snippet.contains("${headline}"));
+            }
+            other => panic!("unexpected: {other}"),
+        }
+    }
+
+    #[test]
+    fn data_t_template_rejects_js_expression() {
+        let html = r#"<h1 data-t="${a + b}">Fallback</h1>"#;
+        let decl = BindDecl::destructure_flat(["a", "b"]);
+        let nodes = vec![el(
+            "h1",
+            &[("data-t", "${a + b}")],
+            vec![Node::Text("Fallback".into())],
+        )];
+        let err = validate_template_binds("card", &decl, &nodes, src(html)).unwrap_err();
+        match err {
+            Error::Diag(d) => {
+                assert!(d.message.contains("not a JS expression"));
+                assert_eq!((d.line, d.column), (1, 13));
+                assert!(d.snippet.contains("${a + b}"));
             }
             other => panic!("unexpected: {other}"),
         }

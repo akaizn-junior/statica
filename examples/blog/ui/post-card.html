@@ -31,9 +31,9 @@
   </style>
   <li class="card">
     <h2 class="card__title">
-      <a href="/posts/${slug}/"><slot name="headline"></slot></a>
+      <a href="/posts/${slug}/" data-t="${headline}">Post</a>
     </h2>
-    <p class="card__meta"><slot name="published_at"></slot></p>
-    <p><slot name="summary"></slot></p>
+    <p class="card__meta" data-t="${published_at}"></p>
+    <p data-t="${summary}"></p>
   </li>
 </template>

@@ -55,7 +55,7 @@ Points at an explicit `.md` glob with YAML front matter — see `content/posts/*
 
 - Page context uses `item.*`, `data.*`, `page.*`, and `i18n.*`
 - Data links in `<head>`
-- `<slot name="item.headline">` for item fields
+- `data-t="${item.headline}"` for scalar item text
 - Fragment imports with relative paths from the page file
 
 ### Pagination page
@@ -83,13 +83,13 @@ index = true
 
 - `<template id="post-card" data-bind="{slug, headline, …}">`
 - Modern nested CSS in `<style>`
-- `${slug}` in attributes, `<slot name="headline">` for text
+- `${slug}` in attributes, `data-t="${headline}"` for scalar text
 
 ### i18n
 
 - Template at `[locale]/about/index.html`
 - Catalogs in `content/i18n/{locale}.json`
-- `data-t="key"` on translatable elements
+- `data-t="${key}"` on translatable elements
 - Config: `[i18n] enabled = true, locales = ["en", "pt"]`
 
 ## When editing this fixture

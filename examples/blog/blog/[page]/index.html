@@ -31,8 +31,8 @@
   <body>
     <h1>All posts</h1>
     <p>
-      Page <slot name="page.pagination.page"></slot> of
-      <slot name="page.pagination.total_pages"></slot>
+      Page <span data-t="${page.pagination.page}"></span> of
+      <span data-t="${page.pagination.total_pages}"></span>
     </p>
     <slot id="post-list"></slot>
     <nav>

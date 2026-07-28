@@ -1,5 +1,5 @@
 <template id="post-link" data-bind="{slug, headline}">
   <li>
-    <a href="/posts/${slug}/"><slot name="headline"></slot></a>
+    <a href="/posts/${slug}/" data-t="${headline}">Post</a>
   </li>
 </template>

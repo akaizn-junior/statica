@@ -655,10 +655,10 @@ fn i18n_expands_locale_param_from_config() {
         dir.join("[locale]/about/index.html"),
         r#"<!doctype html>
 <html lang="en">
-  <head><title data-t="title">About</title></head>
+  <head><title data-t="${title}">About</title></head>
   <body>
-    <h1 data-t="title">About</h1>
-    <span data-t="label">hello</span>
+    <h1 data-t="${title}">About</h1>
+    <span data-t="${label}">hello</span>
   </body>
 </html>"#,
     )
@@ -691,6 +691,47 @@ fn i18n_expands_locale_param_from_config() {
 }
 
 #[test]
+fn data_t_binds_page_context_text_without_i18n() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
+    std::fs::create_dir_all(dir.join("content")).unwrap();
+    std::fs::write(
+        dir.join("content/posts.json"),
+        r#"[{"slug":"hello","headline":"Hello from data","summary":"Plain HTML stays plain"}]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("posts/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/data" href="../../content/posts.json" id="posts">
+    <title data-t="${item.headline}">Fallback title</title>
+  </head>
+  <body>
+    <h1 data-t="${item.headline}">Fallback heading</h1>
+    <p data-t="${item.summary}">Fallback summary</p>
+    <p>${item.headline}</p>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/posts/hello/index.html")).unwrap();
+    assert!(html.contains("<title>Hello from data</title>"));
+    assert!(html.contains("<h1>Hello from data</h1>"));
+    assert!(html.contains("<p>Plain HTML stays plain</p>"));
+    assert!(html.contains("<p>${item.headline}</p>"));
+    assert!(!html.contains("data-t"));
+}
+
+#[test]
 fn i18n_emits_root_redirect_to_default_locale() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("[locale]")).unwrap();
@@ -701,8 +742,8 @@ fn i18n_emits_root_redirect_to_default_locale() {
         dir.join("[locale]/index.html"),
         r#"<!doctype html>
 <html lang="en">
-  <head><title data-t="title">Home</title></head>
-  <body><h1 data-t="title">Home</h1></body>
+  <head><title data-t="${title}">Home</title></head>
+  <body><h1 data-t="${title}">Home</h1></body>
 </html>"#,
     )
     .unwrap();
@@ -746,7 +787,7 @@ fn i18n_skips_root_redirect_when_author_has_root_page() {
     .unwrap();
     std::fs::write(
         dir.join("[locale]/index.html"),
-        r#"<!doctype html><html><body><h1 data-t="title">Home</h1></body></html>"#,
+        r#"<!doctype html><html><body><h1 data-t="${title}">Home</h1></body></html>"#,
     )
     .unwrap();
 
@@ -790,7 +831,7 @@ fn i18n_loads_locale_specific_funnel_data() {
 <html lang="en">
   <head>
     <link rel="statica/data" href="../../../content/posts.${locale}.json" id="posts" />
-    <title data-t="title">Posts</title>
+    <title data-t="${title}">Posts</title>
   </head>
   <body>
     <h1><slot name="item.headline"></slot></h1>
@@ -837,7 +878,7 @@ fn i18n_fragment_inherits_parent_locale_for_data_t() {
     std::fs::write(
         dir.join("ui/button.html"),
         r#"<template id="button">
-  <button type="button"><span data-t="cta">Contact</span></button>
+  <button type="button"><span data-t="${cta}">Contact</span></button>
 </template>"#,
     )
     .unwrap();
@@ -885,8 +926,8 @@ fn i18n_fragment_inherits_parent_locale_for_data_t() {
     assert!(!pt.contains("data-t"));
 
     let home = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
-    assert!(home.contains("Contact"));
     assert!(!home.contains("data-t"));
+    assert!(!home.contains("${cta}"));
     assert!(!home.contains("Contact us"));
 }
 
@@ -918,9 +959,9 @@ fn i18n_translates_a11y_attributes() {
         r##"<!doctype html>
 <html lang="en">
   <body>
-    <a href="#main" aria-label="Skip to main content" data-t-aria-label="skip"></a>
-    <img src="/sunset.jpg" alt="Sunset over the hills" data-t-alt="photo.alt" />
-    <input type="email" placeholder="Your email address" data-t-placeholder="form.email_placeholder" />
+    <a href="#main" aria-label="Skip to main content" data-t-aria-label="${skip}"></a>
+    <img src="/sunset.jpg" alt="Sunset over the hills" data-t-alt="${photo.alt}" />
+    <input type="email" placeholder="Your email address" data-t-placeholder="${form.email_placeholder}" />
   </body>
 </html>"##,
     )
@@ -981,10 +1022,10 @@ fn i18n_pagination_chunks_once_for_shared_data() {
 <html lang="en">
   <head>
     <link rel="statica/data" href="../../../content/posts.json" id="posts" />
-    <title data-t="blog_title">Blog</title>
+    <title data-t="${blog_title}">Blog</title>
   </head>
   <body>
-    <h1 data-t="blog_title">Blog</h1>
+    <h1 data-t="${blog_title}">Blog</h1>
     <p>Page <slot name="page.pagination.page"></slot> of <slot name="page.pagination.total_pages"></slot></p>
   </body>
 </html>"#,

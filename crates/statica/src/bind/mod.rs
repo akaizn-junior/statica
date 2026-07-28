@@ -18,6 +18,7 @@ use crate::parse::{Document, Element, Node};
 use crate::scope;
 use crate::{AliasOptions, FormsOptions};
 
+pub(crate) use attrs::expand_template;
 pub use attrs::fill_attr_templates_in_nodes;
 pub use slots::{clear_remaining_named_slots, fill_default_slots, fill_named_slots};
 
@@ -91,12 +92,17 @@ fn parse_html_bind_decl(doc: &Document) -> Result<BindDecl> {
 }
 
 /// Fail the build if page slots / `${…}` / mount binds reference names not in `<html data-bind>`.
-pub fn validate_page_binds(doc: &Document, source: BindSource<'_>) -> Result<()> {
+pub fn validate_page_binds(
+    doc: &Document,
+    source: BindSource<'_>,
+    extra_roots: &[String],
+) -> Result<()> {
     let Some(el) = html_element(doc) else {
         return Ok(());
     };
     let decl = parse_html_bind_decl(doc).map_err(|e| e.in_file(source.file, source.source))?;
-    let data_roots = funnel::data_link_ids(doc);
+    let mut data_roots = funnel::data_link_ids(doc);
+    data_roots.extend(extra_roots.iter().cloned());
     funnel::validate_page_template_binds("page", &decl, &el.children, source, &data_roots)
 }
 
@@ -108,6 +114,7 @@ pub fn validate_collection_page_binds(
     kind: PageKind,
     locale_only: bool,
     source: BindSource<'_>,
+    extra_roots: &[String],
 ) -> Result<()> {
     if kind != PageKind::Collection {
         return Ok(());
@@ -118,7 +125,7 @@ pub fn validate_collection_page_binds(
     if !(locale_only && funnel::data_link_ids(doc).is_empty()) {
         require_collection_id(doc, source)?;
     }
-    validate_page_binds(doc, source)
+    validate_page_binds(doc, source, extra_roots)
 }
 
 /// Render a full page document with optional item context.
@@ -161,11 +168,8 @@ pub fn render_page_document(
         aliases,
         site,
     )?;
-    if let Some(catalog) = i18n_catalog {
-        i18n::apply_data_t(&mut doc.children, catalog);
-    } else {
-        i18n::strip_data_t(&mut doc.children);
-    }
+    let data_t_context = data_t_context(&ctx, i18n_catalog);
+    i18n::apply_data_t(&mut doc.children, &data_t_context);
     crate::aliases::resolve_paths_in_document(&mut doc, aliases, site)?;
     crate::font::expand_font_links(&mut doc, aliases, site)?;
     if let Some(meta) = manifest {
@@ -186,6 +190,49 @@ fn add_data_roots(ctx: &mut Value, page_data: &HashMap<String, DataSource>) {
     };
     for (id, source) in page_data {
         map.entry(id.clone()).or_insert_with(|| source.value());
+    }
+}
+
+fn data_t_context(ctx: &Value, i18n_catalog: Option<&Value>) -> Value {
+    let Some(Value::Object(catalog)) = i18n_catalog else {
+        return ctx.clone();
+    };
+    let mut merged = match ctx {
+        Value::Object(map) => map.clone(),
+        _ => serde_json::Map::new(),
+    };
+    for (key, value) in catalog {
+        match (merged.get(key), value) {
+            (Some(existing), overlay) if existing.is_object() && overlay.is_object() => {
+                merged.insert(key.clone(), deep_merge(existing, overlay));
+            }
+            (None, overlay) => {
+                merged.insert(key.clone(), overlay.clone());
+            }
+            _ => {}
+        }
+    }
+    Value::Object(merged)
+}
+
+fn deep_merge(base: &Value, overlay: &Value) -> Value {
+    match (base, overlay) {
+        (Value::Object(base_map), Value::Object(overlay_map)) => {
+            let mut out = base_map.clone();
+            for (key, value) in overlay_map {
+                out.insert(
+                    key.clone(),
+                    match out.get(key) {
+                        Some(existing) if existing.is_object() && value.is_object() => {
+                            deep_merge(existing, value)
+                        }
+                        _ => value.clone(),
+                    },
+                );
+            }
+            Value::Object(out)
+        }
+        (_, overlay) => overlay.clone(),
     }
 }
 
@@ -467,10 +514,7 @@ fn render_fragment_nodes(
         aliases,
         site,
     )?;
-    if let Some(catalog) = i18n_catalog {
-        i18n::apply_data_t(&mut nodes, catalog);
-    } else {
-        i18n::strip_data_t(&mut nodes);
-    }
+    let data_t_context = data_t_context(&ctx, i18n_catalog);
+    i18n::apply_data_t(&mut nodes, &data_t_context);
     Ok(nodes)
 }

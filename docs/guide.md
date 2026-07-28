@@ -71,29 +71,29 @@ Format shapes:
 
 statica source is valid HTML. It uses normal `<template>`, `<slot>`, and `<link>` elements as a build-time authoring flow, not as runtime Web Components. Keep those elements where HTML allows them; for example, do not put `<slot>` inside `<title>` or attributes.
 
-Use slots for text content.
+Use `data-t` for scalar text content.
 
 ```html
-<slot name="headline"></slot>
+<h1 data-t="${headline}">Fallback heading</h1>
 ```
 
 Use `${...}` only in attributes.
 
 ```html
-<a href="/posts/${slug}/"><slot name="headline"></slot></a>
+<a href="/posts/${slug}/" data-t="${headline}">Fallback link</a>
 ```
 
-Every fragment slot name and `${...}` path must be declared by the fragment `data-bind`. There is no magic flattening.
+Every `${...}` placeholder in `data-t` and attributes must be a dotted identifier path declared by the fragment `data-bind`. Literal `data-t` text renders as written. statica does not evaluate JS expressions such as `${a + b}`, and there is no magic flattening.
 
 ```html
 <!-- direct fields -->
 <template id="card" data-bind="{slug, headline}">
-  <a href="/posts/${slug}/"><slot name="headline"></slot></a>
+  <a href="/posts/${slug}/" data-t="${headline}">Fallback link</a>
 </template>
 
 <!-- whole object -->
 <template id="card" data-bind="post">
-  <a href="/posts/${post.slug}/"><slot name="post.headline"></slot></a>
+  <a href="/posts/${post.slug}/" data-t="${post.headline}">Fallback link</a>
 </template>
 ```
 
@@ -153,7 +153,7 @@ posts/[slug]/index.html
     <title>Post</title>
   </head>
   <body>
-    <h1><slot name="item.headline"></slot></h1>
+    <h1 data-t="${item.headline}">Post</h1>
     <slot name="item.html"></slot>
   </body>
 </html>
@@ -165,7 +165,7 @@ You can narrow the context when a page wants shorter names:
 
 ```html
 <html lang="en" data-bind="{item}">
-  <a href="/posts/${item.slug}/"><slot name="item.headline"></slot></a>
+  <a href="/posts/${item.slug}/" data-t="${item.headline}">Post</a>
 </html>
 ```
 
@@ -181,8 +181,8 @@ blog/[page]/index.html
 <html lang="en">
   <body>
     <p>
-      Page <slot name="page.pagination.page"></slot> of
-      <slot name="page.pagination.total_pages"></slot>
+      Page <span data-t="${page.pagination.page}"></span> of
+      <span data-t="${page.pagination.total_pages}"></span>
     </p>
     <slot id="post-list"></slot>
     <a href="${page.pagination.prev_href}">Previous</a>
@@ -217,7 +217,7 @@ Fragments have three matching parts: import, mount, template.
 <!-- ui/post-card.html -->
 <template id="post-card" data-bind="{slug, headline}">
   <article>
-    <a href="/posts/${slug}/"><slot name="headline"></slot></a>
+    <a href="/posts/${slug}/" data-t="${headline}">Post</a>
   </article>
 </template>
 ```
@@ -323,11 +323,12 @@ dir = "content/i18n"
 Catalogs live at `content/i18n/{locale}.json`.
 
 ```html
-<span data-t="nav.home">Home</span>
-<a href="/${locale}/">Home</a>
+<span data-t="${nav.home}">Home</span>
+<title data-t="${item.headline}">Fallback title</title>
+<a href="/${i18n.locale}/">Home</a>
 ```
 
-`data-t` replaces element text. `${locale}` works in attributes, not text nodes.
+`data-t` replaces element text with a plain template string. Literal text renders as written, and `${...}` placeholders must be dotted identifier paths using the same page or fragment variables available to build-time binding, including i18n catalog keys, `item.*`, `page.*`, `data.*`, and declared fragment fields. `${...}` works in attributes and `data-t`, not text nodes, and statica never evaluates JS expressions.
 
 Locale-specific data can use `${locale}` in funnel `src`.
 

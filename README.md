@@ -157,7 +157,7 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 <slot id="post-card"></slot>
 ```
 
-- Page content → `<slot name="item.field">`, `<slot name="page.pagination.page">`, or `<slot name="data.posts">`
+- Scalar page text → `data-t="${item.field}"`, or literal text with `data-t="Plain text"`
 - Attributes → `${item.slug}` / `${page.pagination.next_href}` / `${i18n.locale}`
 - Fragment mount: `<slot id="fragment-id"></slot>` passes the current item/context
 - Fragment loop: `<slot id="fragment-id" data-each="items"></slot>` passes each item

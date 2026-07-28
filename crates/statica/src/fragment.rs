@@ -28,15 +28,25 @@ pub struct FragmentRegistry {
     site_root: PathBuf,
     fragments: HashMap<String, Fragment>,
     data_cache: HashMap<PathBuf, crate::content::DataSet>,
+    extra_bind_roots: Vec<String>,
 }
 
 impl FragmentRegistry {
     #[must_use]
     pub fn new(site_root: impl Into<PathBuf>) -> Self {
+        Self::with_extra_bind_roots(site_root, &[])
+    }
+
+    #[must_use]
+    pub fn with_extra_bind_roots(
+        site_root: impl Into<PathBuf>,
+        extra_bind_roots: &[String],
+    ) -> Self {
         Self {
             site_root: site_root.into(),
             fragments: HashMap::new(),
             data_cache: HashMap::new(),
+            extra_bind_roots: extra_bind_roots.to_vec(),
         }
     }
 
@@ -132,7 +142,13 @@ impl FragmentRegistry {
                 ));
             }
         };
-        funnel::validate_template_binds(id, &bind, &template_el.children, bind_source)?;
+        funnel::validate_template_binds_with_roots(
+            id,
+            &bind,
+            &template_el.children,
+            bind_source,
+            &self.extra_bind_roots,
+        )?;
         let hash = short_hash(&raw);
         let scope_id = format!("{id}-{hash}");
         let has_locale_data = funnel::document_has_locale_data(&file_doc);

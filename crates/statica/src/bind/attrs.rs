@@ -1,4 +1,7 @@
 //! `${path}` templates in attribute values only (never slots-in-attrs).
+//!
+//! Static validation in `funnel::bind_decl` rejects non-path placeholders before
+//! rendering. Runtime expansion stays lenient for already-validated templates.
 
 use serde_json::Value;
 
@@ -18,14 +21,21 @@ fn fill_attrs(el: &mut Element, ctx: &Value) {
     if el.is_script() || el.is_style() {
         return;
     }
-    for v in el.attrs.values_mut() {
+    for (name, v) in &mut el.attrs {
+        if is_data_t_marker(name) {
+            continue;
+        }
         if v.contains("${") {
             *v = expand_template(v, ctx);
         }
     }
 }
 
-fn expand_template(raw: &str, ctx: &Value) -> String {
+fn is_data_t_marker(name: &str) -> bool {
+    name == "data-t" || name.starts_with("data-t-")
+}
+
+pub(crate) fn expand_template(raw: &str, ctx: &Value) -> String {
     let mut out = String::with_capacity(raw.len());
     let bytes = raw.as_bytes();
     let mut i = 0;
@@ -77,5 +87,11 @@ mod tests {
             expand_template(r#"class="button ${variant}" href="${href}""#, &ctx),
             r#"class="button ghost" href="/x""#
         );
+    }
+
+    #[test]
+    fn template_expressions_are_not_evaluated() {
+        let ctx = json!({"a": 1, "b": 2});
+        assert_eq!(expand_template("${a + b}", &ctx), "");
     }
 }

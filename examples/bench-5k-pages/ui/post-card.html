@@ -1,8 +1,8 @@
 <template id="post-card" data-bind="{slug, headline, published_at, summary, html}">
   <article>
-    <h1><slot name="headline"></slot></h1>
-    <p class="meta"><slot name="published_at"></slot> · <code><slot name="slug"></slot></code></p>
-    <p><slot name="summary"></slot></p>
+    <h1 data-t="${headline}">Post</h1>
+    <p class="meta"><span data-t="${published_at}"></span> · <code data-t="${slug}"></code></p>
+    <p data-t="${summary}"></p>
     <div><slot name="html"></slot></div>
   </article>
 </template>

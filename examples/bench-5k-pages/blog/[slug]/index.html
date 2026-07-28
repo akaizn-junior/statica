@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en" data-bind="{headline, html}">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Page <slot name="page"></slot> / <slot name="total_pages"></slot></title>
+    <title data-t="Page ${page.pagination.page}">Page</title>
     <link
       rel="statica/fragment"
       type="text/html"
@@ -18,13 +18,16 @@
     </style>
   </head>
   <body>
-    <p class="meta"><a href="/">Home</a> · page <slot name="page"></slot> of <slot name="total_pages"></slot></p>
-    <slot id="post-card" data-each="items"></slot>
+    <p class="meta">
+      <a href="/">Home</a> · page <span data-t="${page.pagination.page}"></span> of
+      <span data-t="${page.pagination.total_pages}"></span>
+    </p>
+    <slot id="post-card" data-each="page.pagination.items"></slot>
     <nav>
-      <a href="${first_href}">First</a>
-      <a href="${prev_href}">Previous</a>
-      <a href="${next_href}">Next</a>
-      <a href="${last_href}">Last</a>
+      <a href="${page.pagination.first_href}">First</a>
+      <a href="${page.pagination.prev_href}">Previous</a>
+      <a href="${page.pagination.next_href}">Next</a>
+      <a href="${page.pagination.last_href}">Last</a>
     </nav>
   </body>
 </html>

@@ -25,10 +25,10 @@
   <body>
     <article>
       <header>
-        <h1><slot name="item.headline"></slot></h1>
-        <time><slot name="item.published_at"></slot></time>
+        <h1 data-t="${item.headline}">Post</h1>
+        <time data-t="${item.published_at}"></time>
       </header>
-      <p><slot name="item.summary"></slot></p>
+      <p data-t="${item.summary}"></p>
       <div><slot name="item.html"></slot></div>
       <slot id="post-card"></slot>
       <slot id="related-posts">More from the archive</slot>

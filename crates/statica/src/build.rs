@@ -377,8 +377,10 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     log.step(format!("discover  {sources} sources ({discover_ms}ms)"));
 
     let t = Instant::now();
-    let (registry, prepared, data_sources) = prepare_pages(&pages, &opts.root, &opts.aliases)?;
     let i18n_catalogs = I18nCatalogs::load(&opts.root, &opts.i18n)?;
+    let extra_bind_roots = i18n_catalogs.root_keys()?;
+    let (registry, prepared, data_sources) =
+        prepare_pages(&pages, &opts.root, &opts.aliases, &extra_bind_roots)?;
     let prepare_ms = t.elapsed().as_millis();
     let fragments = registry.len();
     phases.push(BuildPhase {
@@ -561,8 +563,9 @@ fn prepare_pages(
     pages: &[PageSource],
     site_root: &Path,
     aliases: &AliasOptions,
+    extra_bind_roots: &[String],
 ) -> Result<(FragmentRegistry, Vec<PreparedPage>, usize)> {
-    let mut registry = FragmentRegistry::new(site_root);
+    let mut registry = FragmentRegistry::with_extra_bind_roots(site_root, extra_bind_roots);
     let mut prepared = Vec::with_capacity(pages.len());
     let mut data_ids = HashSet::new();
 
@@ -591,6 +594,7 @@ fn prepare_pages(
                 file: &file,
                 source: &html,
             },
+            extra_bind_roots,
         )?;
         bind::validate_page_binds(
             &doc,
@@ -598,6 +602,7 @@ fn prepare_pages(
                 file: &file,
                 source: &html,
             },
+            extra_bind_roots,
         )?;
         prepared.push(PreparedPage {
             source: page.clone(),

@@ -57,9 +57,9 @@ Two posts in → two folders out.
   </style>
   <li class="card">
     <h2 class="card__title">
-      <a href="/posts/${slug}/"><slot name="headline"></slot></a>
+      <a href="/posts/${slug}/" data-t="${headline}">Post</a>
     </h2>
-    <p><slot name="summary"></slot></p>
+    <p data-t="${summary}"></p>
   </li>
 </template>
 "#,
@@ -114,14 +114,14 @@ Two posts in → two folders out.
 <html lang="en" data-bind="{headline, published_at, summary, html}">
   <head>
     <meta charset="utf-8" />
-    <title><slot name="headline"></slot></title>
+    <title data-t="${headline}">Post</title>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
   </head>
   <body>
     <article>
-      <h1><slot name="headline"></slot></h1>
-      <time><slot name="published_at"></slot></time>
-      <p><slot name="summary"></slot></p>
+      <h1 data-t="${headline}">Post</h1>
+      <time data-t="${published_at}"></time>
+      <p data-t="${summary}"></p>
       <div><slot name="html"></slot></div>
     </article>
     <p><a href="/blog/">← All posts</a></p>
@@ -148,7 +148,7 @@ Settings live in `statica.toml` (optional; defaults apply if missing).
 - Pages are every `**/index.html` (folder = route).
 - Data via `<link rel="statica/data" href id>`.
 - Fragments via `<link rel="statica/fragment" href id>` + `<template id>` + `<slot id>`.
-- Attributes use `${{field}}` declared via fragment `data-bind` (`name` or `{{a, b}}`); content uses `<slot name="field">`.
+- Attributes and scalar text use `${{field}}` declared via `data-bind`; scalar text goes in `data-t="${{field}}"`.
 "#
         ),
     )?;

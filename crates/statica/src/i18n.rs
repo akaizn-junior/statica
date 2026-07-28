@@ -1,14 +1,15 @@
 //! Internationalization: `[locale]` route expansion + `data-t` translation attrs.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
+use crate::bind::expand_template;
 use crate::discover::PageSource;
 use crate::error::{Error, Result};
-use crate::funnel::read_field;
+use crate::funnel::is_identifier;
 use crate::parse::{Document, Node};
 
 /// Route param name for locale expansion (`[locale]/…`).
@@ -39,6 +40,7 @@ pub const A11Y_TRANSLATABLE_ATTRS: &[&str] = &[
 ];
 
 /// Whether an attribute name is a `data-t-{target}` translation marker.
+#[cfg(test)]
 #[must_use]
 pub fn is_data_t_attr(name: &str) -> bool {
     name.starts_with(DATA_T_ATTR_PREFIX) && name.len() > DATA_T_ATTR_PREFIX.len()
@@ -201,6 +203,27 @@ impl I18nCatalogs {
     pub fn for_locale(&self, locale: &str, opts: &I18nOptions) -> Value {
         resolve_catalog(&self.by_locale, locale, opts.effective_fallback())
     }
+
+    pub fn root_keys(&self) -> Result<Vec<String>> {
+        let mut keys = BTreeSet::new();
+        for catalog in self.by_locale.values() {
+            let Value::Object(map) = catalog else {
+                continue;
+            };
+            for key in map.keys() {
+                if !is_identifier(key) {
+                    return Err(Error::at_file(
+                        "i18n",
+                        format!(
+                            "i18n catalog key `{key}` cannot be used in data-t — top-level keys must be identifiers"
+                        ),
+                    ));
+                }
+                keys.insert(key.clone());
+            }
+        }
+        Ok(keys.into_iter().collect())
+    }
 }
 
 /// Bind context with `locale` for `${locale}` in attributes.
@@ -286,51 +309,27 @@ fn deep_merge(base: &Value, overlay: &Value) -> Value {
     }
 }
 
-/// Look up a dotted translation key in a catalog object.
-#[must_use]
-pub fn lookup_key(catalog: &Value, key: &str) -> Option<String> {
-    let key = key.trim();
-    if key.is_empty() {
-        return None;
-    }
-    let mut cur = catalog;
-    let mut parts = key.split('.').filter(|p| !p.is_empty());
-    let first = parts.next()?;
-    cur = read_field(cur, first)?;
-    for part in parts {
-        cur = read_field(cur, part)?;
-    }
-    match cur {
-        Value::String(s) => Some(s.clone()),
-        Value::Number(n) => Some(n.to_string()),
-        Value::Bool(b) => Some(b.to_string()),
-        _ => None,
-    }
-}
-
-/// Replace `data-t="key"` element content with the catalog string (fallback: inner text).
+/// Replace `data-t="text ${path}"` element content with the expanded template string.
 ///
-/// `data-t-{attr}="key"` translates `{attr}` from the catalog (fallback: current `{attr}` value).
-pub fn apply_data_t(nodes: &mut [Node], catalog: &Value) {
+/// `data-t-{attr}="text ${path}"` binds `{attr}` from the expanded template string.
+pub fn apply_data_t(nodes: &mut [Node], context: &Value) {
     for node in nodes {
         if let Node::Element(el) = node {
-            apply_data_t_on_element(el, catalog);
-            apply_data_t(&mut el.children, catalog);
+            apply_data_t_on_element(el, context);
+            apply_data_t(&mut el.children, context);
         }
     }
 }
 
-fn apply_data_t_on_element(el: &mut crate::parse::Element, catalog: &Value) {
-    if let Some(key) = el.attrs.get(DATA_T).cloned() {
-        let fallback = direct_text_content(&el.children);
-        let text = lookup_key(catalog, &key).unwrap_or(fallback);
-        el.children = vec![Node::Text(text)];
+fn apply_data_t_on_element(el: &mut crate::parse::Element, context: &Value) {
+    if let Some(text) = el.attrs.get(DATA_T).cloned() {
+        el.children = vec![Node::Text(expand_template(&text, context))];
         el.attrs.shift_remove(DATA_T);
     }
-    apply_data_t_attr_translations(el, catalog);
+    apply_data_t_attr_translations(el, context);
 }
 
-fn apply_data_t_attr_translations(el: &mut crate::parse::Element, catalog: &Value) {
+fn apply_data_t_attr_translations(el: &mut crate::parse::Element, context: &Value) {
     let markers: Vec<(String, String)> = el
         .attrs
         .iter()
@@ -341,14 +340,14 @@ fn apply_data_t_attr_translations(el: &mut crate::parse::Element, catalog: &Valu
 
     for (target_attr, translation_key) in markers {
         let marker = format!("{DATA_T_ATTR_PREFIX}{target_attr}");
-        let fallback = el.attrs.get(&target_attr).cloned().unwrap_or_default();
-        let text = lookup_key(catalog, &translation_key).unwrap_or(fallback);
-        el.attrs.insert(target_attr, text);
+        el.attrs
+            .insert(target_attr, expand_template(&translation_key, context));
         el.attrs.shift_remove(&marker);
     }
 }
 
 /// Remove `data-t` / `data-t-*` without translating — used when the parent page has no active locale.
+#[cfg(test)]
 pub fn strip_data_t(nodes: &mut [Node]) {
     for node in nodes {
         if let Node::Element(el) = node {
@@ -358,6 +357,7 @@ pub fn strip_data_t(nodes: &mut [Node]) {
     }
 }
 
+#[cfg(test)]
 fn strip_data_t_on_element(el: &mut crate::parse::Element) {
     el.attrs.shift_remove(DATA_T);
     let markers: Vec<String> = el
@@ -369,16 +369,6 @@ fn strip_data_t_on_element(el: &mut crate::parse::Element) {
     for marker in markers {
         el.attrs.shift_remove(&marker);
     }
-}
-
-fn direct_text_content(nodes: &[Node]) -> String {
-    nodes
-        .iter()
-        .filter_map(|n| match n {
-            Node::Text(t) => Some(t.as_str()),
-            _ => None,
-        })
-        .collect()
 }
 
 /// Set `<html lang="…">` for the active locale.
@@ -443,7 +433,7 @@ mod tests {
         let catalog = json!({"label": "Olá"});
         let mut nodes = vec![Node::Element(Element {
             name: "span".into(),
-            attrs: IndexMap::from([(DATA_T.into(), "label".into())]),
+            attrs: IndexMap::from([(DATA_T.into(), "${label}".into())]),
             children: vec![Node::Text("hello".into())],
             void: false,
         })];
@@ -468,7 +458,7 @@ mod tests {
                 attrs: IndexMap::from([
                     ("rel".into(), "canonical".into()),
                     ("href".into(), "https://example.com/about".into()),
-                    ("data-t-href".into(), "canonical.href".into()),
+                    ("data-t-href".into(), "${canonical.href}".into()),
                 ]),
                 children: vec![],
                 void: true,
@@ -478,7 +468,7 @@ mod tests {
                 attrs: IndexMap::from([
                     ("name".into(), "description".into()),
                     ("content".into(), "About us".into()),
-                    ("data-t-content".into(), "description.content".into()),
+                    ("data-t-content".into(), "${description.content}".into()),
                 ]),
                 children: vec![],
                 void: true,
@@ -505,7 +495,7 @@ mod tests {
             attrs: IndexMap::from([
                 ("rel".into(), "stylesheet".into()),
                 ("href".into(), "/site.css".into()),
-                (DATA_T.into(), "label".into()),
+                (DATA_T.into(), "${label}".into()),
             ]),
             children: vec![Node::Text("Site CSS".into())],
             void: true,
@@ -526,7 +516,7 @@ mod tests {
             name: "a".into(),
             attrs: IndexMap::from([
                 ("href".into(), "/".into()),
-                (DATA_T.into(), "nav.home".into()),
+                (DATA_T.into(), "${nav.home}".into()),
             ]),
             children: vec![Node::Text("Home".into())],
             void: false,
@@ -548,7 +538,7 @@ mod tests {
             attrs: IndexMap::from([
                 ("href".into(), "#main".into()),
                 ("aria-label".into(), "Skip to content".into()),
-                ("data-t-aria-label".into(), "nav.skip".into()),
+                ("data-t-aria-label".into(), "${nav.skip}".into()),
             ]),
             children: vec![],
             void: false,
@@ -574,7 +564,7 @@ mod tests {
                 attrs: IndexMap::from([
                     ("src".into(), "sunset.jpg".into()),
                     ("alt".into(), "Sunset".into()),
-                    ("data-t-alt".into(), "photo.alt".into()),
+                    ("data-t-alt".into(), "${photo.alt}".into()),
                 ]),
                 children: vec![],
                 void: true,
@@ -584,7 +574,10 @@ mod tests {
                 attrs: IndexMap::from([
                     ("type".into(), "email".into()),
                     ("placeholder".into(), "Your email".into()),
-                    ("data-t-placeholder".into(), "form.email_placeholder".into()),
+                    (
+                        "data-t-placeholder".into(),
+                        "${form.email_placeholder}".into(),
+                    ),
                 ]),
                 children: vec![],
                 void: true,
@@ -610,7 +603,7 @@ mod tests {
             name: "button".into(),
             attrs: IndexMap::from([
                 ("aria-label".into(), "Close dialog".into()),
-                ("data-t-aria-label".into(), "missing.key".into()),
+                ("data-t-aria-label".into(), "${missing.key}".into()),
             ]),
             children: vec![Node::Text("×".into())],
             void: false,
@@ -620,7 +613,7 @@ mod tests {
             Node::Element(e) => e,
             _ => panic!("expected element"),
         };
-        assert_eq!(el.attr("aria-label"), Some("Close dialog"));
+        assert_eq!(el.attr("aria-label"), Some(""));
     }
 
     #[test]
@@ -629,7 +622,7 @@ mod tests {
             name: "img".into(),
             attrs: IndexMap::from([
                 ("alt".into(), "Photo".into()),
-                ("data-t-alt".into(), "photo.alt".into()),
+                ("data-t-alt".into(), "${photo.alt}".into()),
             ]),
             children: vec![],
             void: true,
@@ -678,5 +671,17 @@ mod tests {
         assert_eq!(catalogs.for_locale("pt", &opts)["title"], "Início");
 
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn catalog_root_keys_must_be_identifiers() {
+        let catalogs = I18nCatalogs {
+            by_locale: HashMap::from([("en".into(), json!({"nav.home": "Home"}))]),
+        };
+        let err = catalogs.root_keys().unwrap_err();
+        match err {
+            Error::Diag(d) => assert!(d.message.contains("top-level keys must be identifiers")),
+            other => panic!("unexpected: {other}"),
+        }
     }
 }
