@@ -18,8 +18,12 @@ pub fn markdown_to_html(source: &str) -> String {
     out
 }
 
-/// Parse a Markdown file: YAML frontmatter fields + `html` from the body.
+/// Parse a Markdown file: optional YAML frontmatter fields + `html` from the body.
 pub fn parse_markdown_file(source: &str, path: &Path) -> Result<Value> {
+    parse_markdown(source, path)
+}
+
+fn parse_markdown(source: &str, path: &Path) -> Result<Value> {
     let parts = split_frontmatter(source);
     let mut map: Map<String, Value> = if let Some(fm) = parts.frontmatter {
         serde_yaml::from_str(fm).map_err(|e| {

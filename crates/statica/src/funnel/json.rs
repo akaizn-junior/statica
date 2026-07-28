@@ -1,4 +1,4 @@
-//! Local JS funnel sources via `<script type="statica/data" src id>`.
+//! Local funnel sources via `<link rel="statica/data" href id>`.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -18,25 +18,38 @@ use std::path::Component;
 #[allow(dead_code)]
 pub struct DataSource {
     pub id: String,
+    pub kind: content::DataKind,
     pub path: PathBuf,
-    pub value: Value,
+    pub data: content::DataSet,
+}
+
+impl DataSource {
+    #[must_use]
+    pub fn value(&self) -> Value {
+        self.data.to_value()
+    }
+
+    #[must_use]
+    pub fn array(&self) -> Option<Vec<Value>> {
+        self.data.as_array()
+    }
 }
 
 pub fn document_has_locale_data(doc: &Document) -> bool {
-    doc.find(is_data_script).into_iter().any(|el| {
-        el.attr("src")
+    doc.find(is_data_link).into_iter().any(|el| {
+        el.attr("href")
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .is_some_and(i18n::src_has_locale_token)
     })
 }
 
-/// Whether a specific funnel `<script type="statica/data" id="…">` uses `${locale}` in `src`.
-pub fn data_script_has_locale_token(doc: &Document, id: &str) -> bool {
-    doc.find(is_data_script).into_iter().any(|el| {
+/// Whether a specific funnel `<link rel="statica/data" id="…">` uses `${locale}` in `href`.
+pub fn data_link_has_locale_token(doc: &Document, id: &str) -> bool {
+    doc.find(is_data_link).into_iter().any(|el| {
         el.attr("id") == Some(id)
             && el
-                .attr("src")
+                .attr("href")
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .is_some_and(i18n::src_has_locale_token)
@@ -47,116 +60,158 @@ pub fn load_data_from_document(
     doc: &Document,
     site_root: &Path,
     page_dir: &Path,
-    cache: &mut HashMap<PathBuf, Value>,
+    cache: &mut HashMap<PathBuf, content::DataSet>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
 ) -> Result<HashMap<String, DataSource>> {
-    load_data_scripts(
+    load_data_links(
         doc,
         site_root,
         page_dir,
         cache,
         aliases,
         site,
-        DataScriptFilter::WithoutLocaleToken,
+        DataLinkFilter::WithoutLocaleToken,
     )
 }
 
-/// Load funnel sources whose `src` contains `${locale}` for the active locale.
+/// Load funnel sources whose `href` contains `${locale}` for the active locale.
 pub fn load_locale_data_from_document(
     doc: &Document,
     site_root: &Path,
     page_dir: &Path,
-    cache: &mut HashMap<PathBuf, Value>,
+    cache: &mut HashMap<PathBuf, content::DataSet>,
     aliases: &AliasOptions,
     locale: &str,
     site: Option<(&str, &str)>,
 ) -> Result<HashMap<String, DataSource>> {
-    load_data_scripts(
+    load_data_links(
         doc,
         site_root,
         page_dir,
         cache,
         aliases,
         site,
-        DataScriptFilter::WithLocaleTokenOnly { locale },
+        DataLinkFilter::WithLocaleTokenOnly { locale },
     )
 }
 
 #[derive(Clone, Copy)]
-enum DataScriptFilter<'a> {
+enum DataLinkFilter<'a> {
     WithoutLocaleToken,
     WithLocaleTokenOnly { locale: &'a str },
 }
 
-fn load_data_scripts(
+fn load_data_links(
     doc: &Document,
     site_root: &Path,
     page_dir: &Path,
-    cache: &mut HashMap<PathBuf, Value>,
+    cache: &mut HashMap<PathBuf, content::DataSet>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
-    filter: DataScriptFilter<'_>,
+    filter: DataLinkFilter<'_>,
 ) -> Result<HashMap<String, DataSource>> {
     let mut out = HashMap::new();
-    for el in doc.find(is_data_script) {
+    for el in doc.find(is_data_link) {
         let id = match el.attr("id").map(str::trim).filter(|s| !s.is_empty()) {
             Some(id) => id.to_string(),
             None => {
                 return Err(site_err(
                     site,
-                    &["type=\"statica/data\"", "type='statica/data'"],
-                    "statica/data script missing id",
+                    &["rel=\"statica/data\"", "rel='statica/data'"],
+                    "statica/data link missing id",
                 ));
             }
         };
-        let Some(src) = el.attr("src").map(str::trim).filter(|s| !s.is_empty()) else {
+        let Some(href) = el.attr("href").map(str::trim).filter(|s| !s.is_empty()) else {
             let id_dq = format!("id=\"{id}\"");
             return Err(site_err(
                 site,
-                &["type=\"statica/data\"", id_dq.as_str()],
-                format!("statica/data#{id} missing src"),
+                &["rel=\"statica/data\"", id_dq.as_str()],
+                format!("statica/data#{id} missing href"),
             ));
         };
-        let src = aliases::resolve_path(src, aliases, site, "src")?;
-        let has_locale_token = i18n::src_has_locale_token(&src);
+        let href = aliases::resolve_path(href, aliases, site, "href")?;
+        let has_locale_token = i18n::src_has_locale_token(&href);
         match filter {
-            DataScriptFilter::WithoutLocaleToken if has_locale_token => continue,
-            DataScriptFilter::WithLocaleTokenOnly { .. } if !has_locale_token => continue,
+            DataLinkFilter::WithoutLocaleToken if has_locale_token => continue,
+            DataLinkFilter::WithLocaleTokenOnly { .. } if !has_locale_token => continue,
             _ => {}
         }
-        let src = match filter {
-            DataScriptFilter::WithLocaleTokenOnly { locale } => {
-                i18n::interpolate_locale(&src, locale)
+        let href = match filter {
+            DataLinkFilter::WithLocaleTokenOnly { locale } => {
+                i18n::interpolate_locale(&href, locale)
             }
-            DataScriptFilter::WithoutLocaleToken => src,
+            DataLinkFilter::WithoutLocaleToken => href,
         };
-        let cache_key = content_cache_key(site_root, page_dir, &src);
-        let value = if let Some(v) = cache.get(&cache_key) {
-            v.clone()
+        let explicit_kind = match el
+            .attr("type")
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            Some(raw) => Some(content::DataKind::from_type_attr(raw).ok_or_else(|| {
+                let type_dq = format!("type=\"{raw}\"");
+                let type_sq = format!("type='{raw}'");
+                site_err(
+                    site,
+                    &[&type_dq, &type_sq, raw],
+                    format!("unsupported statica/data type `{raw}`"),
+                )
+            })?),
+            None => None,
+        };
+        let cache_key = content_cache_key(site_root, page_dir, &href);
+        let loaded = if explicit_kind.is_none() {
+            if let Some(data) = cache.get(&cache_key) {
+                content::LoadedContent {
+                    kind: inferred_data_kind(&href),
+                    data: data.clone(),
+                }
+            } else {
+                let parsed = load_link_content(site_root, page_dir, &href, explicit_kind, site)?;
+                cache.insert(cache_key.clone(), parsed.data.clone());
+                parsed
+            }
         } else {
-            let parsed =
-                content::load_content(site_root, page_dir, &src).map_err(|e| match site {
-                    Some((file, source)) => {
-                        let dq = format!("src=\"{src}\"");
-                        let sq = format!("src='{src}'");
-                        Error::at(file, source, &[&dq, &sq, src.as_str()], e.to_string())
-                    }
-                    None => e,
-                })?;
-            cache.insert(cache_key.clone(), parsed.clone());
-            parsed
+            // `type` changes how bytes are parsed, so explicit links stay out of the path cache.
+            load_link_content(site_root, page_dir, &href, explicit_kind, site)?
         };
         out.insert(
             id.clone(),
             DataSource {
                 id,
+                kind: loaded.kind,
                 path: cache_key,
-                value,
+                data: loaded.data,
             },
         );
     }
     Ok(out)
+}
+
+fn load_link_content(
+    site_root: &Path,
+    page_dir: &Path,
+    href: &str,
+    explicit_kind: Option<content::DataKind>,
+    site: Option<(&str, &str)>,
+) -> Result<content::LoadedContent> {
+    content::load_content(site_root, page_dir, href, explicit_kind).map_err(|e| match site {
+        Some((file, source)) => {
+            let href_dq = format!("href=\"{href}\"");
+            let href_sq = format!("href='{href}'");
+            Error::at(file, source, &[&href_dq, &href_sq, href], e.to_string())
+        }
+        None => e,
+    })
+}
+
+fn inferred_data_kind(href: &str) -> content::DataKind {
+    if content::is_glob_href(href) {
+        content::DataKind::Glob
+    } else {
+        content::DataKind::from_path(Path::new(href)).unwrap_or(content::DataKind::Json)
+    }
 }
 
 fn site_err(site: Option<(&str, &str)>, needles: &[&str], message: impl Into<String>) -> Error {
@@ -166,14 +221,17 @@ fn site_err(site: Option<(&str, &str)>, needles: &[&str], message: impl Into<Str
     }
 }
 
-fn is_data_script(el: &Element) -> bool {
-    el.is_script() && el.attr("type").is_some_and(|t| t == "statica/data")
+fn is_data_link(el: &Element) -> bool {
+    el.is_link()
+        && el
+            .attr("rel")
+            .is_some_and(|r| r.split_whitespace().any(|p| p == "statica/data"))
 }
 
-/// Funnel `<script type="statica/data" id="…">` ids declared on a page.
+/// Funnel `<link rel="statica/data" id="…">` ids declared on a page.
 #[must_use]
-pub fn data_script_ids(doc: &Document) -> Vec<String> {
-    doc.find(is_data_script)
+pub fn data_link_ids(doc: &Document) -> Vec<String> {
+    doc.find(is_data_link)
         .into_iter()
         .filter_map(|el| el.attr("id").map(str::trim).filter(|s| !s.is_empty()))
         .map(str::to_string)
@@ -272,9 +330,9 @@ pub fn resolve_expr(
     let mut value = if first == "this" {
         current.cloned().unwrap_or(Value::Null)
     } else if let Some(ds) = local_data.get(first) {
-        ds.value.clone()
+        ds.value()
     } else if let Some(ds) = parent_data.get(first) {
-        ds.value.clone()
+        ds.value()
     } else if let Some(cur) = current {
         match read_field(cur, first) {
             Some(v) => v.clone(),
@@ -282,7 +340,7 @@ pub fn resolve_expr(
                 return Err(Error::at_file(
                     "<data>",
                     format!(
-                        "missing data source id `{first}` (no <script type=\"statica/data\" id=\"{first}\">)"
+                        "missing data source id `{first}` (no <link rel=\"statica/data\" id=\"{first}\">)"
                     ),
                 ))
             }
@@ -291,7 +349,7 @@ pub fn resolve_expr(
         return Err(Error::at_file(
             "<data>",
             format!(
-                "missing data source id `{first}` (no <script type=\"statica/data\" id=\"{first}\">)"
+                "missing data source id `{first}` (no <link rel=\"statica/data\" id=\"{first}\">)"
             ),
         ));
     };
@@ -362,7 +420,7 @@ pub fn strip_authoring(doc: &mut Document) {
 fn strip_nodes(nodes: &mut Vec<Node>) {
     nodes.retain(|n| match n {
         Node::Element(el) => {
-            if is_data_script(el) {
+            if is_data_link(el) {
                 return false;
             }
             if el.is_link()

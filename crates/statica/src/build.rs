@@ -171,8 +171,9 @@ fn merge_i18n_data(
                 key.clone(),
                 DataSource {
                     id: key.clone(),
+                    kind: crate::content::DataKind::Json,
                     path: PathBuf::from(format!("i18n:{key}")),
-                    value: value.clone(),
+                    data: crate::content::DataSet::Json(value.clone()),
                 },
             );
         }
@@ -207,7 +208,7 @@ impl PreparedPage {
     fn resolve_page_data(
         &self,
         site_root: &Path,
-        data_cache: &mut std::collections::HashMap<PathBuf, Value>,
+        data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
         aliases: &AliasOptions,
         locale: Option<&str>,
         i18n_catalogs: &I18nCatalogs,
@@ -216,7 +217,7 @@ impl PreparedPage {
         let active_locale = Self::active_locale(locale, i18n);
         if funnel::document_has_locale_data(&self.doc) && active_locale.is_none() {
             return Err(self.at(
-                &["type=\"statica/data\"", i18n::LOCALE_SRC_TOKEN],
+                &["rel=\"statica/data\"", "href=", i18n::LOCALE_SRC_TOKEN],
                 format!(
                     "funnel src contains `{}` but i18n is disabled — enable [i18n] or remove the locale token",
                     i18n::LOCALE_SRC_TOKEN
@@ -257,7 +258,7 @@ impl PreparedPage {
         locale: Option<&str>,
         i18n_catalogs: &I18nCatalogs,
         i18n: &I18nOptions,
-        data_cache: &mut std::collections::HashMap<PathBuf, Value>,
+        data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
     ) -> Result<String> {
         let file = self.file();
         let mut doc = self.doc.clone();
@@ -315,7 +316,7 @@ impl PreparedPage {
         i18n_catalogs: &I18nCatalogs,
         i18n: &I18nOptions,
     ) -> bool {
-        if funnel::data_script_has_locale_token(&self.doc, collection_id) {
+        if funnel::data_link_has_locale_token(&self.doc, collection_id) {
             return true;
         }
         if !i18n.enabled {
@@ -333,22 +334,22 @@ impl PreparedPage {
         &self,
         collection_id: &str,
         needle_refs: &[&str],
-    ) -> Result<&[Value]> {
+    ) -> Result<Vec<Value>> {
         let list = self.data.get(collection_id).ok_or_else(|| {
             self.at(
                 needle_refs,
                 format!(
-                    "missing data source id `{collection_id}` (no <script type=\"statica/data\" id=\"{collection_id}\">)"
+                    "missing data source id `{collection_id}` (no <link rel=\"statica/data\" id=\"{collection_id}\">)"
                 ),
             )
         })?;
-        match &list.value {
-            Value::Array(a) => Ok(a.as_slice()),
-            other => Err(self.at(
+        list.array().ok_or_else(|| {
+            let value = list.value();
+            self.at(
                 needle_refs,
-                format!("collection `{collection_id}` must be an array, got {other}"),
-            )),
-        }
+                format!("collection `{collection_id}` must be an array, got {value}"),
+            )
+        })
     }
 }
 
@@ -798,7 +799,7 @@ fn emit_locale_paginated(
         }
     } else {
         let items = page.shared_collection_items(&collection_id, &needle_refs)?;
-        let chunks = paginate::chunk_items(items, rule, &page.source.route, &param);
+        let chunks = paginate::chunk_items(&items, rule, &page.source.route, &param);
         if chunks.is_empty() {
             push_empty_pagination_warning(page, warnings, &collection_id, &needle_refs)?;
             return Ok(EmitResult {
@@ -870,7 +871,7 @@ fn pagination_items_for_locale(
     site_root: &Path,
     collection_id: &str,
     needle_refs: &[&str],
-    data_cache: &mut std::collections::HashMap<PathBuf, Value>,
+    data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
     aliases: &AliasOptions,
     locale: Option<&str>,
     i18n_catalogs: &I18nCatalogs,
@@ -882,17 +883,17 @@ fn pagination_items_for_locale(
         page.at(
             needle_refs,
             format!(
-                "missing data source id `{collection_id}` (no <script type=\"statica/data\" id=\"{collection_id}\">)"
+                "missing data source id `{collection_id}` (no <link rel=\"statica/data\" id=\"{collection_id}\">)"
             ),
         )
     })?;
-    match &list.value {
-        Value::Array(a) => Ok(a.clone()),
-        other => Err(page.at(
+    list.array().ok_or_else(|| {
+        let value = list.value();
+        page.at(
             needle_refs,
-            format!("pagination `{collection_id}` must be an array, got {other}"),
-        )),
-    }
+            format!("pagination `{collection_id}` must be an array, got {value}"),
+        )
+    })
 }
 
 fn push_empty_pagination_warning(
@@ -921,7 +922,7 @@ fn emit_pagination_chunks(
     locale: Option<&str>,
     i18n_catalogs: &I18nCatalogs,
     manifest: Option<&ManifestMeta>,
-    data_cache: &mut std::collections::HashMap<PathBuf, Value>,
+    data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
     outs: &mut Vec<PathBuf>,
 ) -> Result<()> {
     for chunk in chunks {
@@ -1024,7 +1025,6 @@ fn emit_paginated(
         )?
     } else {
         page.shared_collection_items(&collection_id, &needle_refs)?
-            .to_vec()
     };
 
     let chunks = paginate::chunk_items(&items, rule, &page.source.route, &param);
@@ -1089,20 +1089,18 @@ fn emit_collection(
         page.at(
             &needle_refs,
             format!(
-                "missing data source id `{collection_id}` (no <script type=\"statica/data\" id=\"{collection_id}\">)"
+                "missing data source id `{collection_id}` (no <link rel=\"statica/data\" id=\"{collection_id}\">)"
             ),
         )
     })?;
 
-    let items = match &list.value {
-        Value::Array(a) => a,
-        other => {
-            return Err(page.at(
-                &needle_refs,
-                format!("collection `{collection_id}` must be an array, got {other}"),
-            ));
-        }
-    };
+    let items = list.array().ok_or_else(|| {
+        let value = list.value();
+        page.at(
+            &needle_refs,
+            format!("collection `{collection_id}` must be an array, got {value}"),
+        )
+    })?;
 
     if items.is_empty() {
         let mut w = warnings
@@ -1128,7 +1126,7 @@ fn emit_collection(
     let mut outs = Vec::with_capacity(items.len());
 
     for item in items {
-        let folder = funnel::field_as_str(item, param).ok_or_else(|| {
+        let folder = funnel::field_as_str(&item, param).ok_or_else(|| {
             page.at(
                 &needle_refs,
                 format!("collection item missing field `{param}` required by route `[{param}]`"),
@@ -1143,7 +1141,7 @@ fn emit_collection(
         let rendered = page.render(
             registry,
             &opts.root,
-            Some(item),
+            Some(&item),
             &opts.aliases,
             &opts.forms,
             manifest,
@@ -1203,19 +1201,17 @@ fn emit_locale_collection(
                 page.at(
                     &needle_refs,
                     format!(
-                        "missing data source id `{collection_id}` (no <script type=\"statica/data\" id=\"{collection_id}\">)"
+                        "missing data source id `{collection_id}` (no <link rel=\"statica/data\" id=\"{collection_id}\">)"
                     ),
                 )
             })?;
-            let items = match &list.value {
-                Value::Array(a) => a.as_slice(),
-                other => {
-                    return Err(page.at(
-                        &needle_refs,
-                        format!("collection `{collection_id}` must be an array, got {other}"),
-                    ));
-                }
-            };
+            let items = list.array().ok_or_else(|| {
+                let value = list.value();
+                page.at(
+                    &needle_refs,
+                    format!("collection `{collection_id}` must be an array, got {value}"),
+                )
+            })?;
             if items.is_empty() {
                 let mut w = warnings
                     .lock()
@@ -1234,7 +1230,7 @@ fn emit_locale_collection(
                 i18n_catalogs,
                 manifest,
                 param,
-                items,
+                &items,
                 loc,
                 &needle_refs,
                 &mut data_cache,
@@ -1266,7 +1262,7 @@ fn emit_locale_collection(
                 i18n_catalogs,
                 manifest,
                 param,
-                items,
+                &items,
                 loc,
                 &needle_refs,
                 &mut data_cache,
@@ -1293,7 +1289,7 @@ fn emit_locale_collection_items(
     items: &[Value],
     loc: &str,
     needle_refs: &[&str],
-    data_cache: &mut std::collections::HashMap<PathBuf, Value>,
+    data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
     outs: &mut Vec<PathBuf>,
     seen: &mut HashSet<String>,
 ) -> Result<()> {

@@ -18,7 +18,7 @@ discover → pre → parse → funnel → expand → bind → scope → emit →
 | ------ | ------- |
 | `discover` | Find `**/index.html`, detect `[param]` routes |
 | `parse/` | pre → html5ever → normalize → owned AST |
-| `funnel/` | Load `<script type="statica/data">` (JSON, JS literals, Markdown) |
+| `funnel/` | Load `<link rel="statica/data">` (JSON, JSONL/NDJSON, CSV, text, Markdown) |
 | `bind/` | Slots, `${…}` attrs, `data-each`, fragments, i18n, forms |
 | `scope/` | Hash-scoped CSS/JS for fragments |
 | `emit` | Write HTML; CSS transform; asset copy/process |

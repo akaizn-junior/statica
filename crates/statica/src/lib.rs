@@ -5,7 +5,7 @@
 //! 1. **Discover** — every `**/index.html` under the site root (`[param]` → collection).
 //! 2. **Pre** — authoring HTML normalization before html5ever (e.g. `<slot>` in `<select>`).
 //! 3. **Parse** — html5ever → owned AST; post-parse authoring lower (carriers → slots).
-//! 4. **Funnel** — load `<script type="statica/data">` sources (JSON, JS literals, Markdown).
+//! 4. **Funnel** — load `<link rel="statica/data">` sources (JSON, JSONL/NDJSON, CSV, text, Markdown).
 //! 5. **Expand** — static (1:1), collection (1:N items), or pagination (1:N page chunks).
 //! 6. **Bind** — slots + `${…}` attrs + `data-t` / `data-t-{attr}` i18n + fragment/`data-each` expansion + form wiring.
 //! 7. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).

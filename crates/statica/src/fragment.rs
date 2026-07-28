@@ -27,7 +27,7 @@ pub struct Fragment {
 pub struct FragmentRegistry {
     site_root: PathBuf,
     fragments: HashMap<String, Fragment>,
-    data_cache: HashMap<PathBuf, serde_json::Value>,
+    data_cache: HashMap<PathBuf, crate::content::DataSet>,
 }
 
 impl FragmentRegistry {
@@ -50,7 +50,7 @@ impl FragmentRegistry {
         self.fragments.len()
     }
 
-    pub fn data_cache_mut(&mut self) -> &mut HashMap<PathBuf, serde_json::Value> {
+    pub fn data_cache_mut(&mut self) -> &mut HashMap<PathBuf, crate::content::DataSet> {
         &mut self.data_cache
     }
 
@@ -156,7 +156,7 @@ impl FragmentRegistry {
         &self,
         frag: &Fragment,
         locale: Option<&str>,
-        data_cache: &mut HashMap<PathBuf, serde_json::Value>,
+        data_cache: &mut HashMap<PathBuf, crate::content::DataSet>,
         aliases: &AliasOptions,
     ) -> Result<HashMap<String, DataSource>> {
         let mut data = frag.data.clone();

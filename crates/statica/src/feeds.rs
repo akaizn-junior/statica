@@ -10,10 +10,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use rss::{ChannelBuilder, GuidBuilder, Item, ItemBuilder};
-use serde_json::Value;
 use sitemap_rs::sitemap::Sitemap;
 use sitemap_rs::sitemap_index::SitemapIndex;
 use sitemap_rs::url::Url as SitemapUrl;
@@ -152,11 +150,7 @@ fn write_sitemap(
     let urls: Vec<SitemapUrl> = page_outputs
         .iter()
         .filter_map(|p| url_from_output(out_dir, p))
-        .filter_map(|path| {
-            SitemapUrl::builder(format!("{base}{path}"))
-                .build()
-                .ok()
-        })
+        .filter_map(|path| SitemapUrl::builder(format!("{base}{path}")).build().ok())
         .collect();
 
     let per = opts.urls_per_file.clamp(1, SITEMAP_URL_LIMIT);
@@ -196,7 +190,8 @@ fn render_urlset(urls: Vec<SitemapUrl>) -> Result<Vec<u8>> {
 }
 
 fn render_sitemap_index(sitemaps: Vec<Sitemap>) -> Result<Vec<u8>> {
-    let index = SitemapIndex::new(sitemaps).map_err(|e| Error::at_file("sitemap.xml", e.to_string()))?;
+    let index =
+        SitemapIndex::new(sitemaps).map_err(|e| Error::at_file("sitemap.xml", e.to_string()))?;
     let mut buf = Vec::new();
     index
         .write(&mut buf)
@@ -263,11 +258,7 @@ struct RssItem {
     date: String,
 }
 
-fn collect_rss_items(
-    base: &str,
-    rss: &RssOptions,
-    feed_pages: &[FeedPage<'_>],
-) -> Vec<RssItem> {
+fn collect_rss_items(base: &str, rss: &RssOptions, feed_pages: &[FeedPage<'_>]) -> Vec<RssItem> {
     let mut items = Vec::new();
     for page in feed_pages {
         if page.source.kind() != PageKind::Collection {
@@ -282,19 +273,19 @@ fn collect_rss_items(
         let Some(list) = page.data.get(id) else {
             continue;
         };
-        let Value::Array(arr) = &list.value else {
+        let Some(arr) = list.array() else {
             continue;
         };
         let Some(param) = page.source.params.first() else {
             continue;
         };
-        for entry in arr {
+        for entry in &arr {
             let Some(folder) = funnel::field_as_str(entry, param) else {
                 continue;
             };
             let path = route_to_url(&page.source.route, param, &folder);
-            let title = funnel::field_as_str(entry, &rss.title_field)
-                .unwrap_or_else(|| folder.clone());
+            let title =
+                funnel::field_as_str(entry, &rss.title_field).unwrap_or_else(|| folder.clone());
             let description =
                 funnel::field_as_str(entry, &rss.description_field).unwrap_or_default();
             let date = funnel::field_as_str(entry, &rss.date_field).unwrap_or_default();

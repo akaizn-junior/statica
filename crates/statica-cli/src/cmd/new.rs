@@ -99,7 +99,7 @@ Two posts in → two folders out.
     <title>Blog</title>
     <link rel="statica/fragment" type="text/html" href="../ui/post-list.html" id="post-list" />
     <link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
-    <script type="statica/data" src="../content/posts" id="posts"></script>
+    <link rel="statica/data" href="../content/posts/*.md" id="posts" />
   </head>
   <body>
     <h1>All posts</h1>
@@ -115,7 +115,7 @@ Two posts in → two folders out.
   <head>
     <meta charset="utf-8" />
     <title><slot name="headline"></slot></title>
-    <script type="statica/data" src="../../content/posts" id="posts"></script>
+    <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
   </head>
   <body>
     <article>
@@ -146,7 +146,7 @@ statica watch
 Settings live in `statica.toml` (optional; defaults apply if missing).
 
 - Pages are every `**/index.html` (folder = route).
-- Data via `<script type="statica/data" src id>`.
+- Data via `<link rel="statica/data" href id>`.
 - Fragments via `<link rel="statica/fragment" href id>` + `<template id>` + `<slot id>`.
 - Attributes use `${{field}}` declared via fragment `data-bind` (`name` or `{{a, b}}`); content uses `<slot name="field">`.
 "#

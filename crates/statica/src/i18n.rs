@@ -8,7 +8,7 @@ use serde_json::{Map, Value};
 
 use crate::discover::PageSource;
 use crate::error::{Error, Result};
-use crate::funnel::{parse_js_value, read_field};
+use crate::funnel::read_field;
 use crate::parse::{Document, Node};
 
 /// Route param name for locale expansion (`[locale]/…`).
@@ -133,11 +133,7 @@ impl I18nOptions {
 /// True when i18n is enabled, the author did not define a root page, and the
 /// default locale home was emitted (e.g. from `[locale]/index.html`).
 #[must_use]
-pub fn should_emit_root_redirect(
-    i18n: &I18nOptions,
-    pages: &[PageSource],
-    out_dir: &Path,
-) -> bool {
+pub fn should_emit_root_redirect(i18n: &I18nOptions, pages: &[PageSource], out_dir: &Path) -> bool {
     if !i18n.enabled {
         return false;
     }
@@ -247,10 +243,9 @@ fn read_catalog(path: &Path) -> Result<Value> {
             format!("missing i18n catalog: {}", path.display()),
         ));
     }
-    let text = fs::read_to_string(path)
-        .map_err(|e| Error::read(path.display().to_string(), e))?;
-    parse_js_value(&text)
-        .map_err(|message| Error::invalid_js_value(path.display().to_string(), message))
+    let text = fs::read_to_string(path).map_err(|e| Error::read(path.display().to_string(), e))?;
+    serde_json::from_str(&text)
+        .map_err(|e| Error::invalid_content(path.display().to_string(), e.to_string()))
 }
 
 fn resolve_catalog(catalogs: &HashMap<String, Value>, locale: &str, fallback: &str) -> Value {
@@ -346,11 +341,7 @@ fn apply_data_t_attr_translations(el: &mut crate::parse::Element, catalog: &Valu
 
     for (target_attr, translation_key) in markers {
         let marker = format!("{DATA_T_ATTR_PREFIX}{target_attr}");
-        let fallback = el
-            .attrs
-            .get(&target_attr)
-            .cloned()
-            .unwrap_or_default();
+        let fallback = el.attrs.get(&target_attr).cloned().unwrap_or_default();
         let text = lookup_key(catalog, &translation_key).unwrap_or(fallback);
         el.attrs.insert(target_attr, text);
         el.attrs.shift_remove(&marker);

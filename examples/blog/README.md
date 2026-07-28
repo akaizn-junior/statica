@@ -13,10 +13,10 @@ cd examples/blog && statica
 
 Demonstrates:
 
-- Markdown funnel content (`content/posts/*.md` via `<script type="statica/data" src="…/posts">`)
+- Markdown funnel content (`content/posts/*.md` via `<link rel="statica/data" href="…/posts/*.md">`)
 - Home page with `$`-scoped button fragment
 - Paginated listing (`blog/[page]/` → `blog/1/`, `blog/2/`, … via `[[pagination]]`)
-- Collection pages (`posts/[slug]/`) from the posts directory
+- Collection pages (`posts/[slug]/`) from the posts Markdown glob
 - Nested fragment with its own data (`related-posts`)
 - Path aliases + Google Fonts (`@Google/…` via `<link rel="statica/font">`)
 - Static forms (`<form statica>` + `[forms]` in `statica.toml`)
