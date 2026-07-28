@@ -20,7 +20,7 @@
       href="../../ui/related-posts.html"
       id="related-posts"
     />
-    <script type="statica/data" src="../../content/posts" id="posts"></script>
+    <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
   </head>
   <body>
     <article>
@@ -30,7 +30,7 @@
       </header>
       <p><slot name="summary"></slot></p>
       <div><slot name="html"></slot></div>
-      <slot id="post-card" data-bind="."></slot>
+      <slot id="post-card"></slot>
       <slot id="related-posts">More from the archive</slot>
     </article>
     <p><a href="/blog/">← All posts</a></p>

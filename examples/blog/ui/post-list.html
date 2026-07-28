@@ -1,6 +1,6 @@
 <link rel="statica/fragment" type="text/html" href="./post-card.html" id="post-card" />
 
-<template id="post-list" data-bind="posts">
+<template id="post-list" data-bind="{items}">
   <style>
     .posts {
       list-style: none;
@@ -9,6 +9,6 @@
     }
   </style>
   <ul class="posts">
-    <slot id="post-card" data-each="."></slot>
+    <slot id="post-card" data-each="items"></slot>
   </ul>
 </template>

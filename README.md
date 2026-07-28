@@ -149,14 +149,16 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 ```
 
 ```html
-<script type="statica/data" src="../content/posts.json" id="posts"></script>
+<link rel="statica/data" href="../content/posts.json" id="posts" />
 <link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
 <link rel="statica/font" href="@Google/?family=Outfit:wght@100..900&display=swap" />
-<slot id="post-card" data-bind="."></slot>
+<slot id="post-card"></slot>
 ```
 
 - Content → `<slot name="field">` (field must be declared in the fragment `data-bind`)
 - Attributes → `${field}` (same — no magic vars; use `data-bind="{a, b}"` or `${prop.field}`)
+- Fragment mount: `<slot id="fragment-id"></slot>` passes the current item/context
+- Fragment loop: `<slot id="fragment-id" data-each="items"></slot>` passes each item
 - Collection: `<html data-bind="posts">` or `data-bind="{…}">` + `[slug]`
 - Pagination: `<html data-bind="{page, items, …}">` + `[page]`
 

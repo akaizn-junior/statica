@@ -30,7 +30,7 @@ fn html_element(doc: &Document) -> Option<&Element> {
 
 /// Funnel id for collection/pagination routes.
 ///
-/// From `data-bind="id"` on `<html>`, or the lone funnel script when using `data-bind="{…}"`.
+/// From `data-bind="id"` on `<html>`, or the lone data link when using `data-bind="{…}"`.
 #[must_use]
 pub fn html_collection_id(doc: &Document) -> Option<String> {
     if let Some(raw) = html_bind_raw(doc) {
@@ -38,7 +38,7 @@ pub fn html_collection_id(doc: &Document) -> Option<String> {
             return Some(name);
         }
     }
-    let ids = funnel::data_script_ids(doc);
+    let ids = funnel::data_link_ids(doc);
     if ids.len() == 1 {
         return Some(ids[0].clone());
     }
@@ -50,10 +50,10 @@ pub fn require_collection_id(doc: &Document, source: BindSource<'_>) -> Result<S
     if let Some(id) = html_collection_id(doc) {
         return Ok(id);
     }
-    let ids = funnel::data_script_ids(doc);
+    let ids = funnel::data_link_ids(doc);
     let message = match ids.len() {
-        0 => "collection page needs data-bind=\"id\" or data-bind=\"{…}\" with a funnel script",
-        _ => "multiple funnel scripts — set data-bind=\"id\" on <html> to the collection id",
+        0 => "collection page needs data-bind=\"id\" or data-bind=\"{…}\" with a data link",
+        _ => "multiple data links — set data-bind=\"id\" on <html> to the collection id",
     };
     Err(Error::at(
         source.file,
@@ -104,7 +104,7 @@ pub fn validate_page_binds(doc: &Document, source: BindSource<'_>) -> Result<()>
 
 /// Collection / pagination templates must declare `<html data-bind>`.
 ///
-/// Locale-only routes (`[locale]/` with no other params) may bind `{locale}` without a funnel script.
+/// Locale-only routes (`[locale]/` with no other params) may bind `{locale}` without a data link.
 pub fn validate_collection_page_binds(
     doc: &Document,
     kind: PageKind,
@@ -117,7 +117,7 @@ pub fn validate_collection_page_binds(
     if html_bind_raw(doc).is_none() {
         return Ok(());
     }
-    if !(locale_only && funnel::data_script_ids(doc).is_empty()) {
+    if !(locale_only && funnel::data_link_ids(doc).is_empty()) {
         require_collection_id(doc, source)?;
     }
     validate_page_binds(doc, source)
@@ -134,7 +134,7 @@ pub fn render_page_document(
     manifest: Option<&ManifestMeta>,
     locale: Option<&str>,
     i18n_catalog: Option<&Value>,
-    data_cache: &mut HashMap<PathBuf, Value>,
+    data_cache: &mut HashMap<PathBuf, crate::content::DataSet>,
     site: Option<(&str, &str)>,
 ) -> Result<String> {
     let mut doc = doc.clone();
@@ -204,7 +204,7 @@ pub fn expand_usage_slots_in_nodes(
     data_map: &HashMap<String, DataSource>,
     locale: Option<&str>,
     i18n_catalog: Option<&Value>,
-    data_cache: &mut HashMap<PathBuf, Value>,
+    data_cache: &mut HashMap<PathBuf, crate::content::DataSet>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
 ) -> Result<()> {
@@ -217,13 +217,12 @@ pub fn expand_usage_slots_in_nodes(
                 let id = el.attr("id").unwrap_or("").to_string();
                 let children_html_nodes = el.children.clone();
                 let each = el.attr("data-each").map(str::to_string);
-                let bind = el.attr("data-bind").map(str::to_string);
-                Some((id, children_html_nodes, each, bind))
+                Some((id, children_html_nodes, each))
             }
             _ => None,
         };
 
-        if let Some((id, children_nodes, each, bind)) = replace {
+        if let Some((id, children_nodes, each)) = replace {
             let rendered = if let Some(each_expr) = each {
                 let list = funnel::resolve_expr(&each_expr, current, data_map, data_map)
                     .map_err(|e| relocate_data_err(e, site, &each_expr))?;
@@ -241,11 +240,7 @@ pub fn expand_usage_slots_in_nodes(
                     &each_expr,
                 )?
             } else {
-                let value = match bind.as_deref() {
-                    None | Some("") => Value::Null,
-                    Some(b) => funnel::resolve_expr(b, current, data_map, data_map)
-                        .map_err(|e| relocate_data_err(e, site, b))?,
-                };
+                let value = current.cloned().unwrap_or(Value::Null);
                 render_fragment_nodes(
                     registry,
                     &id,
@@ -303,7 +298,7 @@ fn render_each(
     children: &[Node],
     locale: Option<&str>,
     i18n_catalog: Option<&Value>,
-    data_cache: &mut HashMap<PathBuf, Value>,
+    data_cache: &mut HashMap<PathBuf, crate::content::DataSet>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
     each_expr: &str,
@@ -349,7 +344,7 @@ fn render_fragment_nodes(
     children: &[Node],
     locale: Option<&str>,
     i18n_catalog: Option<&Value>,
-    data_cache: &mut HashMap<PathBuf, Value>,
+    data_cache: &mut HashMap<PathBuf, crate::content::DataSet>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
 ) -> Result<Vec<Node>> {

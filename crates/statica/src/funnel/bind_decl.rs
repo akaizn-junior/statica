@@ -293,18 +293,6 @@ fn validate_mount_element(
                 ensure_bound(fragment_id, scope, each, root, source, &[&dq, &sq])?;
             }
         }
-        if let Some(bind) = el
-            .attr("data-bind")
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            let root = path_root(bind);
-            if root != "." {
-                let dq = format!("data-bind=\"{bind}\"");
-                let sq = format!("data-bind='{bind}'");
-                ensure_bound(fragment_id, scope, bind, root, source, &[&dq, &sq])?;
-            }
-        }
     }
     for node in &el.children {
         if let Node::Element(child) = node {
@@ -334,6 +322,20 @@ fn validate_element(
     el: &Element,
     source: BindSource<'_>,
 ) -> Result<()> {
+    if let Some(bind) = el
+        .attr("data-bind")
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        let dq = format!("data-bind=\"{bind}\"");
+        let sq = format!("data-bind='{bind}'");
+        return Err(Error::at(
+            source.file,
+            source.source,
+            &[&dq, &sq],
+            "data-bind is only valid on <html> and fragment <template>",
+        ));
+    }
     if el.is_slot() && el.attr("id").is_none() {
         if let Some(name) = el.attr("name").map(str::trim).filter(|s| !s.is_empty()) {
             let dq = format!("name=\"{name}\"");
@@ -348,7 +350,7 @@ fn validate_element(
             )?;
         }
     }
-    if !el.is_script() && !el.is_style() {
+    if !el.is_script() && !el.is_style() && !is_statica_link(el) {
         for (_k, v) in &el.attrs {
             if v.contains("${") {
                 for path in template_paths(v) {
@@ -360,6 +362,14 @@ fn validate_element(
         }
     }
     validate_nodes(fragment_id, scope, &el.children, source)
+}
+
+fn is_statica_link(el: &Element) -> bool {
+    el.is_link()
+        && el.attr("rel").is_some_and(|rel| {
+            rel.split_whitespace()
+                .any(|part| part == "statica/data" || part == "statica/fragment")
+        })
 }
 
 fn ensure_bound(

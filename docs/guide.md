@@ -46,10 +46,26 @@ blog/[page]/index.html     -> .dist/blog/1/, .dist/blog/2/, ...
 Load build-time data with `statica/data`.
 
 ```html
-<script type="statica/data" src="../content/posts.json" id="posts"></script>
+<link rel="statica/data" href="../content/posts.json" id="posts" />
 ```
 
-Sources can be JSON, JS value literals, Markdown files, Markdown directories, or globs. Data is loaded at build time. Output is static HTML.
+Sources can be JSON, JSONL/NDJSON, CSV, plain text, Markdown, or globs. Data `href` must point to a file or explicit glob, not a directory. Data is loaded at build time. Output is static HTML.
+
+The data type is inferred from the file extension. You can also declare it with `type`:
+
+```html
+<link rel="statica/data" href="../content/notes" id="notes" type="text/plain" />
+```
+
+Format shapes:
+
+| File | Value |
+| ---- | ----- |
+| `.json` | Parsed JSON value |
+| `.jsonl`, `.ndjson` | Array of one JSON value per non-empty line |
+| `.csv` | Array of objects from the header row |
+| `.txt`, `.text` | Array of non-empty strings, one per line |
+| `.md`, `.markdown` | Object with frontmatter fields, `slug`, and `html` |
 
 ## Binding
 
@@ -100,7 +116,7 @@ posts/[slug]/index.html
 ```html
 <html lang="en" data-bind="{slug, headline, html}">
   <head>
-    <script type="statica/data" src="../../content/posts" id="posts"></script>
+    <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
     <title><slot name="headline"></slot></title>
   </head>
   <body>
@@ -132,7 +148,7 @@ blog/[page]/index.html
 <html lang="en" data-bind="{page, total_pages, items, prev_href, next_href, pages}">
   <body>
     <p>Page <slot name="page"></slot> of <slot name="total_pages"></slot></p>
-    <slot id="post-list" data-bind="items"></slot>
+    <slot id="post-list"></slot>
     <a href="${prev_href}">Previous</a>
     <a href="${next_href}">Next</a>
   </body>
@@ -158,7 +174,7 @@ Fragments have three matching parts: import, mount, template.
 
 ```html
 <link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
-<slot id="post-card" data-bind="."></slot>
+<slot id="post-card"></slot>
 ```
 
 ```html
@@ -173,9 +189,9 @@ Fragments have three matching parts: import, mount, template.
 Loop with `data-each`.
 
 ```html
-<template id="post-list" data-bind="posts">
+<template id="post-list" data-bind="{items}">
   <ul>
-    <slot id="post-card" data-each="."></slot>
+    <slot id="post-card" data-each="items"></slot>
   </ul>
 </template>
 ```
@@ -280,7 +296,7 @@ Catalogs live at `content/i18n/{locale}.json`.
 Locale-specific data can use `${locale}` in funnel `src`.
 
 ```html
-<script type="statica/data" src="../../../content/posts.${locale}.json" id="posts"></script>
+<link rel="statica/data" href="../../../content/posts.${locale}.json" id="posts" />
 ```
 
 ## Aliases

@@ -10,7 +10,7 @@ Instructions for AI coding agents working in this repository.
 
 | Concept | Role |
 | ------- | ---- |
-| **Funnel** | Build-time data via `<script type="statica/data" src id>` |
+| **Funnel** | Build-time data via `<link rel="statica/data" href id>` |
 | **Pages** | Every `**/index.html` — folder path is the route (`[slug]`, `[page]`, `[locale]`) |
 
 Flow: **discover → funnel → bind → scope → emit** (default output: `.dist/`)
@@ -76,7 +76,7 @@ When creating or editing HTML sites that statica builds — whether in `examples
 ### Mental model
 
 - **Routing is filesystem-based.** `about/index.html` → `/about/`. Dynamic segments use bracket folders: `posts/[slug]/index.html`.
-- **Data is build-time only.** Funnel scripts load JSON, JS value literals, or Markdown directories at build time. Production output is plain static HTML — no runtime data fetching.
+- **Data is build-time only.** Funnel links load JSON, JSONL/NDJSON, CSV, plain text, Markdown, or explicit globs at build time. Production output is plain static HTML — no runtime data fetching.
 - **Fragments are HTML components.** `<template id="…">` in a fragment file, imported with `<link rel="statica/fragment">`, mounted with `<slot id="…">`.
 - **Default build command is short.** Prefer examples like `statica .` or `statica examples/blog`; use `statica build …` when documenting the explicit subcommand.
 
@@ -89,7 +89,7 @@ Every fragment needs matching `id` on all three parts:
 <link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
 
 <!-- 2. Mount -->
-<slot id="post-card" data-bind="."></slot>
+<slot id="post-card"></slot>
 
 <!-- 3. Template (in ui/post-card.html) -->
 <template id="post-card" data-bind="{slug, headline}">
@@ -106,7 +106,7 @@ Every fragment needs matching `id` on all three parts:
 | Whole object | `data-bind="posts"` on fragments | Use `${posts.field}` or nested slots |
 | Page collection | `data-bind="posts"` or `data-bind="{headline, …}"` | Named → `${posts.field}`; destructure → `<slot name="field">` |
 | Destructured fields | `data-bind="{slug, headline}"` | Use `${slug}` directly |
-| Current item in loop | `data-bind="."` | On `<slot>` inside `data-each` |
+| Current item in loop | `data-each="items"` | On fragment mount `<slot id="...">` |
 | Loops | `data-each="items"` | On `<slot id="fragment-id">` |
 
 **No magic flattening.** If you write `${variant}`, you must bind `{variant, …}` or `${button.variant}` with `data-bind="button"`. Wrong bindings produce `file:line:column` diagnostics.
@@ -119,7 +119,7 @@ Every fragment needs matching `id` on all three parts:
 
 ```html
 <html lang="en" data-bind="{headline, summary}">
-  <script type="statica/data" src="../../content/posts" id="posts"></script>
+  <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
   <title><slot name="headline"></slot></title>
 </html>
 ```
@@ -128,7 +128,7 @@ Every fragment needs matching `id` on all three parts:
 
 ```html
 <html lang="en" data-bind="{page, total_pages, items, prev_href, next_href, pages}">
-  <slot id="post-list" data-bind="items"></slot>
+  <slot id="post-list"></slot>
   <a href="${prev_href}">Previous</a>
 </html>
 ```
@@ -166,7 +166,7 @@ Page context includes: `items`, `page`, `total_pages`, `prev_href`, `next_href`,
 my-site/
 ├── statica.toml
 ├── index.html
-├── content/           # funnel sources (JSON, JS, Markdown)
+├── content/           # funnel sources (JSON, JSONL, CSV, text, Markdown)
 │   └── i18n/{locale}.json
 ├── ui/                # fragment templates
 ├── posts/[slug]/index.html

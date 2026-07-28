@@ -26,7 +26,7 @@ examples/blog/
 ├── index.html            # home page
 ├── site.css              # global styles
 ├── content/
-│   ├── posts/            # Markdown funnel (directory)
+│   ├── posts/            # Markdown files loaded by glob
 │   └── i18n/en.json, pt.json
 ├── ui/                   # fragment templates
 │   ├── post-card.html
@@ -41,13 +41,13 @@ examples/blog/
 
 ## Patterns to copy
 
-### Funnel from Markdown directory
+### Funnel from Markdown glob
 
 ```html
-<script type="statica/data" src="../../content/posts" id="posts"></script>
+<link rel="statica/data" href="../../content/posts/*.md" id="posts" />
 ```
 
-Points at a directory of `.md` files with YAML front matter — see `content/posts/*.md`.
+Points at an explicit `.md` glob with YAML front matter — see `content/posts/*.md`.
 
 ### Collection page
 
@@ -63,7 +63,7 @@ Points at a directory of `.md` files with YAML front matter — see `content/pos
 [`blog/[page]/index.html`](blog/[page]/index.html):
 
 - Same funnel binding on `<html>`
-- `<slot id="post-list" data-bind="items">` for the current page chunk
+- `<slot id="post-list">` passes the pagination context into the fragment
 - `${prev_href}`, `${next_href}`, `data-each="pages"` for nav
 
 Pagination config in [`statica.toml`](statica.toml):
