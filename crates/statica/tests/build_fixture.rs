@@ -655,10 +655,10 @@ fn i18n_expands_locale_param_from_config() {
         dir.join("[locale]/about/index.html"),
         r#"<!doctype html>
 <html lang="en">
-  <head><title data-t="${title}">About</title></head>
+  <head><title data-t="${i18n.title}">About</title></head>
   <body>
-    <h1 data-t="${title}">About</h1>
-    <span data-t="${label}">hello</span>
+    <h1 data-t="${i18n.title}">About</h1>
+    <span data-t="${i18n.label}">hello</span>
   </body>
 </html>"#,
     )
@@ -688,6 +688,42 @@ fn i18n_expands_locale_param_from_config() {
     assert!(pt.contains("<span>Contactar</span>"));
 
     assert!(!dir.join("dist/[locale]").exists());
+}
+
+#[test]
+fn i18n_catalog_keys_must_use_canonical_i18n_root() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("[locale]/about")).unwrap();
+    std::fs::create_dir_all(dir.join("content/i18n")).unwrap();
+    std::fs::write(
+        dir.join("content/i18n/en.json"),
+        r#"{"about": {"title": "About"}}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("[locale]/about/index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <body><h1 data-t="${about.title}">About</h1></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.i18n = statica::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into()],
+        ..Default::default()
+    };
+
+    let err = build(&opts).unwrap_err().to_string();
+    assert!(
+        err.contains("`about` is not bound"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]
@@ -742,8 +778,8 @@ fn i18n_emits_root_redirect_to_default_locale() {
         dir.join("[locale]/index.html"),
         r#"<!doctype html>
 <html lang="en">
-  <head><title data-t="${title}">Home</title></head>
-  <body><h1 data-t="${title}">Home</h1></body>
+  <head><title data-t="${i18n.title}">Home</title></head>
+  <body><h1 data-t="${i18n.title}">Home</h1></body>
 </html>"#,
     )
     .unwrap();
@@ -787,7 +823,7 @@ fn i18n_skips_root_redirect_when_author_has_root_page() {
     .unwrap();
     std::fs::write(
         dir.join("[locale]/index.html"),
-        r#"<!doctype html><html><body><h1 data-t="${title}">Home</h1></body></html>"#,
+        r#"<!doctype html><html><body><h1 data-t="${i18n.title}">Home</h1></body></html>"#,
     )
     .unwrap();
 
@@ -831,7 +867,7 @@ fn i18n_loads_locale_specific_funnel_data() {
 <html lang="en">
   <head>
     <link rel="statica/data" href="../../../content/posts.${locale}.json" id="posts" />
-    <title data-t="${title}">Posts</title>
+    <title data-t="${i18n.title}">Posts</title>
   </head>
   <body>
     <h1><slot name="item.headline"></slot></h1>
@@ -878,7 +914,7 @@ fn i18n_fragment_inherits_parent_locale_for_data_t() {
     std::fs::write(
         dir.join("ui/button.html"),
         r#"<template id="button">
-  <button type="button"><span data-t="${cta}">Contact</span></button>
+  <button type="button"><span data-t="${i18n.cta}">Contact</span></button>
 </template>"#,
     )
     .unwrap();
@@ -959,9 +995,9 @@ fn i18n_translates_a11y_attributes() {
         r##"<!doctype html>
 <html lang="en">
   <body>
-    <a href="#main" aria-label="Skip to main content" data-t-aria-label="${skip}"></a>
-    <img src="/sunset.jpg" alt="Sunset over the hills" data-t-alt="${photo.alt}" />
-    <input type="email" placeholder="Your email address" data-t-placeholder="${form.email_placeholder}" />
+    <a href="#main" aria-label="Skip to main content" data-t-aria-label="${i18n.skip}"></a>
+    <img src="/sunset.jpg" alt="Sunset over the hills" data-t-alt="${i18n.photo.alt}" />
+    <input type="email" placeholder="Your email address" data-t-placeholder="${i18n.form.email_placeholder}" />
   </body>
 </html>"##,
     )
@@ -1022,10 +1058,10 @@ fn i18n_pagination_chunks_once_for_shared_data() {
 <html lang="en">
   <head>
     <link rel="statica/data" href="../../../content/posts.json" id="posts" />
-    <title data-t="${blog_title}">Blog</title>
+    <title data-t="${i18n.blog_title}">Blog</title>
   </head>
   <body>
-    <h1 data-t="${blog_title}">Blog</h1>
+    <h1 data-t="${i18n.blog_title}">Blog</h1>
     <p>Page <slot name="page.pagination.page"></slot> of <slot name="page.pagination.total_pages"></slot></p>
   </body>
 </html>"#,

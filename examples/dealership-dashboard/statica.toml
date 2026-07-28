@@ -1,0 +1,27 @@
+site_url = "https://example.com"
+out_dir = ".dist"
+clean = true
+copy_assets = true
+
+[process]
+css = true
+
+[sitemap]
+enabled = true
+
+[rss]
+enabled = true
+title = "Dealership inventory"
+description = "Latest dealership inventory from CSV data."
+collections = ["inventory"]
+title_field = "headline"
+description_field = "summary"
+date_field = "published_at"
+limit = 40
+
+[[pagination]]
+route = "inventory/[page]"
+page_size = 24
+sort_by = "published_at"
+sort_desc = true
+index = true

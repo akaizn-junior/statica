@@ -194,24 +194,17 @@ fn add_data_roots(ctx: &mut Value, page_data: &HashMap<String, DataSource>) {
 }
 
 fn data_t_context(ctx: &Value, i18n_catalog: Option<&Value>) -> Value {
-    let Some(Value::Object(catalog)) = i18n_catalog else {
+    let Some(catalog) = i18n_catalog else {
         return ctx.clone();
     };
     let mut merged = match ctx {
         Value::Object(map) => map.clone(),
         _ => serde_json::Map::new(),
     };
-    for (key, value) in catalog {
-        match (merged.get(key), value) {
-            (Some(existing), overlay) if existing.is_object() && overlay.is_object() => {
-                merged.insert(key.clone(), deep_merge(existing, overlay));
-            }
-            (None, overlay) => {
-                merged.insert(key.clone(), overlay.clone());
-            }
-            _ => {}
-        }
-    }
+    let i18n = merged
+        .get("i18n")
+        .map_or_else(|| catalog.clone(), |base| deep_merge(base, catalog));
+    merged.insert("i18n".into(), i18n);
     Value::Object(merged)
 }
 

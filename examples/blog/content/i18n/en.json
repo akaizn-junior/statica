@@ -1,16 +1,13 @@
 {
-  "page": {
+  "about": {
     "title": "About",
-    "intro": "statica — Powered HTML."
-  },
-  "nav": {
+    "intro": "statica — Powered HTML.",
     "home": "Home",
-    "en": "English",
-    "pt": "Português",
-    "skip": "Skip to main content"
-  },
-  "form": {
-    "email": "Email",
-    "send": "Send"
+    "nav_en": "English",
+    "nav_pt": "Português",
+    "nav_home": "Home",
+    "nav_skip": "Skip to main content",
+    "form_email": "Email",
+    "form_send": "Send"
   }
 }

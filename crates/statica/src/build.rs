@@ -378,7 +378,7 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
 
     let t = Instant::now();
     let i18n_catalogs = I18nCatalogs::load(&opts.root, &opts.i18n)?;
-    let extra_bind_roots = i18n_catalogs.root_keys()?;
+    let extra_bind_roots = vec!["i18n".to_string()];
     let (registry, prepared, data_sources) =
         prepare_pages(&pages, &opts.root, &opts.aliases, &extra_bind_roots)?;
     let prepare_ms = t.elapsed().as_millis();

@@ -1,16 +1,16 @@
 <!doctype html>
-<html lang="en" data-bind="{headline, published_at, summary, html}">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title data-t="${headline}">Post</title>
+    <title data-t="${item.headline}">Post</title>
     <link rel="statica/data" href="../../content/posts.json" id="posts" />
   </head>
   <body>
     <article>
-      <h1 data-t="${headline}">Post</h1>
-      <time data-t="${published_at}"></time>
-      <p data-t="${summary}"></p>
-      <div><slot name="html"></slot></div>
+      <h1 data-t="${item.headline}">Post</h1>
+      <time data-t="${item.published_at}"></time>
+      <p data-t="${item.summary}"></p>
+      <div><slot name="item.html"></slot></div>
     </article>
     <p><a href="/blog/">← All posts</a></p>
   </body>

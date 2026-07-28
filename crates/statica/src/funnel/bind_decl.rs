@@ -263,7 +263,7 @@ pub fn validate_template_binds(
 }
 
 /// Fail the build if `${…}` / named slots reference names not declared in `data-bind`
-/// or provided by an external build-time context such as i18n catalogs.
+/// or provided by an explicit external build-time context.
 pub fn validate_template_binds_with_roots(
     fragment_id: &str,
     decl: &BindDecl,

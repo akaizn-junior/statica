@@ -1,0 +1,22 @@
+<template
+  id="inventory-card"
+  data-bind="{slug, headline, summary, stock_number, status, condition, list_price, days_in_stock, location}"
+>
+  <article class="inventory-card">
+    <div class="vehicle-topline">
+      <div>
+        <p><slot name="stock_number"></slot></p>
+        <h2><a href="/vehicles/${slug}/"><slot name="headline"></slot></a></h2>
+      </div>
+      <span class="status-pill"><slot name="status"></slot></span>
+    </div>
+    <p class="vehicle-summary"><slot name="summary"></slot></p>
+    <dl>
+      <div><dt>Condition</dt><dd><slot name="condition"></slot></dd></div>
+      <div><dt>Price</dt><dd>$<slot name="list_price"></slot></dd></div>
+      <div><dt>Age</dt><dd><slot name="days_in_stock"></slot>d</dd></div>
+      <div><dt>Location</dt><dd><slot name="location"></slot></dd></div>
+    </dl>
+    <a class="card-link" href="/vehicles/${slug}/">View details</a>
+  </article>
+</template>

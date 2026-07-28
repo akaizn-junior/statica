@@ -1,16 +1,13 @@
 {
-  "page": {
+  "about": {
     "title": "Sobre",
-    "intro": "statica — HTML com superpoderes."
-  },
-  "nav": {
+    "intro": "statica — HTML com superpoderes.",
     "home": "Início",
-    "en": "English",
-    "pt": "Português",
-    "skip": "Saltar para o conteúdo principal"
-  },
-  "form": {
-    "email": "Email",
-    "send": "Enviar"
+    "nav_en": "English",
+    "nav_pt": "Português",
+    "nav_home": "Início",
+    "nav_skip": "Saltar para o conteúdo principal",
+    "form_email": "Email",
+    "form_send": "Enviar"
   }
 }

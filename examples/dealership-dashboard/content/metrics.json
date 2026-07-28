@@ -1,0 +1,32 @@
+[
+  {
+    "label": "Inventory units",
+    "value": "800",
+    "note": "vehicles in funnel"
+  },
+  {
+    "label": "Available units",
+    "value": "363",
+    "note": "ready for sale"
+  },
+  {
+    "label": "Sold units",
+    "value": "208",
+    "note": "year to date"
+  },
+  {
+    "label": "Average gross",
+    "value": "$5,721",
+    "note": "sold vehicles"
+  },
+  {
+    "label": "Inventory value",
+    "value": "$20,163,139",
+    "note": "available list price"
+  },
+  {
+    "label": "Avg days stock",
+    "value": "93",
+    "note": "all inventory"
+  }
+]

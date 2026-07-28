@@ -1,0 +1,72 @@
+{
+  "status": [
+    {
+      "label": "Available",
+      "value": 363
+    },
+    {
+      "label": "Sold",
+      "value": 208
+    },
+    {
+      "label": "Reserved",
+      "value": 96
+    },
+    {
+      "label": "Service Hold",
+      "value": 57
+    },
+    {
+      "label": "In Transit",
+      "value": 76
+    }
+  ],
+  "makes": [
+    {
+      "label": "Mercedes-Benz",
+      "value": 94
+    },
+    {
+      "label": "Chevrolet",
+      "value": 86
+    },
+    {
+      "label": "Toyota",
+      "value": 85
+    },
+    {
+      "label": "BMW",
+      "value": 83
+    },
+    {
+      "label": "Tesla",
+      "value": 83
+    },
+    {
+      "label": "Nissan",
+      "value": 80
+    },
+    {
+      "label": "Hyundai",
+      "value": 78
+    },
+    {
+      "label": "Honda",
+      "value": 72
+    }
+  ],
+  "gross": [
+    {
+      "label": "Certified",
+      "value": 6935
+    },
+    {
+      "label": "New",
+      "value": 6979
+    },
+    {
+      "label": "Used",
+      "value": 6590
+    }
+  ]
+}

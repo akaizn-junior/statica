@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en" data-theme="corporate">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dealership Dashboard</title>
+    <meta name="description" content="Dealership inventory dashboard generated from CSV data." />
+    <link rel="canonical" href="https://example.com/" />
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/public/dashboard.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="statica/data" type="application/json" href="./content/metrics.json" id="metrics" />
+    <link rel="statica/data" type="application/json" href="./content/charts.json" id="charts" />
+    <link rel="statica/fragment" type="text/html" href="./ui/metric-card.html" id="metric-card" />
+    <link rel="statica/fragment" type="text/html" href="./ui/chart-point.html" id="chart-point" />
+  </head>
+  <body id="top">
+    <main class="site-shell dashboard-page">
+      <nav class="topbar">
+        <div class="brand">
+          <span class="brand-mark">A</span>
+          <a href="/">Apex Motors</a>
+        </div>
+        <div class="topbar-links">
+          <a class="is-active" href="/">Dashboard</a>
+          <a href="/inventory/">Inventory</a>
+        </div>
+        <details class="mobile-menu">
+          <summary>Menu</summary>
+          <div>
+            <a href="/">Dashboard</a>
+            <a href="/inventory/">Inventory</a>
+          </div>
+        </details>
+      </nav>
+      <header class="hero-panel">
+        <div>
+          <p class="eyebrow">Dealership operations</p>
+          <h1>Inventory dashboard</h1>
+          <p class="timestamp">Executive view of inventory health, demand mix, and gross margin.</p>
+        </div>
+        <a class="hero-action" href="/inventory/">Browse 800 vehicles</a>
+      </header>
+
+      <section class="logo-strip" aria-label="Dealership locations">
+        <span>Downtown</span>
+        <span>North Lot</span>
+        <span>Airport</span>
+        <span>Westside</span>
+        <span>Online Hold</span>
+      </section>
+
+      <section class="metrics" aria-label="Performance metrics">
+        <slot id="metric-card" data-each="data.metrics"></slot>
+      </section>
+
+      <section class="charts" aria-label="Inventory charts">
+        <article class="chart-card chart-card-small">
+          <div class="section-title">
+            <p>Status</p>
+            <h2>Status mix</h2>
+          </div>
+          <div class="chart-frame">
+            <canvas id="status-chart"></canvas>
+          </div>
+        </article>
+        <article class="chart-card chart-card-wide">
+          <div class="section-title">
+            <p>Inventory</p>
+            <h2>Top makes by inventory</h2>
+          </div>
+          <div class="chart-frame">
+            <canvas id="make-chart"></canvas>
+          </div>
+        </article>
+        <article class="chart-card chart-card-wide">
+          <div class="section-title">
+            <p>Profitability</p>
+            <h2>Average gross by condition</h2>
+          </div>
+          <div class="chart-frame">
+            <canvas id="gross-chart"></canvas>
+          </div>
+        </article>
+      </section>
+
+      <div id="chart-data" hidden>
+        <div data-chart-series="status">
+          <slot id="chart-point" data-each="data.charts.status"></slot>
+        </div>
+        <div data-chart-series="makes">
+          <slot id="chart-point" data-each="data.charts.makes"></slot>
+        </div>
+        <div data-chart-series="gross">
+          <slot id="chart-point" data-each="data.charts.gross"></slot>
+        </div>
+      </div>
+      <footer class="site-footer">
+        <div class="brand">
+          <span class="brand-mark">A</span>
+          <a href="/">Apex Motors</a>
+        </div>
+        <nav>
+          <a href="/inventory/">Inventory</a>
+          <a href="/sitemap.xml">Sitemap</a>
+          <a href="/rss.xml">RSS</a>
+          <a href="#top">Back to top</a>
+        </nav>
+      </footer>
+    </main>
+    <script>
+      (() => {
+        const series = (name) =>
+          [...document.querySelectorAll(`[data-chart-series="${name}"] [data-chart-point]`)].map(
+            (point) => ({
+              label: point.dataset.label,
+              value: Number(point.dataset.value || 0),
+            }),
+          );
+
+        const palette = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2"];
+        const gridColor = "#e2e8f0";
+
+        const chartDefaults = {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                boxWidth: 10,
+                boxHeight: 10,
+                color: "#334155",
+              },
+            },
+          },
+        };
+
+        const status = series("status");
+        new Chart(document.getElementById("status-chart"), {
+          type: "doughnut",
+          data: {
+            labels: status.map((point) => point.label),
+            datasets: [{ data: status.map((point) => point.value), backgroundColor: palette }],
+          },
+          options: chartDefaults,
+        });
+
+        const makes = series("makes");
+        new Chart(document.getElementById("make-chart"), {
+          type: "bar",
+          data: {
+            labels: makes.map((point) => point.label),
+            datasets: [
+              {
+                label: "Vehicles",
+                data: makes.map((point) => point.value),
+                backgroundColor: "#2563eb",
+                borderRadius: 4,
+              },
+            ],
+          },
+          options: {
+            ...chartDefaults,
+            scales: {
+              x: { grid: { display: false }, ticks: { color: "#475569" } },
+              y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: "#475569" } },
+            },
+          },
+        });
+
+        const gross = series("gross");
+        new Chart(document.getElementById("gross-chart"), {
+          type: "bar",
+          data: {
+            labels: gross.map((point) => point.label),
+            datasets: [
+              {
+                label: "Average gross",
+                data: gross.map((point) => point.value),
+                backgroundColor: "#16a34a",
+                borderRadius: 4,
+              },
+            ],
+          },
+          options: {
+            ...chartDefaults,
+            scales: {
+              x: { grid: { display: false }, ticks: { color: "#475569" } },
+              y: {
+                beginAtZero: true,
+                grid: { color: gridColor },
+                ticks: {
+                  color: "#475569",
+                  callback: (value) => `$${value}`,
+                },
+              },
+            },
+          },
+        });
+      })();
+    </script>
+  </body>
+</html>

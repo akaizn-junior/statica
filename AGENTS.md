@@ -138,7 +138,7 @@ Every fragment needs matching `id` on all three parts:
 
 Page context roots are `data`, `item`, `page`, and `i18n`; pagination metadata lives at `page.pagination`. See [docs/guide.md](docs/guide.md).
 
-**i18n page** — `[locale]/` segment + `[i18n]` config. Use `data-t="${key}"` for translatable text; `${i18n.locale}` works in attributes and `data-t`, not text nodes.
+**i18n page** — `[locale]/` segment + `[i18n]` config. Use `data-t="${i18n.section.key}"` for catalog text; `${i18n.locale}` works in attributes and `data-t`, not text nodes.
 
 ### CSS and JS in fragments
 

@@ -89,7 +89,7 @@ index = true
 
 - Template at `[locale]/about/index.html`
 - Catalogs in `content/i18n/{locale}.json`
-- `data-t="${key}"` on translatable elements
+- `data-t="${i18n.about.title}"`-style paths on translatable elements
 - Config: `[i18n] enabled = true, locales = ["en", "pt"]`
 
 ## When editing this fixture

@@ -323,12 +323,12 @@ dir = "content/i18n"
 Catalogs live at `content/i18n/{locale}.json`.
 
 ```html
-<span data-t="${nav.home}">Home</span>
+<span data-t="${i18n.nav.home}">Home</span>
 <title data-t="${item.headline}">Fallback title</title>
 <a href="/${i18n.locale}/">Home</a>
 ```
 
-`data-t` replaces element text with a plain template string. Literal text renders as written, and `${...}` placeholders must be dotted identifier paths using the same page or fragment variables available to build-time binding, including i18n catalog keys, `item.*`, `page.*`, `data.*`, and declared fragment fields. `${...}` works in attributes and `data-t`, not text nodes, and statica never evaluates JS expressions.
+`data-t` replaces element text with a plain template string. Literal text renders as written, and `${...}` placeholders must be dotted identifier paths using the same page or fragment variables available to build-time binding. i18n catalog values live under `i18n.*`, alongside canonical roots such as `item.*`, `page.*`, `data.*`, and declared fragment fields. `${...}` works in attributes and `data-t`, not text nodes, and statica never evaluates JS expressions.
 
 Locale-specific data can use `${locale}` in funnel `src`.
 
