@@ -14,6 +14,8 @@ use crate::parse::{Document, Element, Node};
 
 use std::path::Component;
 
+pub const CANONICAL_PAGE_ROOTS: &[&str] = &["data", "item", "page", "i18n"];
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct DataSource {
@@ -123,6 +125,17 @@ fn load_data_links(
                 ));
             }
         };
+        if CANONICAL_PAGE_ROOTS.contains(&id.as_str()) {
+            let id_dq = format!("id=\"{id}\"");
+            let id_sq = format!("id='{id}'");
+            return Err(site_err(
+                site,
+                &[&id_dq, &id_sq],
+                format!(
+                    "statica/data id `{id}` conflicts with canonical page context — rename this data source"
+                ),
+            ));
+        }
         let Some(href) = el.attr("href").map(str::trim).filter(|s| !s.is_empty()) else {
             let id_dq = format!("id=\"{id}\"");
             return Err(site_err(

@@ -53,18 +53,18 @@ Points at an explicit `.md` glob with YAML front matter — see `content/posts/*
 
 [`posts/[slug]/index.html`](posts/[slug]/index.html):
 
-- `<html data-bind="{headline, …}">` or `data-bind="posts"` on root
-- Funnel script in `<head>`
-- `<slot name="headline">` for item fields
+- Page context uses `item.*`, `data.*`, `page.*`, and `i18n.*`
+- Data links in `<head>`
+- `<slot name="item.headline">` for item fields
 - Fragment imports with relative paths from the page file
 
 ### Pagination page
 
 [`blog/[page]/index.html`](blog/[page]/index.html):
 
-- Same funnel binding on `<html>`
+- Same canonical page context
 - `<slot id="post-list">` passes the pagination context into the fragment
-- `${prev_href}`, `${next_href}`, `data-each="pages"` for nav
+- `${page.pagination.prev_href}`, `${page.pagination.next_href}`, `data-each="page.pagination.pages"` for nav
 
 Pagination config in [`statica.toml`](statica.toml):
 

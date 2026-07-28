@@ -101,10 +101,12 @@ Every fragment needs matching `id` on all three parts:
 
 | Use case | Syntax | Notes |
 | -------- | ------ | ----- |
-| Text content | `<slot name="field">` | Never put `<slot>` inside attributes |
-| Attributes | `${field}` | Field must be declared in `data-bind` |
+| Page text content | `<slot name="item.field">` | Never put `<slot>` inside attributes |
+| Page attributes | `${item.field}` | Page roots are `data`, `item`, `page`, `i18n` |
+| Fragment text content | `<slot name="field">` | Field must be declared in fragment `data-bind` |
+| Fragment attributes | `${field}` | Same fragment `data-bind` rule |
 | Whole object | `data-bind="posts"` on fragments | Use `${posts.field}` or nested slots |
-| Page collection | `data-bind="posts"` or `data-bind="{headline, …}"` | Named → `${posts.field}`; destructure → `<slot name="field">` |
+| Page context narrowing | `<html data-bind="{item, page}">` | Optional destructure of `{data, item, page, i18n}` |
 | Destructured fields | `data-bind="{slug, headline}"` | Use `${slug}` directly |
 | Current item in loop | `data-each="items"` | On fragment mount `<slot id="...">` |
 | Loops | `data-each="items"` | On `<slot id="fragment-id">` |
@@ -115,27 +117,27 @@ Every fragment needs matching `id` on all three parts:
 
 **Static page** — plain `index.html`, one output.
 
-**Collection page** — `[param]` folder + root `<html data-bind="arrayId">` or `data-bind="{fields…}">`:
+**Collection page** — `[param]` folder + linked array data source:
 
 ```html
-<html lang="en" data-bind="{headline, summary}">
+<html lang="en">
   <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
-  <title><slot name="headline"></slot></title>
+  <title><slot name="item.headline"></slot></title>
 </html>
 ```
 
 **Pagination page** — `[page]` folder + `[[pagination]]` in `statica.toml`:
 
 ```html
-<html lang="en" data-bind="{page, total_pages, items, prev_href, next_href, pages}">
+<html lang="en">
   <slot id="post-list"></slot>
-  <a href="${prev_href}">Previous</a>
+  <a href="${page.pagination.prev_href}">Previous</a>
 </html>
 ```
 
-Page context includes: `items`, `page`, `total_pages`, `prev_href`, `next_href`, `pages`, etc. See [docs/guide.md](docs/guide.md).
+Page context roots are `data`, `item`, `page`, and `i18n`; pagination metadata lives at `page.pagination`. See [docs/guide.md](docs/guide.md).
 
-**i18n page** — `[locale]/` segment + `[i18n]` config. Use `data-t="key"` for translatable text; `${locale}` in attributes only (not text nodes).
+**i18n page** — `[locale]/` segment + `[i18n]` config. Use `data-t="key"` for translatable text; `${i18n.locale}` in attributes only (not text nodes).
 
 ### CSS and JS in fragments
 

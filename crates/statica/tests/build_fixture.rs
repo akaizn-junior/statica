@@ -49,7 +49,10 @@ fn builds_blog_fixture() {
     assert!(page2.contains("/blog/1/") || page2.contains("/blog/3/"));
 
     let post = std::fs::read_to_string(out.join("posts/hello-world/index.html")).unwrap();
-    assert!(post.contains("<title>Hello world</title>") || post.contains("Hello world"));
+    assert!(
+        post.contains("<title>Hello world</title>") || post.contains("Hello world"),
+        "{post}"
+    );
     assert!(post.contains("data-s=\"post-card-") || post.contains("data-s='post-card-"));
 
     let home = std::fs::read_to_string(out.join("index.html")).unwrap();
@@ -101,14 +104,14 @@ More **content** here.
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="{headline, html}">
+<html lang="en">
   <head>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
-    <title><slot name="headline"></slot></title>
+    <title><slot name="item.headline"></slot></title>
   </head>
   <body>
-    <h1><slot name="headline"></slot></h1>
-    <div><slot name="html"></slot></div>
+    <h1><slot name="item.headline"></slot></h1>
+    <div><slot name="item.html"></slot></div>
   </body>
 </html>"#,
     )
@@ -120,7 +123,10 @@ More **content** here.
     build(&opts).expect("build");
 
     let post = std::fs::read_to_string(dir.join("dist/posts/hello-world/index.html")).unwrap();
-    assert!(post.contains("<title>Hello world</title>") || post.contains("Hello world"));
+    assert!(
+        post.contains("<title>Hello world</title>") || post.contains("Hello world"),
+        "{post}"
+    );
     assert!(post.contains("<strong>static HTML</strong>"));
 
     let post2 = std::fs::read_to_string(dir.join("dist/posts/second-post/index.html")).unwrap();
@@ -149,14 +155,14 @@ Glob **works**.
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="{headline, html}">
+<html lang="en">
   <head>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
-    <title><slot name="headline"></slot></title>
+    <title><slot name="item.headline"></slot></title>
   </head>
   <body>
-    <h1><slot name="headline"></slot></h1>
-    <div><slot name="html"></slot></div>
+    <h1><slot name="item.headline"></slot></h1>
+    <div><slot name="item.html"></slot></div>
   </body>
 </html>"#,
     )
@@ -184,12 +190,12 @@ fn duplicate_slug_errors() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="{headline, html}">
+<html lang="en">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
-    <title><slot name="headline"></slot></title>
+    <title><slot name="item.headline"></slot></title>
   </head>
-  <body><h1><slot name="headline"></slot></h1></body>
+  <body><h1><slot name="item.headline"></slot></h1></body>
 </html>"#,
     )
     .unwrap();
@@ -203,7 +209,7 @@ fn duplicate_slug_errors() {
 }
 
 #[test]
-fn page_named_bind_uses_prop_paths() {
+fn page_data_bind_can_narrow_to_item_context() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
     std::fs::write(
@@ -214,13 +220,13 @@ fn page_named_bind_uses_prop_paths() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="posts">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
   </head>
   <body>
-    <h1><slot name="posts.headline"></slot></h1>
-    <div><slot name="posts.html"></slot></div>
+    <h1><slot name="item.headline"></slot></h1>
+    <div><slot name="item.html"></slot></div>
   </body>
 </html>"#,
     )
@@ -256,7 +262,7 @@ fn fragment_mount_receives_current_item_without_data_bind() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="{slug, headline}">
+<html lang="en">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
     <link rel="statica/fragment" type="text/html" href="../../ui/post-card.html" id="post-card" />
@@ -296,7 +302,7 @@ fn data_bind_on_fragment_mount_errors() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="{slug, headline}">
+<html lang="en">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
     <link rel="statica/fragment" type="text/html" href="../../ui/post-card.html" id="post-card" />
@@ -323,13 +329,13 @@ fn page_undeclared_bind_field_errors() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="{headline}">
+<html lang="en">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
-    <title><slot name="headline"></slot></title>
+    <title><slot name="item.headline"></slot></title>
   </head>
   <body>
-    <h1><slot name="headline"></slot></h1>
+    <h1><slot name="item.headline"></slot></h1>
     <p><slot name="summary"></slot></p>
   </body>
 </html>"#,
@@ -338,6 +344,147 @@ fn page_undeclared_bind_field_errors() {
 
     let err = build(&BuildOptions::new(&dir)).unwrap_err().to_string();
     assert!(err.contains("`summary` is not bound"), "{err}");
+}
+
+#[test]
+fn page_undeclared_attr_field_errors() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
+    std::fs::write(dir.join("content.json"), r#"[{"slug":"a","headline":"A"}]"#).unwrap();
+    std::fs::write(
+        dir.join("posts/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/data" href="../../content.json" id="posts" />
+  </head>
+  <body><a href="/posts/${slug}/"><slot name="item.headline"></slot></a></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let err = build(&BuildOptions::new(&dir)).unwrap_err().to_string();
+    assert!(err.contains("`slug` is not bound"), "{err}");
+}
+
+#[test]
+fn page_declared_data_source_is_bound_for_attrs() {
+    let dir = tempfile_dir();
+    std::fs::write(
+        dir.join("site.json"),
+        r#"{"canonical":"https://example.com/"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/data" href="./site.json" id="site" />
+    <link rel="canonical" href="${site.canonical}" />
+  </head>
+  <body></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains(r#"href="https://example.com/""#));
+}
+
+#[test]
+fn data_link_id_cannot_use_canonical_page_root() {
+    for reserved in ["data", "item", "page", "i18n"] {
+        let dir = tempfile_dir();
+        std::fs::write(dir.join("source.json"), "{}").unwrap();
+        std::fs::write(
+            dir.join("index.html"),
+            format!(
+                r#"<!doctype html>
+<html lang="en">
+  <head><link rel="statica/data" href="./source.json" id="{reserved}" /></head>
+  <body></body>
+</html>"#
+            ),
+        )
+        .unwrap();
+
+        let err = build(&BuildOptions::new(&dir)).unwrap_err().to_string();
+        assert!(
+            err.contains("conflicts with canonical page context"),
+            "{err}"
+        );
+        assert!(err.contains("rename this data source"), "{err}");
+    }
+}
+
+#[test]
+fn page_linked_each_source_is_bound() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(dir.join("posts.json"), r#"[{"slug":"a","headline":"A"}]"#).unwrap();
+    std::fs::write(
+        dir.join("ui/post-card.html"),
+        r#"<template id="post-card" data-bind="{slug, headline}">
+  <article><a href="/posts/${slug}/"><slot name="headline"></slot></a></article>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/data" href="./posts.json" id="posts" />
+    <link rel="statica/fragment" type="text/html" href="./ui/post-card.html" id="post-card" />
+  </head>
+  <body><slot id="post-card" data-each="posts"></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains(r#"href="/posts/a/""#));
+    assert!(html.contains(">A</a>"));
+}
+
+#[test]
+fn page_undeclared_each_source_errors() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(dir.join("posts.json"), r#"[{"slug":"a","headline":"A"}]"#).unwrap();
+    std::fs::write(
+        dir.join("ui/post-card.html"),
+        r#"<template id="post-card" data-bind="{slug, headline}">
+  <article><a href="/posts/${slug}/"><slot name="headline"></slot></a></article>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/data" href="./posts.json" id="posts" />
+    <link rel="statica/fragment" type="text/html" href="./ui/post-card.html" id="post-card" />
+  </head>
+  <body><slot id="post-card" data-each="articles"></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let err = build(&BuildOptions::new(&dir)).unwrap_err().to_string();
+    assert!(err.contains("`articles` is not bound"), "{err}");
 }
 
 #[test]
@@ -380,7 +527,7 @@ fn select_slot_expands_to_options() {
   <body>
     <link rel="statica/fragment" type="text/html" href="./ui/select-option.html" id="select-option" />
     <select name="country" required>
-      <slot id="select-option" data-each="countries"></slot>
+      <slot id="select-option" data-each="data.countries"></slot>
     </select>
   </body>
 </html>"#,
@@ -640,13 +787,13 @@ fn i18n_loads_locale_specific_funnel_data() {
     std::fs::write(
         dir.join("[locale]/posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="{headline}">
+<html lang="en">
   <head>
     <link rel="statica/data" href="../../../content/posts.${locale}.json" id="posts" />
     <title data-t="title">Posts</title>
   </head>
   <body>
-    <h1><slot name="headline"></slot></h1>
+    <h1><slot name="item.headline"></slot></h1>
   </body>
 </html>"#,
     )
@@ -831,14 +978,14 @@ fn i18n_pagination_chunks_once_for_shared_data() {
     std::fs::write(
         dir.join("[locale]/blog/[page]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="{page, total_pages}">
+<html lang="en">
   <head>
     <link rel="statica/data" href="../../../content/posts.json" id="posts" />
     <title data-t="blog_title">Blog</title>
   </head>
   <body>
     <h1 data-t="blog_title">Blog</h1>
-    <p>Page <slot name="page"></slot> of <slot name="total_pages"></slot></p>
+    <p>Page <slot name="page.pagination.page"></slot> of <slot name="page.pagination.total_pages"></slot></p>
   </body>
 </html>"#,
     )

@@ -272,6 +272,7 @@ impl PreparedPage {
         bind::render_page_document(
             registry,
             &doc,
+            &self.source,
             current,
             &page_data,
             aliases,
@@ -591,15 +592,13 @@ fn prepare_pages(
                 source: &html,
             },
         )?;
-        if bind::html_has_bind(&doc) {
-            bind::validate_page_binds(
-                &doc,
-                funnel::BindSource {
-                    file: &file,
-                    source: &html,
-                },
-            )?;
-        }
+        bind::validate_page_binds(
+            &doc,
+            funnel::BindSource {
+                file: &file,
+                source: &html,
+            },
+        )?;
         prepared.push(PreparedPage {
             source: page.clone(),
             html,

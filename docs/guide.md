@@ -81,7 +81,7 @@ Use `${...}` only in attributes.
 <a href="/posts/${slug}/"><slot name="headline"></slot></a>
 ```
 
-Every slot name and `${...}` path must be declared by `data-bind`. There is no magic flattening.
+Every fragment slot name and `${...}` path must be declared by the fragment `data-bind`. There is no magic flattening.
 
 ```html
 <!-- direct fields -->
@@ -97,6 +97,37 @@ Every slot name and `${...}` path must be declared by `data-bind`. There is no m
 
 ## Pages
 
+Page binding uses a canonical context. If `<html>` has no `data-bind`, these roots are available:
+
+```json
+{
+  "data": {},
+  "item": null,
+  "page": {
+    "route": "",
+    "params": {}
+  },
+  "i18n": {
+    "locale": ""
+  }
+}
+```
+
+statica fills that object during the build:
+
+| Root | Meaning |
+| ---- | ------- |
+| `data` | Linked data sources by `id`, such as `data.posts` |
+| `item` | Current collection item for `[slug]` routes |
+| `page.route` | Filesystem route, such as `posts/[slug]` |
+| `page.params` | Route params resolved for the emitted page |
+| `page.pagination` | Pagination metadata and page chunk for `[page]` routes |
+| `i18n.locale` | Active locale, or empty when i18n is not active |
+
+`<html data-bind>` is optional. When present, it narrows/destructures this canonical context.
+
+Page variables are valid only when their root comes from this canonical context or from a declared data link id. Data link ids cannot be `data`, `item`, `page`, or `i18n`.
+
 ### Static
 
 No route params. One input page writes one output page.
@@ -107,32 +138,32 @@ about/index.html -> .dist/about/index.html
 
 ### Collection
 
-Use a bracket folder and bind the page to an array.
+Use a bracket folder with linked array-like data. Each emitted page receives one record as `item`.
 
 ```text
 posts/[slug]/index.html
 ```
 
 ```html
-<html lang="en" data-bind="{slug, headline, html}">
+<html lang="en">
   <head>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
-    <title><slot name="headline"></slot></title>
+    <title><slot name="item.headline"></slot></title>
   </head>
   <body>
-    <h1><slot name="headline"></slot></h1>
-    <slot name="html"></slot>
+    <h1><slot name="item.headline"></slot></h1>
+    <slot name="item.html"></slot>
   </body>
 </html>
 ```
 
 The route param, here `slug`, is read from each item.
 
-You can also bind the whole item:
+You can narrow the context when a page wants shorter names:
 
 ```html
-<html lang="en" data-bind="posts">
-  <a href="/posts/${posts.slug}/"><slot name="posts.headline"></slot></a>
+<html lang="en" data-bind="{item}">
+  <a href="/posts/${item.slug}/"><slot name="item.headline"></slot></a>
 </html>
 ```
 
@@ -145,12 +176,15 @@ blog/[page]/index.html
 ```
 
 ```html
-<html lang="en" data-bind="{page, total_pages, items, prev_href, next_href, pages}">
+<html lang="en">
   <body>
-    <p>Page <slot name="page"></slot> of <slot name="total_pages"></slot></p>
+    <p>
+      Page <slot name="page.pagination.page"></slot> of
+      <slot name="page.pagination.total_pages"></slot>
+    </p>
     <slot id="post-list"></slot>
-    <a href="${prev_href}">Previous</a>
-    <a href="${next_href}">Next</a>
+    <a href="${page.pagination.prev_href}">Previous</a>
+    <a href="${page.pagination.next_href}">Next</a>
   </body>
 </html>
 ```
@@ -164,7 +198,7 @@ sort_desc = true
 index = true
 ```
 
-Pagination context includes `items`, `page`, `page_number`, `total_pages`, `total_items`, `source_total`, `per_page`, `limit`, `offset`, `has_prev`, `has_next`, `prev`, `next`, `path`, `href`, `prev_href`, `next_href`, `first_href`, `last_href`, and `pages`.
+`page.pagination` includes `items`, `page`, `page_number`, `total_pages`, `total_items`, `source_total`, `per_page`, `limit`, `offset`, `has_prev`, `has_next`, `prev`, `next`, `path`, `href`, `prev_href`, `next_href`, `first_href`, `last_href`, and `pages`.
 
 Do not put `[page]` and another collection route under the same route tree, such as both `posts/[page]` and `posts/[slug]`.
 

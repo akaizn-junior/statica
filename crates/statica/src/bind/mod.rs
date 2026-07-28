@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
-use crate::discover::PageKind;
+use crate::discover::{PageKind, PageSource};
 use crate::error::{Error, Result};
 use crate::fragment::{self, FragmentRegistry};
 use crate::funnel::{self, BindDecl, BindSource, DataSource};
@@ -71,14 +71,11 @@ pub fn collection_needles(id: &str) -> [String; 2] {
     [format!("data-bind=\"{id}\""), format!("data-bind='{id}'")]
 }
 
-/// Whether the page declares a `<html data-bind>` scope.
-#[must_use]
-pub fn html_has_bind(doc: &Document) -> bool {
-    html_bind_raw(doc).is_some()
-}
-
 fn parse_html_bind_decl(doc: &Document) -> Result<BindDecl> {
     let raw = html_bind_raw(doc);
+    if raw.is_none() {
+        return Ok(BindDecl::page_context());
+    }
     funnel::parse_bind_decl(raw).map_err(|reason| {
         let prop = raw.unwrap_or("");
         Error::at(
@@ -99,10 +96,11 @@ pub fn validate_page_binds(doc: &Document, source: BindSource<'_>) -> Result<()>
         return Ok(());
     };
     let decl = parse_html_bind_decl(doc).map_err(|e| e.in_file(source.file, source.source))?;
-    funnel::validate_page_template_binds("page", &decl, &el.children, source)
+    let data_roots = funnel::data_link_ids(doc);
+    funnel::validate_page_template_binds("page", &decl, &el.children, source, &data_roots)
 }
 
-/// Collection / pagination templates must declare `<html data-bind>`.
+/// Collection / pagination templates may use `<html data-bind>` to select a source id.
 ///
 /// Locale-only routes (`[locale]/` with no other params) may bind `{locale}` without a data link.
 pub fn validate_collection_page_binds(
@@ -127,6 +125,7 @@ pub fn validate_collection_page_binds(
 pub fn render_page_document(
     registry: &FragmentRegistry,
     doc: &Document,
+    source: &PageSource,
     current: Option<&Value>,
     page_data: &HashMap<String, DataSource>,
     aliases: &AliasOptions,
@@ -138,19 +137,24 @@ pub fn render_page_document(
     site: Option<(&str, &str)>,
 ) -> Result<String> {
     let mut doc = doc.clone();
-    if let Some(current) = current {
-        let bind = html_element(&doc)
-            .and_then(|el| funnel::parse_bind_decl(el.attr("data-bind")).ok())
-            .unwrap_or(BindDecl::None);
-        let ctx = funnel::bind_context(&bind, current);
-        fill_attr_templates_in_nodes(&mut doc.children, &ctx);
-        fill_named_slots(&mut doc.children, &ctx);
-    }
+    let page_context = build_page_context(source, current, page_data, locale);
+    let bind = html_element(&doc)
+        .and_then(|el| el.attr("data-bind"))
+        .and_then(|raw| funnel::parse_bind_decl(Some(raw)).ok())
+        .unwrap_or_else(|| BindDecl::Named("ctx".into()));
+    let mut ctx = match bind {
+        BindDecl::Named(ref name) if name == "ctx" => page_context.clone(),
+        _ => funnel::bind_context(&bind, &page_context),
+    };
+    add_data_roots(&mut ctx, page_data);
+    fill_attr_templates_in_nodes(&mut doc.children, &ctx);
+    fill_named_slots(&mut doc.children, &ctx);
+    let context_data = context_data_sources(page_data, &page_context);
     expand_usage_slots_in_nodes(
         registry,
         &mut doc.children,
         current,
-        page_data,
+        &context_data,
         locale,
         i18n_catalog,
         data_cache,
@@ -174,6 +178,82 @@ pub fn render_page_document(
     scope::dedupe_helpers_in_document(&mut doc);
     scope::dedupe_styles_in_document(&mut doc);
     Ok(crate::parse::serialize_document(&doc))
+}
+
+fn add_data_roots(ctx: &mut Value, page_data: &HashMap<String, DataSource>) {
+    let Value::Object(map) = ctx else {
+        return;
+    };
+    for (id, source) in page_data {
+        map.entry(id.clone()).or_insert_with(|| source.value());
+    }
+}
+
+fn context_data_sources(
+    page_data: &HashMap<String, DataSource>,
+    page_context: &Value,
+) -> HashMap<String, DataSource> {
+    let mut out = page_data.clone();
+    for id in funnel::CANONICAL_PAGE_ROOTS {
+        let value = funnel::read_field(page_context, id)
+            .cloned()
+            .unwrap_or(Value::Null);
+        out.insert(
+            (*id).to_string(),
+            DataSource {
+                id: (*id).to_string(),
+                kind: crate::content::DataKind::Json,
+                path: PathBuf::from(format!("statica:{id}")),
+                data: crate::content::DataSet::Json(value),
+            },
+        );
+    }
+    out
+}
+
+fn build_page_context(
+    source: &PageSource,
+    current: Option<&Value>,
+    page_data: &HashMap<String, DataSource>,
+    locale: Option<&str>,
+) -> Value {
+    let mut data = serde_json::Map::new();
+    for (id, source) in page_data {
+        data.insert(id.clone(), source.value());
+    }
+
+    let current = current.cloned().unwrap_or(Value::Null);
+    let is_pagination = current
+        .as_object()
+        .is_some_and(|obj| obj.contains_key("items") && obj.contains_key("total_pages"));
+
+    let mut params = serde_json::Map::new();
+    for param in &source.params {
+        let value = if param == i18n::LOCALE_PARAM {
+            locale.map_or(Value::Null, |loc| Value::String(loc.to_string()))
+        } else {
+            funnel::read_field(&current, param)
+                .cloned()
+                .unwrap_or(Value::Null)
+        };
+        params.insert(param.clone(), value);
+    }
+
+    let mut page = serde_json::Map::new();
+    page.insert("route".into(), Value::String(source.route.clone()));
+    page.insert("params".into(), Value::Object(params));
+    if is_pagination {
+        page.insert("pagination".into(), current.clone());
+    }
+
+    serde_json::json!({
+        "data": data,
+        "item": if is_pagination { Value::Null } else { current },
+        "page": page,
+        "i18n": {
+            "locale": locale.unwrap_or("")
+        }
+    })
 }
 
 /// Transform unscoped page `<style>` (fragment styles already went through

@@ -44,6 +44,19 @@ pub enum BindDecl {
 
 impl BindDecl {
     #[must_use]
+    pub fn page_context() -> Self {
+        Self::Destructure(
+            ["data", "item", "page", "i18n"]
+                .into_iter()
+                .map(|name| DestructureBind {
+                    name: name.to_string(),
+                    path: vec![name.to_string()],
+                })
+                .collect(),
+        )
+    }
+
+    #[must_use]
     pub fn scope_names(&self) -> HashSet<&str> {
         match self {
             Self::None => HashSet::new(),
@@ -255,9 +268,14 @@ pub fn validate_page_template_binds(
     decl: &BindDecl,
     nodes: &[Node],
     source: BindSource<'_>,
+    data_roots: &[String],
 ) -> Result<()> {
-    validate_template_binds(fragment_id, decl, nodes, source)?;
-    validate_mount_nodes(fragment_id, &decl.scope_names(), nodes, source)
+    let mut scope = decl.scope_names();
+    for root in data_roots {
+        scope.insert(root.as_str());
+    }
+    validate_nodes(fragment_id, &scope, nodes, source)?;
+    validate_mount_nodes(fragment_id, &scope, nodes, source)
 }
 
 fn validate_nodes(

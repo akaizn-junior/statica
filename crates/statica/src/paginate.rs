@@ -7,10 +7,10 @@
 //!
 //! # Page object
 //!
-//! Each emitted page binds `current` to a JSON object with `items` (the chunk)
-//! plus nav metadata (`page`, `pages`, `prev_href`, `next_href`, …). Authors
-//! typically use `<slot … data-each="items">` and `${prev_href}` / `${next_href}`.
-//! Authors declare those fields in `<html data-bind="{…}">` (see docs/guide.md).
+//! Each emitted page stores `items` (the chunk) plus nav metadata (`page`,
+//! `pages`, `prev_href`, `next_href`, …). Page templates read that object at
+//! `page.pagination`; fragments mounted from the page receive the pagination
+//! chunk as their current value.
 //!
 //! This is **UI list pagination**, not sitemap URL-set splitting (see [`crate::feeds`]).
 

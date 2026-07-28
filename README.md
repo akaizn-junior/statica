@@ -155,12 +155,13 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 <slot id="post-card"></slot>
 ```
 
-- Content → `<slot name="field">` (field must be declared in the fragment `data-bind`)
-- Attributes → `${field}` (same — no magic vars; use `data-bind="{a, b}"` or `${prop.field}`)
+- Page content → `<slot name="item.field">`, `<slot name="page.pagination.page">`, or `<slot name="data.posts">`
+- Attributes → `${item.slug}` / `${page.pagination.next_href}` / `${i18n.locale}`
 - Fragment mount: `<slot id="fragment-id"></slot>` passes the current item/context
 - Fragment loop: `<slot id="fragment-id" data-each="items"></slot>` passes each item
-- Collection: `<html data-bind="posts">` or `data-bind="{…}">` + `[slug]`
-- Pagination: `<html data-bind="{page, items, …}">` + `[page]`
+- Page `data-bind` is optional narrowing of `{data, item, page, i18n}`
+- Collection: linked data + `[slug]`; current record is `item`
+- Pagination: linked data + `[page]`; page chunk is `page.pagination`
 
 ## Crate layout
 
