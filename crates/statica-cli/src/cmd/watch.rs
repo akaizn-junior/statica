@@ -6,10 +6,10 @@ use anyhow::{Context, Result};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use statica::BuildOptions;
 
+use super::{preview, util};
 use crate::cli::ConfigCli;
 use crate::config::PreviewConfig;
 use crate::style;
-use super::{preview, util};
 
 pub async fn run(dir: &Path, overrides: &ConfigCli) -> Result<()> {
     let (root, config) = util::load_project(dir, overrides)?;
@@ -95,9 +95,12 @@ fn start_watcher(root: PathBuf, opts: BuildOptions, preview_cfg: &PreviewConfig)
                 let mut rebuild_opts = opts.clone();
                 rebuild_opts.clean = false;
                 match util::run_rebuild(&rebuild_opts, &changed) {
-                    Ok(report) => {
-                        util::log_build(&report, &rebuild_opts.out_dir, "Rebuilt", rebuild_opts.verbose)
-                    }
+                    Ok(report) => util::log_build(
+                        &report,
+                        &rebuild_opts.out_dir,
+                        "Rebuilt",
+                        rebuild_opts.verbose,
+                    ),
                     Err(e) => eprintln!("{} {e:#}", style::error("rebuild failed:")),
                 }
             }

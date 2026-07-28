@@ -4,9 +4,9 @@ use std::path::Path;
 
 use anyhow::Result;
 
+use super::{preview, util};
 use crate::cli::ConfigCli;
 use crate::style;
-use super::{preview, util};
 
 pub async fn run(dir: &Path, overrides: &ConfigCli) -> Result<()> {
     let (root, config) = util::load_project(dir, overrides)?;

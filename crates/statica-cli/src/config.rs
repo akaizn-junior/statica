@@ -108,14 +108,14 @@ impl AliasesConfig {
         }
         for (name, base) in &self.urls {
             if !is_url_alias_base(base) {
-                anyhow::bail!(
-                    "[aliases.urls].{name} must be a URL (http:// or https://)"
-                );
+                anyhow::bail!("[aliases.urls].{name} must be a URL (http:// or https://)");
             }
         }
         for name in self.paths.keys() {
             if self.urls.contains_key(name) {
-                anyhow::bail!("alias `{name}` is defined in both [aliases.paths] and [aliases.urls]");
+                anyhow::bail!(
+                    "alias `{name}` is defined in both [aliases.paths] and [aliases.urls]"
+                );
             }
         }
         Ok(())
@@ -172,10 +172,7 @@ impl FormsConfig {
             }
         }
         for (key, id) in &mut self.ids {
-            let env_key = format!(
-                "FORMS_{}_ID",
-                key.to_ascii_uppercase().replace('-', "_")
-            );
+            let env_key = format!("FORMS_{}_ID", key.to_ascii_uppercase().replace('-', "_"));
             if let Ok(v) = std::env::var(&env_key) {
                 if !v.is_empty() {
                     *id = v;
@@ -629,7 +626,11 @@ impl StaticaConfig {
             site_url: self.site_url.clone(),
             sitemap: self.sitemap.to_core(),
             rss: self.rss.to_core(),
-            pagination: self.pagination.iter().map(PaginationConfig::to_core).collect(),
+            pagination: self
+                .pagination
+                .iter()
+                .map(PaginationConfig::to_core)
+                .collect(),
             process: self.process.to_core(),
             minify: self.minify.to_core(),
             aliases: self.aliases.to_core(),
@@ -1105,7 +1106,10 @@ port = 8080
         let cfg = StaticaConfig::load(&dir).unwrap();
         assert_eq!(cfg.preview.host, "0.0.0.0");
         assert_eq!(cfg.preview.port, 8080);
-        assert_eq!(cfg.preview.host_addr().unwrap(), IpAddr::from_str("0.0.0.0").unwrap());
+        assert_eq!(
+            cfg.preview.host_addr().unwrap(),
+            IpAddr::from_str("0.0.0.0").unwrap()
+        );
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -1140,11 +1144,13 @@ contact = "xyzabc"
 "#,
         )
         .unwrap();
-        let mut cfg = StaticaConfig::load(&dir).unwrap();
-        cfg.apply_env(&dir).unwrap();
+        let cfg = StaticaConfig::load(&dir).unwrap();
         assert!(cfg.forms.enabled);
         assert_eq!(cfg.forms.provider, "formspree");
-        assert_eq!(cfg.forms.ids.get("contact").map(String::as_str), Some("xyzabc"));
+        assert_eq!(
+            cfg.forms.ids.get("contact").map(String::as_str),
+            Some("xyzabc")
+        );
         let core = cfg.forms.to_core();
         assert!(core.enabled);
         assert_eq!(core.ids.get("contact").map(String::as_str), Some("xyzabc"));
@@ -1165,16 +1171,8 @@ contact = "from-config"
 "#,
         )
         .unwrap();
-        fs::write(
-            dir.join(".env"),
-            "FORMS_CONTACT_ID=from-dotenv\n",
-        )
-        .unwrap();
-        fs::write(
-            dir.join(".dev.vars"),
-            "FORMS_CONTACT_ID=from-devvars\n",
-        )
-        .unwrap();
+        fs::write(dir.join(".env"), "FORMS_CONTACT_ID=from-dotenv\n").unwrap();
+        fs::write(dir.join(".dev.vars"), "FORMS_CONTACT_ID=from-devvars\n").unwrap();
 
         let mut cfg = StaticaConfig::load(&dir).unwrap();
         cfg.apply_env(&dir).unwrap();
@@ -1305,7 +1303,8 @@ dir = "locales"
 "#,
         )
         .unwrap();
-        let cfg = StaticaConfig::load(&dir).unwrap();
+        let mut cfg = StaticaConfig::load(&dir).unwrap();
+        cfg.apply_env(&dir).unwrap();
         assert!(cfg.i18n.enabled);
         assert_eq!(cfg.i18n.locales, vec!["en", "pt"]);
         let core = cfg.i18n.to_core();
@@ -1321,9 +1320,7 @@ dir = "locales"
             no_sitemap: true,
             rss: Some("title=T,limit=3,collections=posts|notes".into()),
             site_url: Some("https://ex.com".into()),
-            pagination: vec![
-                "route=blog/[page],page_size=2,sort_desc=true,index=true".into(),
-            ],
+            pagination: vec!["route=blog/[page],page_size=2,sort_desc=true,index=true".into()],
             preview: Some("port=9000,debounce_ms=50".into()),
             ..crate::cli::ConfigCli::default()
         };

@@ -51,11 +51,7 @@ fn print_urls(out_dir: &Path, host: IpAddr, port: u16) {
     );
 
     let local = format!("http://127.0.0.1:{port}");
-    eprintln!(
-        "  {}  {}",
-        style::dim("Local:  "),
-        style::bold(&local),
-    );
+    eprintln!("  {}  {}", style::dim("Local:  "), style::bold(&local),);
 
     let lan = lan_urls(host, port);
     if lan.is_empty() {

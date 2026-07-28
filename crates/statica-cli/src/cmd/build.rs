@@ -2,8 +2,8 @@ use std::path::Path;
 
 use anyhow::Result;
 
-use crate::cli::ConfigCli;
 use super::util;
+use crate::cli::ConfigCli;
 
 pub fn run(dir: &Path, overrides: &ConfigCli) -> Result<()> {
     let (root, config) = util::load_project(dir, overrides)?;

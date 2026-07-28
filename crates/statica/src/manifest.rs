@@ -81,9 +81,7 @@ pub fn read_manifest_meta(path: &Path) -> Result<ManifestMeta> {
             .and_then(|icons| {
                 icons.iter().find_map(|icon| {
                     let purpose = icon.get("purpose").and_then(Value::as_str).unwrap_or("");
-                    if !purpose.is_empty()
-                        && !purpose.split_whitespace().any(|p| p == "any")
-                    {
+                    if !purpose.is_empty() && !purpose.split_whitespace().any(|p| p == "any") {
                         return None;
                     }
                     icon.get("src")

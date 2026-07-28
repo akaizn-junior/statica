@@ -34,10 +34,20 @@ Empty / omitted = that config directory is the site root."
     pub project: Option<String>,
 
     // ── top-level ──────────────────────────────────────────────
-    #[arg(long = "out-dir", value_name = "DIR", global = true, help = "Output directory (out_dir)")]
+    #[arg(
+        long = "out-dir",
+        value_name = "DIR",
+        global = true,
+        help = "Output directory (out_dir)"
+    )]
     pub out_dir: Option<String>,
 
-    #[arg(long = "site-url", value_name = "URL", global = true, help = "Site origin for sitemap/RSS (site_url)")]
+    #[arg(
+        long = "site-url",
+        value_name = "URL",
+        global = true,
+        help = "Site origin for sitemap/RSS (site_url)"
+    )]
     pub site_url: Option<String>,
 
     #[arg(long = "clean", action = ArgAction::SetTrue, global = true, overrides_with = "no_clean", help = "Clean out_dir before build")]
@@ -50,10 +60,22 @@ Empty / omitted = that config directory is the site root."
     #[arg(long = "no-copy-assets", action = ArgAction::SetTrue, global = true, help = "Skip copying asset directories")]
     pub no_copy_assets: bool,
 
-    #[arg(long = "asset-dirs", value_name = "DIRS", global = true, value_delimiter = ',', help = "Comma-separated asset folder names")]
+    #[arg(
+        long = "asset-dirs",
+        value_name = "DIRS",
+        global = true,
+        value_delimiter = ',',
+        help = "Comma-separated asset folder names"
+    )]
     pub asset_dirs: Option<Vec<String>>,
 
-    #[arg(long = "ignore-dirs", value_name = "DIRS", global = true, value_delimiter = ',', help = "Comma-separated dirs to skip when discovering pages")]
+    #[arg(
+        long = "ignore-dirs",
+        value_name = "DIRS",
+        global = true,
+        value_delimiter = ',',
+        help = "Comma-separated dirs to skip when discovering pages"
+    )]
     pub ignore_dirs: Option<Vec<String>>,
 
     // ── [process] SPEC ─────────────────────────────────────────
@@ -157,10 +179,21 @@ Example: --preview host=127.0.0.1,port=9000,debounce_ms=100\n\
     )]
     pub preview: Option<String>,
 
-    #[arg(long = "host", value_name = "HOST", global = true, help = "Preview bind address (alias for --preview host=…)")]
+    #[arg(
+        long = "host",
+        value_name = "HOST",
+        global = true,
+        help = "Preview bind address (alias for --preview host=…)"
+    )]
     pub host: Option<String>,
 
-    #[arg(short = 'p', long = "port", value_name = "PORT", global = true, help = "Preview server port (alias for --preview port=…)")]
+    #[arg(
+        short = 'p',
+        long = "port",
+        value_name = "PORT",
+        global = true,
+        help = "Preview server port (alias for --preview port=…)"
+    )]
     pub port: Option<u16>,
 
     // ── [i18n] SPEC ────────────────────────────────────────────

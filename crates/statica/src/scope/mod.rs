@@ -67,10 +67,7 @@ pub fn rewrite_scripts_in_nodes(nodes: &mut [Node], scope_id: &str) {
 pub fn dedupe_helpers_in_document(doc: &mut Document) {
     let mut seen = false;
     walk_scripts(&mut doc.children, &mut |el: &mut Element| {
-        let scope = el
-            .attr("data-statica-scope")
-            .unwrap_or("")
-            .to_string();
+        let scope = el.attr("data-statica-scope").unwrap_or("").to_string();
         if let Some(Node::Text(body)) = el.children.first_mut() {
             if body.contains("function __staticaScope") || body.contains("__statica.scope") {
                 if seen {

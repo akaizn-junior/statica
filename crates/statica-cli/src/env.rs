@@ -129,7 +129,10 @@ FORMS_ENDPOINT="https://formspree.io/f/{id}"
 export EMPTY=
 "#,
         );
-        assert_eq!(vars.get("FORMS_CONTACT_ID").map(String::as_str), Some("xyzabc"));
+        assert_eq!(
+            vars.get("FORMS_CONTACT_ID").map(String::as_str),
+            Some("xyzabc")
+        );
         assert_eq!(
             vars.get("FORMS_ENDPOINT").map(String::as_str),
             Some("https://formspree.io/f/{id}")
@@ -170,14 +173,8 @@ export EMPTY=
         };
         apply(&dir, &cfg).unwrap();
 
-        assert_eq!(
-            std::env::var("STATICA_TEST_KEEP").unwrap(),
-            "from-process"
-        );
-        assert_eq!(
-            std::env::var("STATICA_TEST_CONFIG").unwrap(),
-            "from-config"
-        );
+        assert_eq!(std::env::var("STATICA_TEST_KEEP").unwrap(), "from-process");
+        assert_eq!(std::env::var("STATICA_TEST_CONFIG").unwrap(), "from-config");
         assert_eq!(
             std::env::var("STATICA_TEST_DOTENV").unwrap(),
             "from-devvars"

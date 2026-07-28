@@ -27,10 +27,7 @@ pub struct AliasOptions {
 impl Default for AliasOptions {
     fn default() -> Self {
         let mut urls = HashMap::new();
-        urls.insert(
-            "Google".into(),
-            "https://fonts.googleapis.com/css2".into(),
-        );
+        urls.insert("Google".into(), "https://fonts.googleapis.com/css2".into());
         Self {
             symbol: "@".into(),
             paths: HashMap::new(),

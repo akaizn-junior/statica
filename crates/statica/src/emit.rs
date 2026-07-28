@@ -15,11 +15,7 @@ pub fn write_html(path: &Path, html: &str) -> Result<()> {
 }
 
 #[must_use]
-pub fn out_path_for_route(
-    out_dir: &Path,
-    route: &str,
-    replace: Option<(&str, &str)>,
-) -> PathBuf {
+pub fn out_path_for_route(out_dir: &Path, route: &str, replace: Option<(&str, &str)>) -> PathBuf {
     match replace {
         Some(pair) => out_path_for_route_replacements(out_dir, route, &[pair]),
         None => out_path_for_route_replacements(out_dir, route, &[]),

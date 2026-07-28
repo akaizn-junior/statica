@@ -97,7 +97,11 @@ fn wire_form(el: &mut Element, forms: &FormsOptions, site: Option<(&str, &str)>)
             let id = forms.ids.get(key).ok_or_else(|| {
                 form_err(
                     site,
-                    &[&format!("name=\"{key}\""), &format!("id=\"{key}\""), "statica"],
+                    &[
+                        &format!("name=\"{key}\""),
+                        &format!("id=\"{key}\""),
+                        "statica",
+                    ],
                     format!("no [forms.ids] entry for form `{key}`"),
                 )
             })?;
@@ -128,11 +132,7 @@ fn wire_form(el: &mut Element, forms: &FormsOptions, site: Option<(&str, &str)>)
     Ok(())
 }
 
-fn form_err(
-    site: Option<(&str, &str)>,
-    needles: &[&str],
-    message: impl Into<String>,
-) -> Error {
+fn form_err(site: Option<(&str, &str)>, needles: &[&str], message: impl Into<String>) -> Error {
     match site {
         Some((file, source)) => Error::at(file, source, needles, message),
         None => Error::at_file("<page>", message),
@@ -163,12 +163,7 @@ mod tests {
 </body></html>"#,
         )
         .unwrap();
-        wire_forms_in_document(
-            &mut doc,
-            &formspree(&[("contact", "xyzabc")]),
-            None,
-        )
-        .unwrap();
+        wire_forms_in_document(&mut doc, &formspree(&[("contact", "xyzabc")]), None).unwrap();
         let html = crate::parse::serialize_document(&doc);
         assert!(html.contains(r#"action="https://formspree.io/f/xyzabc""#));
         assert!(html.contains(r#"method="POST""#));
@@ -181,22 +176,15 @@ mod tests {
             r#"<form id="newsletter" statica><button>Go</button></form>"#,
         )
         .unwrap();
-        wire_forms_in_document(
-            &mut doc,
-            &formspree(&[("newsletter", "abc123")]),
-            None,
-        )
-        .unwrap();
+        wire_forms_in_document(&mut doc, &formspree(&[("newsletter", "abc123")]), None).unwrap();
         let html = crate::parse::serialize_document(&doc);
         assert!(html.contains("https://formspree.io/f/abc123"));
     }
 
     #[test]
     fn custom_provider_sets_single_endpoint() {
-        let mut doc = crate::parse::parse_document(
-            r#"<form name="contact" statica></form>"#,
-        )
-        .unwrap();
+        let mut doc =
+            crate::parse::parse_document(r#"<form name="contact" statica></form>"#).unwrap();
         let forms = FormsOptions {
             enabled: true,
             provider: FormProvider::Custom,
@@ -210,20 +198,16 @@ mod tests {
 
     #[test]
     fn unmapped_form_errors() {
-        let mut doc = crate::parse::parse_document(
-            r#"<form name="missing" statica></form>"#,
-        )
-        .unwrap();
+        let mut doc =
+            crate::parse::parse_document(r#"<form name="missing" statica></form>"#).unwrap();
         let err = wire_forms_in_document(&mut doc, &formspree(&[]), None).unwrap_err();
         assert!(err.to_string().contains("[forms.ids]"));
     }
 
     #[test]
     fn disabled_skips_wiring() {
-        let mut doc = crate::parse::parse_document(
-            r#"<form name="contact" statica></form>"#,
-        )
-        .unwrap();
+        let mut doc =
+            crate::parse::parse_document(r#"<form name="contact" statica></form>"#).unwrap();
         wire_forms_in_document(&mut doc, &FormsOptions::default(), None).unwrap();
         let html = crate::parse::serialize_document(&doc);
         assert!(html.contains("statica"));
