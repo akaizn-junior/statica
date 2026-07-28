@@ -69,6 +69,8 @@ Format shapes:
 
 ## Binding
 
+statica source is valid HTML. It uses normal `<template>`, `<slot>`, and `<link>` elements as a build-time authoring flow, not as runtime Web Components. Keep those elements where HTML allows them; for example, do not put `<slot>` inside `<title>` or attributes.
+
 Use slots for text content.
 
 ```html
@@ -148,7 +150,7 @@ posts/[slug]/index.html
 <html lang="en">
   <head>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
-    <title><slot name="item.headline"></slot></title>
+    <title>Post</title>
   </head>
   <body>
     <h1><slot name="item.headline"></slot></h1>

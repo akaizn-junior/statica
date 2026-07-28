@@ -76,6 +76,7 @@ When creating or editing HTML sites that statica builds — whether in `examples
 ### Mental model
 
 - **Routing is filesystem-based.** `about/index.html` → `/about/`. Dynamic segments use bracket folders: `posts/[slug]/index.html`.
+- **Source is valid HTML.** statica uses normal `<template>`, `<slot>`, and `<link>` elements as build-time authoring primitives. Do not put statica elements where HTML would not allow them, such as `<slot>` inside `<title>` or attributes.
 - **Data is build-time only.** Funnel links load JSON, JSONL/NDJSON, CSV, plain text, Markdown, or explicit globs at build time. Production output is plain static HTML — no runtime data fetching.
 - **Fragments are HTML components.** `<template id="…">` in a fragment file, imported with `<link rel="statica/fragment">`, mounted with `<slot id="…">`.
 - **Default build command is short.** Prefer examples like `statica .` or `statica examples/blog`; use `statica build …` when documenting the explicit subcommand.
@@ -122,7 +123,7 @@ Every fragment needs matching `id` on all three parts:
 ```html
 <html lang="en">
   <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
-  <title><slot name="item.headline"></slot></title>
+  <title>Post</title>
 </html>
 ```
 

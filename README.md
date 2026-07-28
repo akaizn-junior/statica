@@ -142,6 +142,8 @@ Inline `<style>` (pages + fragments) is always transformed. Linked `.css` under 
 
 ## Authoring
 
+statica source is valid HTML. It uses normal `<template>`, `<slot>`, and `<link>` elements as build-time authoring primitives, so keep them where HTML allows them.
+
 ```text
 index.html                 → .dist/index.html
 posts/[slug]/index.html    → .dist/posts/{item.slug}/index.html

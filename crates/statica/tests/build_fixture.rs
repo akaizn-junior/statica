@@ -107,7 +107,7 @@ More **content** here.
 <html lang="en">
   <head>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
-    <title><slot name="item.headline"></slot></title>
+    <title>Post</title>
   </head>
   <body>
     <h1><slot name="item.headline"></slot></h1>
@@ -158,7 +158,7 @@ Glob **works**.
 <html lang="en">
   <head>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
-    <title><slot name="item.headline"></slot></title>
+    <title>Post</title>
   </head>
   <body>
     <h1><slot name="item.headline"></slot></h1>
@@ -193,7 +193,7 @@ fn duplicate_slug_errors() {
 <html lang="en">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
-    <title><slot name="item.headline"></slot></title>
+    <title>Post</title>
   </head>
   <body><h1><slot name="item.headline"></slot></h1></body>
 </html>"#,
@@ -332,7 +332,7 @@ fn page_undeclared_bind_field_errors() {
 <html lang="en">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
-    <title><slot name="item.headline"></slot></title>
+    <title>Post</title>
   </head>
   <body>
     <h1><slot name="item.headline"></slot></h1>
