@@ -1,6 +1,6 @@
 # examples/blog
 
-Dogfood fixture for **statica** — Powered HTML.
+Dogfood fixture for **statica**. **Just HTML.** A blazingly fast static site generator that builds on just HTML
 
 ```bash
 # from repo root

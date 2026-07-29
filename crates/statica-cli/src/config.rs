@@ -770,6 +770,7 @@ copy_assets = true
 asset_dirs = ["public", "assets", "static"]
 ignore_dirs = [".dist", "dist", "target", ".git"]
 site_url = ""                  # e.g. "https://example.com" — needed for sitemap/RSS
+# 404/index.html or 404.html overrides the default generated 404 page.
 
 # Authoring aliases — @Name/tail in hrefs (symbol defaults to @)
 [aliases]

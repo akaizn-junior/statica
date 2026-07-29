@@ -1,7 +1,7 @@
 {
   "about": {
     "title": "About",
-    "intro": "statica — Powered HTML.",
+    "intro": "Just HTML. A blazingly fast static site generator that builds on just HTML",
     "home": "Home",
     "nav_en": "English",
     "nav_pt": "Português",

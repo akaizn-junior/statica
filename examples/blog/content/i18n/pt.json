@@ -1,7 +1,7 @@
 {
   "about": {
     "title": "Sobre",
-    "intro": "statica — HTML com superpoderes.",
+    "intro": "Just HTML. Gerador de sites estáticos. Um gerador de sites estáticos extremamente rápido que usa apenas em HTML.",
     "home": "Início",
     "nav_en": "English",
     "nav_pt": "Português",

@@ -9,7 +9,8 @@ statica\-serve \- Serve out_dir over HTTP (preview a build)
 Serve a previously built out_dir over HTTP.
 .PP
 Uses axum + tower\-http ServeDir: directory indexes, precompressed gzip,
-and 404 fallback. Does not rebuild — run `statica build` first
+and 404 fallback. Missing paths return HTTP 404 using 404.html or
+404/index.html from out_dir. Does not rebuild — run `statica build` first
 (or use `statica watch` to build continuously).
 .SH OPTIONS
 .TP

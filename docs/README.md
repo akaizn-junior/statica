@@ -1,6 +1,6 @@
 # statica documentation
 
-**Just HTML.** Start with the README for installation, then use the guide as the source of truth for authoring rules and configuration.
+**Just HTML.** A blazingly fast static site generator that builds on just HTML
 
 | Doc | Contents |
 | --- | -------- |

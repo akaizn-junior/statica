@@ -10,7 +10,9 @@ Build pages into the output directory.
 .PP
 Discovers every **/index.html under PATH, loads funnels and fragments,
 renders pages (including [slug] collections and [[pagination]]), and writes
-HTML to out_dir (from statica.toml / flags, default .dist).
+HTML to out_dir (from statica.toml / flags, default .dist). If the built
+site has no 404.html or 404/index.html, statica writes a default
+404/index.html fallback.
 .SH OPTIONS
 .TP
 \fB\-v\fR, \fB\-\-version\fR

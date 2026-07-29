@@ -134,7 +134,7 @@ Two posts in → two folders out.
         &format!(
             r#"# {name}
 
-A **statica** site — Powered HTML.
+**Just HTML.** A blazingly fast static site generator that builds on just HTML
 
 Install the CLI with Rust (`cargo install statica-cli --locked`) or npm (`npm i -D @statica/cli`), then:
 

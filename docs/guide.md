@@ -1,6 +1,6 @@
 # statica guide
 
-**Just HTML.** This guide is the direct reference for authoring rules and configuration.
+**Just HTML.** A blazingly fast static site generator that builds on just HTML
 
 For install and starting a new site, use [../README.md](../README.md).
 
@@ -12,7 +12,7 @@ statica source files are valid HTML. Data, fragments, translations, forms, and p
 statica [PATH]              # build (default)
 statica build [PATH]        # build (explicit)
 statica watch [PATH]        # watch + rebuild + serve
-statica serve [PATH]        # serve out_dir
+statica serve [PATH]        # serve out_dir with 404 fallback
 statica new <NAME>          # scaffold
 ```
 
@@ -39,6 +39,7 @@ Every `index.html` is a page. Folder path is the route.
 ```text
 index.html                 -> .dist/index.html
 about/index.html           -> .dist/about/index.html
+404/index.html             -> .dist/404/index.html
 posts/[slug]/index.html    -> .dist/posts/{slug}/index.html
 blog/[page]/index.html     -> .dist/blog/1/, .dist/blog/2/, ...
 ```
@@ -139,6 +140,17 @@ No route params. One input page writes one output page.
 ```text
 about/index.html -> .dist/about/index.html
 ```
+
+### 404 Pages
+
+Missing-page output has two layers:
+
+- Author-defined 404: add `404/index.html` or `404.html` to the site. It is built like any other static page, so it can use fragments, data links, styles, assets, and minification.
+- Default 404: if neither `404/index.html` nor `404.html` exists in the built output, statica writes `.dist/404/index.html` with a small default page.
+
+The generated default 404 is a fallback artifact. It is not counted as an authored page in the build report and is not added to sitemap/RSS outputs. A custom 404 page is an authored page and takes precedence over the default.
+
+`statica serve` and `statica watch` serve directory indexes normally. When a request misses every file, the preview server serves `404.html` first, then `404/index.html`, and returns HTTP status `404`. If an old output directory has no 404 page at all, the server still returns status `404`.
 
 ### Collection
 
@@ -398,6 +410,12 @@ js = true
 ```
 
 `[process]` handles copied assets. `[minify]` runs a final pass over emitted files in `out_dir`.
+
+## 404 Flow
+
+Builds always leave the output directory with a 404 target. Define `404/index.html` when the project needs a custom missing-page experience; otherwise statica writes a default `.dist/404/index.html`.
+
+For local preview, `statica serve` and `statica watch` use that built 404 target as the missing-path fallback and set the response status to `404`. Static hosts may have their own 404 discovery rules, but the generated files are plain HTML and can be deployed as-is.
 
 ## Web Manifest
 

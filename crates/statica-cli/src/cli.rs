@@ -4,12 +4,12 @@ use clap::{ArgAction, Args, Parser, Subcommand};
 
 pub use crate::cli_config::ConfigCli;
 
-/// statica — Just HTML
+/// statica - Just HTML.
 #[derive(Parser, Debug)]
 #[command(
     name = "statica",
     version,
-    about = "statica — Just HTML",
+    about = "statica - Just HTML.",
     long_about = LONG_ABOUT,
     after_long_help = AFTER_LONG_HELP,
     disable_version_flag = true,
@@ -109,9 +109,9 @@ Writes a starter site (pages, fragments, sample funnel JSON) and a documented `s
 }
 
 const LONG_ABOUT: &str = "\
-statica — Just HTML
+statica - Just HTML.
 
-Turns HTML pages, fragments, and local data funnels into a static site.
+A blazingly fast static site generator that builds on just HTML
 Transforms modern CSS to browser-ready output.
 
 Flow: discover → funnel → bind → scope → emit (default out_dir: .dist)
@@ -165,7 +165,9 @@ Build pages into the output directory.
 
 Discovers every **/index.html under PATH, loads funnels and fragments,
 renders pages (including [slug] collections and [[pagination]]), and writes
-HTML to out_dir (from statica.toml / flags, default .dist).";
+HTML to out_dir (from statica.toml / flags, default .dist). If the built
+site has no 404.html or 404/index.html, statica writes a default
+404/index.html fallback.";
 
 const BUILD_AFTER: &str = "\
 Examples:
@@ -184,7 +186,8 @@ const SERVE_ABOUT: &str = "\
 Serve a previously built out_dir over HTTP.
 
 Uses axum + tower-http ServeDir: directory indexes, precompressed gzip,
-and 404 fallback. Does not rebuild — run `statica build` first
+and 404 fallback. Missing paths return HTTP 404 using 404.html or
+404/index.html from out_dir. Does not rebuild — run `statica build` first
 (or use `statica watch` to build continuously).";
 
 const SERVE_AFTER: &str = "\

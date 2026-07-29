@@ -1,6 +1,6 @@
 # statica
 
-**Just HTML.** statica turns ordinary HTML files into a static site. You write valid HTML, link build-time data and fragments, and statica emits plain files.
+**Just HTML.** A blazingly fast static site generator that builds on just HTML
 
 Full reference: [docs/guide.md](docs/guide.md) · Man pages: [docs/man/](docs/man/)
 
@@ -59,7 +59,7 @@ statica -v
 ```text
 statica [PATH]              build (default)
 statica build [PATH]        build
-statica serve [PATH]        preview out_dir (axum + tower-http)
+statica serve [PATH]        preview out_dir with 404 fallback
 statica watch [PATH]        watch + rebuild + serve
 statica new <NAME>          scaffold
 statica -h / --help
@@ -145,9 +145,12 @@ statica source is valid HTML. It uses normal `<template>`, `<slot>`, and `<link>
 
 ```text
 index.html                 → .dist/index.html
+404/index.html             → .dist/404/index.html
 posts/[slug]/index.html    → .dist/posts/{item.slug}/index.html
 blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 ```
+
+If the site does not define `404.html` or `404/index.html`, statica writes a default `.dist/404/index.html`. Custom 404 pages are normal source pages and always win. `statica serve` returns the 404 page with HTTP status `404` for missing paths.
 
 ```html
 <link rel="statica/data" href="../content/posts.json" id="posts" />

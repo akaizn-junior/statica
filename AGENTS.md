@@ -6,7 +6,7 @@ Instructions for AI coding agents working in this repository.
 
 ## What this is
 
-**statica** is a static web builder: **Just HTML**. Authors write valid HTML files. statica reads those files at build time, loads declared data, expands pages, resolves fragments, binds values into attributes/text, scopes fragment CSS/JS, and emits plain static files.
+**statica** is **Just HTML.** A blazingly fast static site generator that builds on just HTML Authors write valid HTML files. statica reads those files at build time, loads declared data, expands pages, resolves fragments, binds values into attributes/text, scopes fragment CSS/JS, and emits plain static files.
 
 | Concept | Role |
 | ------- | ---- |
@@ -87,6 +87,7 @@ When creating or editing HTML sites that statica builds — whether in `examples
 
 - **Source must be valid HTML.** statica uses normal `<html>`, `<head>`, `<body>`, `<link>`, `<template>`, and `<slot>` elements as build-time authoring primitives. Do not put elements where HTML forbids them, such as `<slot>` inside `<title>` or inside attributes.
 - **Routing is filesystem-based.** `about/index.html` emits `/about/`. Dynamic segments use bracket folders: `posts/[slug]/index.html`, `blog/[page]/index.html`, `[locale]/about/index.html`.
+- **404 is static too.** Authors may define `404/index.html` or `404.html`; if they do not, statica emits a default `404/index.html`. Preview serving returns missing paths with HTTP 404 using that page.
 - **Data is linked, not guessed.** Funnel data comes from `<link rel="statica/data" href="..." id="...">`; `href` must point to a file or explicit glob, never a directory.
 - **Data is build-time only.** Production output is static HTML/CSS/JS. Do not add runtime fetches for content that statica should funnel.
 - **Fragments are build-time components.** A fragment is a `<template id="...">` imported and mounted by matching `id`. Fragment CSS/JS is scoped at build time.
