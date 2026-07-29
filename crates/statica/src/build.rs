@@ -94,12 +94,57 @@ impl BuildOptions {
     }
 
     fn pagination_for(&self, route: &str) -> Option<&PaginationRule> {
-        self.pagination.iter().find(|r| r.route == route)
+        self.pagination
+            .iter()
+            .find(|rule| pagination_rule_matches_route(rule, route))
     }
 
     fn log(&self) -> BuildLog {
         BuildLog::new(self.verbose)
     }
+}
+
+fn pagination_rule_matches_route(rule: &PaginationRule, route: &str) -> bool {
+    if !rule.route.is_empty() && rule.route == route {
+        return true;
+    }
+    let root = pagination_rule_root(&rule.route);
+    if root.is_empty() {
+        return route.split('/').any(|segment| segment == "[page]");
+    }
+    let Some(tail) = route.strip_prefix(root) else {
+        return false;
+    };
+    if !tail.starts_with('/') {
+        return false;
+    }
+    tail.split('/').any(|segment| segment == "[page]")
+}
+
+fn pagination_rule_root(route: &str) -> &str {
+    route.split_once("/[page]").map_or_else(
+        || route.trim_matches('/'),
+        |(root, _)| root.trim_matches('/'),
+    )
+}
+
+fn pagination_listing_route(
+    rule: &PaginationRule,
+    page: &PreparedPage,
+    page_param: &str,
+) -> String {
+    if rule.route.split('/').any(|segment| segment == "[page]") {
+        return rule.route.clone();
+    }
+    let page_segment = format!("[{page_param}]");
+    let mut parts = Vec::new();
+    for segment in page.source.route.split('/') {
+        parts.push(segment);
+        if segment == page_segment {
+            break;
+        }
+    }
+    parts.join("/")
 }
 
 /// One timed pipeline step (for `--verbose` summary).
@@ -762,6 +807,7 @@ fn emit_locale_paginated(
     let needles = html_source_needles(&collection_id);
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
     let param = pagination_param(page, &needle_refs)?;
+    let listing_route = pagination_listing_route(rule, page, &param);
     let mut data_cache = std::collections::HashMap::new();
     let mut outs = Vec::new();
 
@@ -778,7 +824,7 @@ fn emit_locale_paginated(
                 i18n_catalogs,
                 &opts.i18n,
             )?;
-            let chunks = paginate::chunk_items(&items, rule, &page.source.route, &param);
+            let chunks = paginate::chunk_items(&items, rule, &listing_route, &param);
             let localized: Vec<_> = chunks
                 .iter()
                 .map(|chunk| paginate::apply_locale_to_chunk(chunk, loc))
@@ -803,7 +849,7 @@ fn emit_locale_paginated(
         }
     } else {
         let items = page.shared_collection_items(&collection_id, &needle_refs)?;
-        let chunks = paginate::chunk_items(&items, rule, &page.source.route, &param);
+        let chunks = paginate::chunk_items(&items, rule, &listing_route, &param);
         if chunks.is_empty() {
             push_empty_pagination_warning(page, warnings, &collection_id, &needle_refs)?;
             return Ok(EmitResult {
@@ -840,34 +886,31 @@ fn emit_locale_paginated(
 }
 
 fn pagination_param(page: &PreparedPage, needle_refs: &[&str]) -> Result<String> {
-    let param = page
-        .source
+    if page.source.params.iter().any(|p| p == "page") {
+        return Ok("page".into());
+    }
+    page.source
         .params
         .iter()
         .find(|p| *p != i18n::LOCALE_PARAM)
+        .cloned()
         .ok_or_else(|| {
             page.at(
                 needle_refs,
                 format!(
-                    "pagination route `{}` needs a [param] segment (e.g. blog/[page])",
+                    "pagination route `{}` needs a [page] segment (e.g. blog/[page])",
                     page.source.route
                 ),
             )
-        })?
-        .clone();
-    let pagination_params: Vec<_> = page
-        .source
+        })
+}
+
+fn pagination_item_param<'a>(page: &'a PreparedPage, page_param: &str) -> Option<&'a str> {
+    page.source
         .params
         .iter()
-        .filter(|p| *p != i18n::LOCALE_PARAM)
-        .collect();
-    if pagination_params.len() > 1 {
-        return Err(page.at(
-            needle_refs,
-            "pagination routes support a single [param] besides [locale] (the page number folder)",
-        ));
-    }
-    Ok(param)
+        .map(String::as_str)
+        .find(|param| *param != i18n::LOCALE_PARAM && *param != page_param)
 }
 
 fn pagination_items_for_locale(
@@ -929,7 +972,37 @@ fn emit_pagination_chunks(
     data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
     outs: &mut Vec<PathBuf>,
 ) -> Result<()> {
+    let item_param = pagination_item_param(page, param);
+    if page
+        .source
+        .params
+        .iter()
+        .filter(|p| p.as_str() != i18n::LOCALE_PARAM && p.as_str() != param)
+        .count()
+        > 1
+    {
+        return Err(page.at(
+            &["[page]"],
+            "pagination routes support at most one item param besides [page] and [locale]",
+        ));
+    }
     for chunk in chunks {
+        if let Some(item_param) = item_param {
+            emit_paginated_item_chunk(
+                opts,
+                page,
+                registry,
+                chunk,
+                param,
+                item_param,
+                locale,
+                i18n_catalogs,
+                manifest,
+                data_cache,
+                outs,
+            )?;
+            continue;
+        }
         let ctx = locale.map(|loc| i18n::merge_locale_into(&chunk.value, loc));
         let rendered = page.render(
             registry,
@@ -960,7 +1033,7 @@ fn emit_pagination_chunks(
         outs.push(out);
     }
 
-    if rule.index {
+    if rule.index && item_param.is_none() {
         if let Some(first) = chunks.first() {
             let ctx = locale.map(|loc| i18n::merge_locale_into(&first.value, loc));
             let index_route = paginate::index_route(&page.source.route, param);
@@ -992,6 +1065,74 @@ fn emit_pagination_chunks(
     Ok(())
 }
 
+fn emit_paginated_item_chunk(
+    opts: &BuildOptions,
+    page: &PreparedPage,
+    registry: &FragmentRegistry,
+    chunk: &paginate::PageChunk,
+    page_param: &str,
+    item_param: &str,
+    locale: Option<&str>,
+    i18n_catalogs: &I18nCatalogs,
+    manifest: Option<&ManifestMeta>,
+    data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
+    outs: &mut Vec<PathBuf>,
+) -> Result<()> {
+    let items = chunk
+        .value
+        .get("items")
+        .and_then(Value::as_array)
+        .ok_or_else(|| page.at(&["page.pagination.items"], "pagination chunk missing items"))?;
+    for item in items {
+        let folder = funnel::field_as_str(item, item_param).ok_or_else(|| {
+            page.at(
+                &[item_param],
+                format!(
+                    "pagination item missing field `{item_param}` required by route `[{item_param}]`"
+                ),
+            )
+        })?;
+        let ctx = serde_json::json!({
+            "item": item,
+            "pagination": chunk.value,
+            page_param: chunk.page,
+        });
+        let ctx = locale.map_or(ctx.clone(), |loc| i18n::merge_locale_into(&ctx, loc));
+        let rendered = page.render(
+            registry,
+            &opts.root,
+            Some(&ctx),
+            &opts.aliases,
+            &opts.forms,
+            manifest,
+            locale,
+            i18n_catalogs,
+            &opts.i18n,
+            data_cache,
+        )?;
+        let out = if let Some(loc) = locale {
+            emit::out_path_for_route_replacements(
+                &opts.out_dir,
+                &page.source.route,
+                &[
+                    (i18n::LOCALE_PARAM, loc),
+                    (page_param, &chunk.page),
+                    (item_param, &folder),
+                ],
+            )
+        } else {
+            emit::out_path_for_route_replacements(
+                &opts.out_dir,
+                &page.source.route,
+                &[(page_param, &chunk.page), (item_param, &folder)],
+            )
+        };
+        emit::write_html(&out, &rendered)?;
+        outs.push(out);
+    }
+    Ok(())
+}
+
 fn emit_paginated(
     opts: &BuildOptions,
     page: &PreparedPage,
@@ -1012,6 +1153,7 @@ fn emit_paginated(
     let needles = html_source_needles(&collection_id);
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
     let param = pagination_param(page, &needle_refs)?;
+    let listing_route = pagination_listing_route(rule, page, &param);
     let mut data_cache = std::collections::HashMap::new();
     let items = if locale.is_some()
         || page.collection_varies_by_locale(&collection_id, i18n_catalogs, &opts.i18n)
@@ -1031,7 +1173,7 @@ fn emit_paginated(
         page.shared_collection_items(&collection_id, &needle_refs)?
     };
 
-    let chunks = paginate::chunk_items(&items, rule, &page.source.route, &param);
+    let chunks = paginate::chunk_items(&items, rule, &listing_route, &param);
     if chunks.is_empty() {
         push_empty_pagination_warning(page, warnings, &collection_id, &needle_refs)?;
         return Ok(EmitResult {

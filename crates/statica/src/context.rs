@@ -94,9 +94,16 @@ impl CanonicalContext {
         }
 
         let current = current.cloned().unwrap_or(Value::Null);
-        let is_pagination = current
-            .as_object()
-            .is_some_and(|obj| obj.contains_key("items") && obj.contains_key("total_pages"));
+        let nested_item = current
+            .get(CanonicalRoot::Item.as_str())
+            .filter(|_| current.get("pagination").is_some())
+            .cloned();
+        let pagination = current.get("pagination").cloned();
+        let render_item = nested_item.clone().unwrap_or_else(|| current.clone());
+        let is_pagination = pagination.is_some()
+            || current
+                .as_object()
+                .is_some_and(|obj| obj.contains_key("items") && obj.contains_key("total_pages"));
 
         let mut params = serde_json::Map::new();
         for param in &source.params {
@@ -104,6 +111,11 @@ impl CanonicalContext {
                 locale.map_or(Value::Null, |loc| Value::String(loc.to_string()))
             } else {
                 funnel::read_field(&current, param)
+                    .or_else(|| {
+                        nested_item
+                            .as_ref()
+                            .and_then(|item| funnel::read_field(item, param))
+                    })
                     .cloned()
                     .unwrap_or(Value::Null)
             };
@@ -114,14 +126,21 @@ impl CanonicalContext {
         page.insert("route".into(), Value::String(source.route.clone()));
         page.insert("params".into(), Value::Object(params));
         if is_pagination {
-            page.insert("pagination".into(), current.clone());
+            page.insert(
+                "pagination".into(),
+                pagination.unwrap_or_else(|| current.clone()),
+            );
         }
 
         let mut value = serde_json::Map::new();
         value.insert(CanonicalRoot::Data.as_str().into(), Value::Object(data));
         value.insert(
             CanonicalRoot::Item.as_str().into(),
-            if is_pagination { Value::Null } else { current },
+            if is_pagination && nested_item.is_none() {
+                Value::Null
+            } else {
+                render_item
+            },
         );
         value.insert(CanonicalRoot::Page.as_str().into(), Value::Object(page));
         value.insert(

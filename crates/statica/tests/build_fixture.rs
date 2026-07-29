@@ -24,14 +24,11 @@ fn builds_blog_fixture() {
     };
     opts.manifest = true;
     opts.pagination = vec![statica::PaginationRule {
-        route: "blog/[page]".into(),
         page_size: 2,
-        limit: 0,
-        offset: 0,
         sort_by: "published_at".into(),
         sort_desc: true,
-        max_pages: 0,
         index: true,
+        ..Default::default()
     }];
 
     let report = build(&opts).expect("build");
@@ -1139,7 +1136,6 @@ fn i18n_pagination_chunks_once_for_shared_data() {
         ..Default::default()
     };
     opts.pagination = vec![statica::PaginationRule {
-        route: "[locale]/blog/[page]".into(),
         page_size: 2,
         sort_by: "published_at".into(),
         sort_desc: true,
@@ -1158,6 +1154,88 @@ fn i18n_pagination_chunks_once_for_shared_data() {
 
     assert!(dir.join("dist/en/blog/2/index.html").exists());
     assert!(dir.join("dist/pt/blog/1/index.html").exists());
+}
+
+#[test]
+fn pagination_root_expands_listing_and_nested_item_pages() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("blog/[page]/[slug]")).unwrap();
+    std::fs::write(
+        dir.join("content.json"),
+        r#"[
+  {"slug":"alpha","headline":"Alpha"},
+  {"slug":"beta","headline":"Beta"},
+  {"slug":"gamma","headline":"Gamma"}
+]"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(dir.join("blog/[page]")).unwrap();
+    std::fs::write(
+        dir.join("blog/[page]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{page}">
+  <head>
+    <link rel="statica/data" href="../../content.json" id="posts" />
+    <link rel="statica/fragment" type="text/html" href="./post-link.html" id="post-link" />
+    <title data-t="Page ${page.pagination.page}">Page</title>
+  </head>
+  <body>
+    <p data-t="${page.pagination.href}">Href</p>
+    <slot id="post-link" data-each="page.pagination.items"></slot>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("blog/[page]/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{item, page}">
+  <head>
+    <link rel="statica/data" href="../../../content.json" id="posts" />
+    <title data-t="${item.headline}">Post</title>
+  </head>
+  <body>
+    <h1 data-t="${item.headline}">Post</h1>
+    <p data-t="${page.pagination.href}">Page href</p>
+    <p data-t="${page.params.page}">Page param</p>
+    <p data-t="${page.params.slug}">Slug param</p>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("blog/[page]/post-link.html"),
+        r#"<template id="post-link" data-bind="{slug, headline}">
+  <a href="./${slug}/" data-t="${headline}">Post</a>
+</template>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.pagination = vec![statica::PaginationRule {
+        page_size: 2,
+        index: true,
+        ..Default::default()
+    }];
+
+    build(&opts).expect("build");
+
+    let listing = std::fs::read_to_string(dir.join("dist/blog/1/index.html")).unwrap();
+    assert!(listing.contains("/blog/1/"));
+
+    let alpha = std::fs::read_to_string(dir.join("dist/blog/1/alpha/index.html")).unwrap();
+    assert!(alpha.contains("<title>Alpha</title>"));
+    assert!(alpha.contains("/blog/1/"));
+    assert!(alpha.contains(">1</p>"));
+    assert!(alpha.contains(">alpha</p>"));
+
+    let gamma = std::fs::read_to_string(dir.join("dist/blog/2/gamma/index.html")).unwrap();
+    assert!(gamma.contains("<title>Gamma</title>"));
+
+    assert!(dir.join("dist/blog/index.html").exists());
+    assert!(!dir.join("dist/blog/[slug]/index.html").exists());
 }
 
 #[test]
