@@ -53,7 +53,7 @@ Points at an explicit `.md` glob with YAML front matter — see `content/posts/*
 
 [`posts/[slug]/index.html`](posts/[slug]/index.html):
 
-- Page context roots such as `item`, `page`, and `i18n` are declared on `<html data-bind>`
+- Page context roots such as `data`, `item`, `page`, and `i18n` are declared on `<html data-bind>` before use
 - Data links in `<head>`
 - `data-t="${item.headline}"` for scalar item text
 - Fragment imports with relative paths from the page file
@@ -62,7 +62,7 @@ Points at an explicit `.md` glob with YAML front matter — see `content/posts/*
 
 [`blog/[page]/index.html`](blog/[page]/index.html):
 
-- Same explicit canonical page context
+- Same explicit canonical page context, usually `{page}` for pagination metadata
 - `<slot id="post-list">` passes the pagination context into the fragment
 - `${page.pagination.prev_href}`, `${page.pagination.next_href}`, `data-each="page.pagination.pages"` for nav
 
@@ -90,6 +90,7 @@ index = true
 - Template at `[locale]/about/index.html`
 - Catalogs in `content/i18n/{locale}.json`
 - `data-t="${i18n.about.title}"`-style paths on translatable elements
+- The page binds `{i18n}` on `<html>` before using catalog values
 - Config: `[i18n] enabled = true, locales = ["en", "pt"]`
 
 ## When editing this fixture

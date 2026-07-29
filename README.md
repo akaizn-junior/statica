@@ -76,7 +76,7 @@ statica build --sitemap 'filename=sitemap.xml,urls_per_file=50000'
 statica build --process 'css=true,js=false,images=true'
 statica build --minify 'html=true,css=true,js=true'
 statica build --process --minify
-statica build --pagination 'route=blog/[page],page_size=10,sort_desc=true,index=true'
+statica build --pagination 'page_size=10,sort_desc=true,index=true'
 statica build --i18n 'locales=en|pt,default=en'
 statica watch --preview host=127.0.0.1,port=9000
 ```
@@ -111,7 +111,6 @@ enabled = false
 urls_per_file = 50000
 
 [[pagination]]
-route = "blog/[page]"
 page_size = 10
 sort_by = "published_at"
 sort_desc = true
@@ -161,7 +160,8 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 - Attributes → `${item.slug}` / `${page.pagination.next_href}` / `${i18n.locale}`
 - Fragment mount: `<slot id="fragment-id"></slot>` passes the current item/context
 - Fragment loop: `<slot id="fragment-id" data-each="items"></slot>` passes each item
-- Page `data-bind` declares canonical roots such as `{item}`, `{page}`, or `{i18n}` before use
+- Page `data-bind` declares canonical roots such as `{item}`, `{page}`, `{data}`, or `{i18n}` before use
+- Data link IDs are directly available by `id`; they cannot be named `data`, `item`, `page`, or `i18n`
 - Collection: linked data + `[slug]`; current record is `item`
 - Pagination: linked data + `[page]`; page chunk is `page.pagination`
 

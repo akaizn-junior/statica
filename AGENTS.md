@@ -6,21 +6,24 @@ Instructions for AI coding agents working in this repository.
 
 ## What this is
 
-**statica** is a static web builder: **Just HTML**. Authors write valid HTML; the build resolves fragments, runs build-time data funnels, expands collections and pagination, scopes component CSS/JS, and emits static files.
+**statica** is a static web builder: **Just HTML**. Authors write valid HTML files. statica reads those files at build time, loads declared data, expands pages, resolves fragments, binds values into attributes/text, scopes fragment CSS/JS, and emits plain static files.
 
 | Concept | Role |
 | ------- | ---- |
-| **Funnel** | Build-time data via `<link rel="statica/data" href id>` |
-| **Pages** | Every `**/index.html` — folder path is the route (`[slug]`, `[page]`, `[locale]`) |
+| **Pages** | Every `**/index.html`; the folder path is the route |
+| **Routes** | Static folders plus bracket params like `[slug]`, `[page]`, and `[locale]` |
+| **Funnels** | Build-time data linked with `<link rel="statica/data" href="..." id="...">` |
+| **Fragments** | Build-time HTML components imported with `<link rel="statica/fragment" ...>` |
+| **Binding** | Static replacement through `data-bind`, `data-t`, attributes, slots, and `data-each` |
 
-Flow: **discover → funnel → bind → scope → emit** (default output: `.dist/`)
+Pipeline: **discover → pre → parse → funnel → expand → bind → scope → emit → minify** (default output: `.dist/`)
 
 This repo contains two things:
 
 1. **The statica engine** — Rust workspace (`crates/statica`, `crates/statica-cli`)
 2. **Example sites** — `examples/blog` (dogfood fixture), bench fixtures
 
-Do not treat statica like React, Vue, or Next.js. There is no client-side framework, no JSX, no virtual DOM. HTML + statica attributes **are** the template language.
+Do not treat statica like React, Vue, Svelte, Astro, or Next.js. There is no client-side component runtime, no JSX, no virtual DOM, and no runtime content fetch for site data. HTML + statica attributes **are** the template language.
 
 ## Quick commands
 
@@ -73,13 +76,114 @@ CI runs `cargo build -p statica-cli --release` and `cargo test` on push/PR. Push
 
 When creating or editing HTML sites that statica builds — whether in `examples/`, scaffolds from `statica new`, or user projects — follow these rules.
 
-### Mental model
+### Non-negotiable model
 
-- **Routing is filesystem-based.** `about/index.html` → `/about/`. Dynamic segments use bracket folders: `posts/[slug]/index.html`.
-- **Source is valid HTML.** statica uses normal `<template>`, `<slot>`, and `<link>` elements as build-time authoring primitives. Do not put statica elements where HTML would not allow them, such as `<slot>` inside `<title>` or attributes.
-- **Data is build-time only.** Funnel links load JSON, JSONL/NDJSON, CSV, plain text, Markdown, or explicit globs at build time. Production output is plain static HTML — no runtime data fetching.
-- **Fragments are HTML components.** `<template id="…">` in a fragment file, imported with `<link rel="statica/fragment">`, mounted with `<slot id="…">`.
+- **Source must be valid HTML.** statica uses normal `<html>`, `<head>`, `<body>`, `<link>`, `<template>`, and `<slot>` elements as build-time authoring primitives. Do not put elements where HTML forbids them, such as `<slot>` inside `<title>` or inside attributes.
+- **Routing is filesystem-based.** `about/index.html` emits `/about/`. Dynamic segments use bracket folders: `posts/[slug]/index.html`, `blog/[page]/index.html`, `[locale]/about/index.html`.
+- **Data is linked, not guessed.** Funnel data comes from `<link rel="statica/data" href="..." id="...">`; `href` must point to a file or explicit glob, never a directory.
+- **Data is build-time only.** Production output is static HTML/CSS/JS. Do not add runtime fetches for content that statica should funnel.
+- **Fragments are build-time components.** A fragment is a `<template id="...">` imported and mounted by matching `id`. Fragment CSS/JS is scoped at build time.
+- **Context is explicit.** Pages may use canonical roots only after `<html data-bind="...">` asks for them. Fragments never receive canonical page context.
 - **Default build command is short.** Prefer examples like `statica .` or `statica examples/blog`; use `statica build …` when documenting the explicit subcommand.
+
+### Data funnels
+
+Use `<link rel="statica/data">` in the page or fragment file that needs the data.
+
+```html
+<link rel="statica/data" href="../../content/posts/*.md" id="posts" />
+<link rel="statica/data" href="../content/vehicles.csv" id="vehicles" />
+<link rel="statica/data" href="../content/notes.txt" id="notes" type="text/plain" />
+```
+
+Rules:
+
+- `href` is relative to the HTML file declaring the link, after aliases are resolved.
+- `href` must be a concrete file or an explicit glob such as `posts/*.md`; `posts/` is invalid.
+- Supported sources are JSON, JSONL/NDJSON, CSV, plain text, Markdown, and globs of those files.
+- Plain text becomes an array of non-empty strings. JSONL/NDJSON becomes an array of parsed line values. CSV becomes an array of objects keyed by header.
+- Data link `id` names are available by id in that page/fragment scope.
+- Data link `id` names cannot be `data`, `item`, `page`, or `i18n`; those are canonical page roots.
+- Locale-specific data uses `${locale}` in `href`, e.g. `href="../../content/posts.${locale}.json"`.
+
+### Page context
+
+statica builds a canonical page object:
+
+```json
+{
+  "data": {},
+  "item": null,
+  "page": {
+    "route": "",
+    "params": {}
+  },
+  "i18n": {
+    "locale": ""
+  }
+}
+```
+
+Canonical roots:
+
+| Root | Meaning |
+| ---- | ------- |
+| `data` | All linked page data keyed by data link `id` |
+| `item` | Current collection record for `[param]` routes |
+| `page.route` | Filesystem route for the current page |
+| `page.params` | Route params resolved for the emitted page |
+| `page.pagination` | Pagination chunk metadata for `[page]` routes |
+| `i18n.locale` | Active locale when i18n is enabled |
+
+Pages must opt into canonical roots with `<html data-bind>`.
+
+```html
+<html lang="en" data-bind="{item}">
+  <head>
+    <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
+    <title data-t="${item.headline}">Post</title>
+  </head>
+  <body>
+    <h1 data-t="${item.headline}">Post</h1>
+    <slot name="item.html"></slot>
+  </body>
+</html>
+```
+
+Page lookup order is:
+
+1. Bound page data from `<html data-bind="...">`
+2. Linked data ids from valid `statica/data` links
+3. No fallback
+
+If a page uses `${item.slug}`, `data-t="${page.pagination.page}"`, `data-each="item.related"`, or `data-t="${i18n.about.title}"`, then the page must bind `{item}`, `{page}`, or `{i18n}` on `<html>`.
+
+### Binding syntax
+
+Use `data-bind` to define what names exist. Use `data-t` for text. Use `${...}` only inside attributes and `data-t`.
+
+```html
+<!-- Destructure specific fields -->
+<template id="post-card" data-bind="{slug, headline}">
+  <a href="/posts/${slug}/" data-t="${headline}">Post</a>
+</template>
+
+<!-- Bind the whole object -->
+<template id="post-card" data-bind="post">
+  <a href="/posts/${post.slug}/" data-t="${post.headline}">Post</a>
+</template>
+```
+
+Rules:
+
+- `data-bind` is valid only on page `<html>` and fragment `<template>`.
+- `data-t="${path.to.value}"` replaces element text.
+- Literal `data-t="Plain text"` renders that literal text.
+- `${path.to.value}` works in attributes.
+- `${...}` is never valid directly in text nodes.
+- Placeholders must be dotted identifier paths, not JavaScript expressions.
+- statica does not evaluate `${a + b}`, function calls, filters, optional chaining, array indexing, or arbitrary JS.
+- There is no magic flattening. `${headline}` works only if `headline` is actually bound; otherwise use `${item.headline}` and bind `{item}`.
 
 ### The three-part fragment contract
 
@@ -98,21 +202,30 @@ Every fragment needs matching `id` on all three parts:
 </template>
 ```
 
-### Binding rules (strict — build fails if violated)
+### Fragment context
 
-| Use case | Syntax | Notes |
-| -------- | ------ | ----- |
-| Page text content | `data-t="${item.field}"` | Literal `data-t="Text"` renders `Text`; placeholders are dotted identifier paths only, never JS expressions |
-| Page attributes | `${item.field}` | Page roots are `data`, `item`, `page`, `i18n` |
-| Fragment text content | `data-t="${field}"` | Field must be declared in fragment `data-bind`; slots are for fragment mounts/default content |
-| Fragment attributes | `${field}` | Same fragment `data-bind` rule |
-| Whole object | `data-bind="posts"` on fragments | Use `${posts.field}` or nested slots |
-| Page canonical context | `<html data-bind="{item, page}">` | Required before using canonical roots such as `item`, `page`, or `i18n` |
-| Destructured fields | `data-bind="{slug, headline}"` | Use `${slug}` directly |
-| Current item in loop | `data-each="items"` | On fragment mount `<slot id="...">` |
-| Loops | `data-each="items"` | On `<slot id="fragment-id">` |
+Fragments do not see canonical page context. A fragment can use only:
 
-**No magic flattening.** If you write `${variant}`, you must bind `{variant, …}` or `${button.variant}` with `data-bind="button"`. Wrong bindings produce `file:line:column` diagnostics.
+1. Values declared by its own `<template data-bind="...">`
+2. Data linked inside that fragment file with `<link rel="statica/data" ...>`
+
+Fragment lookup order is:
+
+1. Bound fragment data
+2. Linked fragment data ids
+3. No fallback
+
+Fragment mounts pass the current render value by default. In a loop, each array item is the value passed to the fragment.
+
+```html
+<template id="post-list" data-bind="{items}">
+  <ul>
+    <slot id="post-card" data-each="items"></slot>
+  </ul>
+</template>
+```
+
+`data-each` is valid on fragment mount slots: `<slot id="fragment-id" data-each="items"></slot>`. `data-bind` is not valid on mount slots.
 
 ### Page types
 
@@ -122,12 +235,14 @@ Every fragment needs matching `id` on all three parts:
 
 ```html
 <html lang="en" data-bind="{item}">
-  <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
-  <title>Post</title>
+  <head>
+    <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
+    <title data-t="${item.headline}">Post</title>
+  </head>
 </html>
 ```
 
-**Pagination page** — `[page]` folder + `[[pagination]]` in `statica.toml`:
+**Pagination page** — `[[pagination]]` config + `[page]` folder:
 
 ```html
 <html lang="en" data-bind="{page}">
@@ -136,7 +251,17 @@ Every fragment needs matching `id` on all three parts:
 </html>
 ```
 
-Page context roots are `data`, `item`, `page`, and `i18n`; pagination metadata lives at `page.pagination`. Pages must declare canonical roots with `<html data-bind="…">` before use. See [docs/guide.md](docs/guide.md).
+Page context roots are `data`, `item`, `page`, and `i18n`; pagination metadata lives at `page.pagination`. Pages must declare canonical roots with `<html data-bind="…">` before use. Data link ids are available by id, but cannot collide with canonical roots. See [docs/guide.md](docs/guide.md).
+
+Paginated roots may also contain nested item pages:
+
+```text
+# statica.toml: [[pagination]]
+blog/[page]/index.html
+blog/[page]/[slug]/index.html
+```
+
+Nested item pages bind `{page, item}`. The `[page]` segment comes from pagination; `[slug]` comes from the item inside that page chunk.
 
 **i18n page** — `[locale]/` segment + `[i18n]` config. Use `data-t="${i18n.section.key}"` for catalog text; `${i18n.locale}` works in attributes and `data-t`, not text nodes.
 
@@ -160,7 +285,7 @@ Page context roots are `data`, `item`, `page`, and `i18n`; pagination metadata l
 
 ### Paths and aliases
 
-- Funnel `src`, fragment `href`, and asset paths are **relative to the HTML file** that declares them.
+- Funnel `href`, fragment `href`, and asset paths are **relative to the HTML file** that declares them.
 - Aliases in `statica.toml` use `@Name/tail` syntax (e.g. `@Google/?family=…`, `@static/app.js`).
 
 ### Site layout convention
@@ -184,8 +309,12 @@ Do **not**:
 - Introduce React/Vue/Svelte components or a bundler-centric workflow unless explicitly requested
 - Use `${field}` directly in text nodes — use `data-t="${field}"` instead
 - Put `<slot>` inside HTML attributes
+- Put `<slot>` inside `<title>`; use `data-t` on `<title>` instead
+- Put `data-bind` on fragment mount slots; use `data-each` on mounts and `data-bind` on fragment templates
 - Mix `[page]` and `[slug]` under the same route tree (e.g. both `posts/[slug]` and `posts/[page]`)
 - Assume undeclared fields bind automatically — every `${…}` in attributes or `data-t` must be a dotted identifier path bound by `data-bind`
+- Use canonical roots in pages without `<html data-bind>` documenting them
+- Use canonical roots in fragments at all; pass values through fragment `data-bind` or link fragment-local data
 - Use runtime fetch/API calls for content that should be static
 - Capitalize "Statica" in user-facing copy — always **statica**
 

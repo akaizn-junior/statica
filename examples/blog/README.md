@@ -17,7 +17,7 @@ Demonstrates:
 - Home page with `$`-scoped button fragment
 - Paginated listing (`blog/[page]/` → `blog/1/`, `blog/2/`, … via `[[pagination]]`)
 - Collection pages (`posts/[slug]/`) from the posts Markdown glob
-- Nested fragment with its own data (`related-posts`)
+- Related posts composed in Markdown data and rendered with `data-each="item.related"`
 - Path aliases + Google Fonts (`@Google/…` via `<link rel="statica/font">`)
 - Static forms (`<form statica>` + `[forms]` in `statica.toml`)
 - i18n (`[locale]/about/` + `data-t` catalogs in `content/i18n/`)

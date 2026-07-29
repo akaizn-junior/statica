@@ -126,7 +126,7 @@ statica fills that object during the build:
 | `page.pagination` | Pagination metadata and page chunk for `[page]` routes |
 | `i18n.locale` | Active locale, or empty when i18n is not active |
 
-`<html data-bind>` documents which canonical roots the page uses. A page can use declared data link ids directly, but it must bind canonical roots such as `item`, `page`, or `i18n` before using them.
+`<html data-bind>` documents which canonical roots the page uses. A page can use declared data link ids directly by `id`, but it must bind canonical roots such as `data`, `item`, `page`, or `i18n` before using them.
 
 Page lookup order is: bound page data, declared data link ids, then no fallback. Data link ids cannot be `data`, `item`, `page`, or `i18n`.
 
@@ -161,7 +161,7 @@ posts/[slug]/index.html
 
 The route param, here `slug`, is read from each item.
 
-You can narrow the context when a page wants shorter names:
+You can keep page usage direct by binding only the canonical roots the page needs:
 
 ```html
 <html lang="en" data-bind="{item}">
@@ -171,7 +171,7 @@ You can narrow the context when a page wants shorter names:
 
 ### Pagination
 
-Use a `[page]` route and a matching `[[pagination]]` rule.
+Enable pagination with `[[pagination]]`, then place `[page]` folders where pages should be generated.
 
 ```text
 blog/[page]/index.html
@@ -193,7 +193,6 @@ blog/[page]/index.html
 
 ```toml
 [[pagination]]
-route = "blog/[page]"
 page_size = 10
 sort_by = "published_at"
 sort_desc = true
@@ -201,6 +200,15 @@ index = true
 ```
 
 `page.pagination` includes `items`, `page`, `page_number`, `total_pages`, `total_items`, `source_total`, `per_page`, `limit`, `offset`, `has_prev`, `has_next`, `prev`, `next`, `path`, `href`, `prev_href`, `next_href`, `first_href`, `last_href`, and `pages`.
+
+Any route that includes `[page]` participates in pagination:
+
+```text
+blog/[page]/index.html         -> /blog/1/
+blog/[page]/[slug]/index.html  -> /blog/1/my-post/
+```
+
+The listing page binds `{page}` and reads `page.pagination.items`. The nested item page binds `{page, item}`; `item` is taken from that page chunk, and `page.pagination` still points at the listing page metadata.
 
 Do not put `[page]` and another collection route under the same route tree, such as both `posts/[page]` and `posts/[slug]`.
 
@@ -331,7 +339,7 @@ Catalogs live at `content/i18n/{locale}.json`.
 
 `data-t` replaces element text with a plain template string. Literal text renders as written, and `${...}` placeholders must be dotted identifier paths using the same page or fragment variables available to build-time binding. i18n catalog values live under `i18n.*`, and pages must bind `i18n` before using them. Fragments do not receive canonical page context; fragment values must come from `data-bind` or fragment-local data links. `${...}` works in attributes and `data-t`, not text nodes, and statica never evaluates JS expressions.
 
-Locale-specific data can use `${locale}` in funnel `src`.
+Locale-specific data can use `${locale}` in funnel `href`.
 
 ```html
 <link rel="statica/data" href="../../../content/posts.${locale}.json" id="posts" />
@@ -439,7 +447,7 @@ CLI SPEC flags override TOML.
 ```bash
 statica --process 'css=true,js=false,images=true'
 statica --minify 'html=true,css=true,js=true'
-statica --pagination 'route=blog/[page],page_size=10,index=true'
+statica --pagination 'page_size=10,index=true'
 statica --i18n 'locales=en|pt,default=en'
 statica watch --preview host=127.0.0.1,port=9000
 ```
