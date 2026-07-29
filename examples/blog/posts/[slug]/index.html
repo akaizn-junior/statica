@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <meta charset="utf-8" />
     <title>Post</title>
@@ -31,7 +31,12 @@
       <p data-t="${item.summary}"></p>
       <div><slot name="item.html"></slot></div>
       <slot id="post-card"></slot>
-      <slot id="related-posts">More from the archive</slot>
+      <aside class="related">
+        <h2 class="related__title">More from the archive</h2>
+        <ul class="related__list">
+          <slot id="related-posts" data-each="item.related"></slot>
+        </ul>
+      </aside>
     </article>
     <p><a href="/blog/">← All posts</a></p>
   </body>

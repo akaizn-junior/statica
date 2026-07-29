@@ -16,6 +16,22 @@ nav a {
   margin-inline-end: 0.75rem;
 }
 
+.related {
+  border-top: 2px solid #0f172a;
+  margin-top: 2rem;
+  padding-top: 1rem;
+}
+
+.related__title {
+  color: #64748b;
+  font-size: 1rem;
+}
+
+.related__list {
+  list-style: none;
+  padding: 0;
+}
+
 form {
   display: grid;
   gap: 0.75rem;
