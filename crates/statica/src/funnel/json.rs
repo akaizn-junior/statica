@@ -7,14 +7,13 @@ use serde_json::Value;
 
 use crate::aliases::{self, AliasOptions};
 use crate::content;
+use crate::context::CanonicalRoot;
 use crate::error::{Error, Result};
 use crate::i18n;
 use crate::parse::escape_text;
 use crate::parse::{Document, Element, Node};
 
 use std::path::Component;
-
-pub const CANONICAL_PAGE_ROOTS: &[&str] = &["data", "item", "page", "i18n"];
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -125,7 +124,7 @@ fn load_data_links(
                 ));
             }
         };
-        if CANONICAL_PAGE_ROOTS.contains(&id.as_str()) {
+        if CanonicalRoot::from_str(&id).is_some() {
             let id_dq = format!("id=\"{id}\"");
             let id_sq = format!("id='{id}'");
             return Err(site_err(

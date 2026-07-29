@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
+use crate::context::{CanonicalContext, ContextData, ContextScope, ContextTree};
 use crate::discover::{PageKind, PageSource};
 use crate::error::{Error, Result};
 use crate::fragment::{self, FragmentRegistry};
@@ -75,7 +76,7 @@ pub fn collection_needles(id: &str) -> [String; 2] {
 fn parse_html_bind_decl(doc: &Document) -> Result<BindDecl> {
     let raw = html_bind_raw(doc);
     if raw.is_none() {
-        return Ok(BindDecl::page_context());
+        return Ok(BindDecl::None);
     }
     funnel::parse_bind_decl(raw).map_err(|reason| {
         let prop = raw.unwrap_or("");
@@ -144,31 +145,29 @@ pub fn render_page_document(
     site: Option<(&str, &str)>,
 ) -> Result<String> {
     let mut doc = doc.clone();
-    let page_context = build_page_context(source, current, page_data, locale);
+    let canonical = CanonicalContext::new(source, current, page_data, locale);
     let bind = html_element(&doc)
         .and_then(|el| el.attr("data-bind"))
         .and_then(|raw| funnel::parse_bind_decl(Some(raw)).ok())
-        .unwrap_or_else(|| BindDecl::Named("ctx".into()));
-    let mut ctx = match bind {
-        BindDecl::Named(ref name) if name == "ctx" => page_context.clone(),
-        _ => funnel::bind_context(&bind, &page_context),
-    };
-    add_data_roots(&mut ctx, page_data);
+        .unwrap_or(BindDecl::None);
+    let bind_ctx = funnel::bind_context(&bind, canonical.value());
+    let context_data = canonical.as_data_sources(page_data);
+    let context_tree = ContextTree::new(ContextScope::Page, bind_ctx, context_data.clone());
+    let ctx = context_tree.render_context();
     fill_attr_templates_in_nodes(&mut doc.children, &ctx);
     fill_named_slots(&mut doc.children, &ctx);
-    let context_data = context_data_sources(page_data, &page_context);
     expand_usage_slots_in_nodes(
         registry,
         &mut doc.children,
         current,
-        &context_data,
+        context_data.as_map(),
         locale,
         i18n_catalog,
         data_cache,
         aliases,
         site,
     )?;
-    let data_t_context = data_t_context(&ctx, i18n_catalog);
+    let data_t_context = context_tree.translated_context(i18n_catalog);
     i18n::apply_data_t(&mut doc.children, &data_t_context);
     crate::aliases::resolve_paths_in_document(&mut doc, aliases, site)?;
     crate::font::expand_font_links(&mut doc, aliases, site)?;
@@ -182,118 +181,6 @@ pub fn render_page_document(
     scope::dedupe_helpers_in_document(&mut doc);
     scope::dedupe_styles_in_document(&mut doc);
     Ok(crate::parse::serialize_document(&doc))
-}
-
-fn add_data_roots(ctx: &mut Value, page_data: &HashMap<String, DataSource>) {
-    let Value::Object(map) = ctx else {
-        return;
-    };
-    for (id, source) in page_data {
-        map.entry(id.clone()).or_insert_with(|| source.value());
-    }
-}
-
-fn data_t_context(ctx: &Value, i18n_catalog: Option<&Value>) -> Value {
-    let Some(catalog) = i18n_catalog else {
-        return ctx.clone();
-    };
-    let mut merged = match ctx {
-        Value::Object(map) => map.clone(),
-        _ => serde_json::Map::new(),
-    };
-    let i18n = merged
-        .get("i18n")
-        .map_or_else(|| catalog.clone(), |base| deep_merge(base, catalog));
-    merged.insert("i18n".into(), i18n);
-    Value::Object(merged)
-}
-
-fn deep_merge(base: &Value, overlay: &Value) -> Value {
-    match (base, overlay) {
-        (Value::Object(base_map), Value::Object(overlay_map)) => {
-            let mut out = base_map.clone();
-            for (key, value) in overlay_map {
-                out.insert(
-                    key.clone(),
-                    match out.get(key) {
-                        Some(existing) if existing.is_object() && value.is_object() => {
-                            deep_merge(existing, value)
-                        }
-                        _ => value.clone(),
-                    },
-                );
-            }
-            Value::Object(out)
-        }
-        (_, overlay) => overlay.clone(),
-    }
-}
-
-fn context_data_sources(
-    page_data: &HashMap<String, DataSource>,
-    page_context: &Value,
-) -> HashMap<String, DataSource> {
-    let mut out = page_data.clone();
-    for id in funnel::CANONICAL_PAGE_ROOTS {
-        let value = funnel::read_field(page_context, id)
-            .cloned()
-            .unwrap_or(Value::Null);
-        out.insert(
-            (*id).to_string(),
-            DataSource {
-                id: (*id).to_string(),
-                kind: crate::content::DataKind::Json,
-                path: PathBuf::from(format!("statica:{id}")),
-                data: crate::content::DataSet::Json(value),
-            },
-        );
-    }
-    out
-}
-
-fn build_page_context(
-    source: &PageSource,
-    current: Option<&Value>,
-    page_data: &HashMap<String, DataSource>,
-    locale: Option<&str>,
-) -> Value {
-    let mut data = serde_json::Map::new();
-    for (id, source) in page_data {
-        data.insert(id.clone(), source.value());
-    }
-
-    let current = current.cloned().unwrap_or(Value::Null);
-    let is_pagination = current
-        .as_object()
-        .is_some_and(|obj| obj.contains_key("items") && obj.contains_key("total_pages"));
-
-    let mut params = serde_json::Map::new();
-    for param in &source.params {
-        let value = if param == i18n::LOCALE_PARAM {
-            locale.map_or(Value::Null, |loc| Value::String(loc.to_string()))
-        } else {
-            funnel::read_field(&current, param)
-                .cloned()
-                .unwrap_or(Value::Null)
-        };
-        params.insert(param.clone(), value);
-    }
-
-    let mut page = serde_json::Map::new();
-    page.insert("route".into(), Value::String(source.route.clone()));
-    page.insert("params".into(), Value::Object(params));
-    if is_pagination {
-        page.insert("pagination".into(), current.clone());
-    }
-
-    serde_json::json!({
-        "data": data,
-        "item": if is_pagination { Value::Null } else { current },
-        "page": page,
-        "i18n": {
-            "locale": locale.unwrap_or("")
-        }
-    })
 }
 
 /// Transform unscoped page `<style>` (fragment styles already went through
@@ -482,13 +369,12 @@ fn render_fragment_nodes(
     })?;
 
     let frag_data = registry.resolve_fragment_data(frag, locale, data_cache, aliases)?;
-    let mut local = parent_data.clone();
-    for (k, v) in &frag_data {
-        local.insert(k.clone(), v.clone());
-    }
+    let local = ContextData::new(parent_data.clone()).with_links(&frag_data);
 
-    // `data-bind="button"` → only `button` in scope; `data-bind="{a,b}"` → those fields.
-    let ctx = funnel::bind_context(&frag.bind, prop_value);
+    // `data-bind="button"` → `button`; `data-bind="{a,b}"` → those fields.
+    let bind_ctx = funnel::bind_context(&frag.bind, prop_value);
+    let context_tree = ContextTree::new(ContextScope::Fragment, bind_ctx, local.clone());
+    let ctx = context_tree.render_context();
 
     let mut nodes = fragment::template_children(frag);
     scope::apply_scope_to_nodes(&mut nodes, &frag.scope_id);
@@ -500,14 +386,14 @@ fn render_fragment_nodes(
         registry,
         &mut nodes,
         Some(prop_value),
-        &local,
+        local.as_map(),
         locale,
         i18n_catalog,
         data_cache,
         aliases,
         site,
     )?;
-    let data_t_context = data_t_context(&ctx, i18n_catalog);
+    let data_t_context = context_tree.translated_context(i18n_catalog);
     i18n::apply_data_t(&mut nodes, &data_t_context);
     Ok(nodes)
 }

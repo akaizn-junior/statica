@@ -44,19 +44,6 @@ pub enum BindDecl {
 
 impl BindDecl {
     #[must_use]
-    pub fn page_context() -> Self {
-        Self::Destructure(
-            ["data", "item", "page", "i18n"]
-                .into_iter()
-                .map(|name| DestructureBind {
-                    name: name.to_string(),
-                    path: vec![name.to_string()],
-                })
-                .collect(),
-        )
-    }
-
-    #[must_use]
     pub fn scope_names(&self) -> HashSet<&str> {
         match self {
             Self::None => HashSet::new(),

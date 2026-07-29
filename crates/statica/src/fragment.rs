@@ -142,12 +142,14 @@ impl FragmentRegistry {
                 ));
             }
         };
+        let mut bind_roots = funnel::data_link_ids(&file_doc);
+        bind_roots.extend(self.extra_bind_roots.iter().cloned());
         funnel::validate_template_binds_with_roots(
             id,
             &bind,
             &template_el.children,
             bind_source,
-            &self.extra_bind_roots,
+            &bind_roots,
         )?;
         let hash = short_hash(&raw);
         let scope_id = format!("{id}-{hash}");

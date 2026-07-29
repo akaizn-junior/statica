@@ -48,6 +48,7 @@ mod bind;
 mod build;
 mod build_log;
 mod content;
+mod context;
 pub mod css;
 mod discover;
 mod emit;
