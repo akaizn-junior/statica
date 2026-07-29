@@ -65,6 +65,7 @@ mod manifest;
 mod minify;
 mod paginate;
 pub mod parse;
+mod render;
 mod runtime;
 mod scope;
 
