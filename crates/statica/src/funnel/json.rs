@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde_json::Value;
 
@@ -21,7 +22,7 @@ pub struct DataSource {
     pub id: String,
     pub kind: content::DataKind,
     pub path: PathBuf,
-    pub data: content::DataSet,
+    pub data: Arc<content::DataSet>,
 }
 
 impl DataSource {
@@ -61,7 +62,7 @@ pub fn load_data_from_document(
     doc: &Document,
     site_root: &Path,
     page_dir: &Path,
-    cache: &mut HashMap<PathBuf, content::DataSet>,
+    cache: &mut HashMap<PathBuf, Arc<content::DataSet>>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
 ) -> Result<HashMap<String, DataSource>> {
@@ -81,7 +82,7 @@ pub fn load_locale_data_from_document(
     doc: &Document,
     site_root: &Path,
     page_dir: &Path,
-    cache: &mut HashMap<PathBuf, content::DataSet>,
+    cache: &mut HashMap<PathBuf, Arc<content::DataSet>>,
     aliases: &AliasOptions,
     locale: &str,
     site: Option<(&str, &str)>,
@@ -107,7 +108,7 @@ fn load_data_links(
     doc: &Document,
     site_root: &Path,
     page_dir: &Path,
-    cache: &mut HashMap<PathBuf, content::DataSet>,
+    cache: &mut HashMap<PathBuf, Arc<content::DataSet>>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
     filter: DataLinkFilter<'_>,
@@ -173,28 +174,27 @@ fn load_data_links(
             None => None,
         };
         let cache_key = content_cache_key(site_root, page_dir, &href);
-        let loaded = if explicit_kind.is_none() {
+        let (kind, data) = if explicit_kind.is_none() {
             if let Some(data) = cache.get(&cache_key) {
-                content::LoadedContent {
-                    kind: inferred_data_kind(&href),
-                    data: data.clone(),
-                }
+                (inferred_data_kind(&href), Arc::clone(data))
             } else {
                 let parsed = load_link_content(site_root, page_dir, &href, explicit_kind, site)?;
-                cache.insert(cache_key.clone(), parsed.data.clone());
-                parsed
+                let data = Arc::new(parsed.data);
+                cache.insert(cache_key.clone(), Arc::clone(&data));
+                (parsed.kind, data)
             }
         } else {
             // `type` changes how bytes are parsed, so explicit links stay out of the path cache.
-            load_link_content(site_root, page_dir, &href, explicit_kind, site)?
+            let parsed = load_link_content(site_root, page_dir, &href, explicit_kind, site)?;
+            (parsed.kind, Arc::new(parsed.data))
         };
         out.insert(
             id.clone(),
             DataSource {
                 id,
-                kind: loaded.kind,
+                kind,
                 path: cache_key,
-                data: loaded.data,
+                data,
             },
         );
     }

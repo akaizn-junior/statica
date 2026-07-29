@@ -218,7 +218,7 @@ fn merge_i18n_data(
                     id: key.clone(),
                     kind: crate::content::DataKind::Json,
                     path: PathBuf::from(format!("i18n:{key}")),
-                    data: crate::content::DataSet::Json(value.clone()),
+                    data: Arc::new(crate::content::DataSet::Json(value.clone())),
                 },
             );
         }
@@ -253,7 +253,10 @@ impl PreparedPage {
     fn resolve_page_data(
         &self,
         site_root: &Path,
-        data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
+        data_cache: &mut std::collections::HashMap<
+            PathBuf,
+            std::sync::Arc<crate::content::DataSet>,
+        >,
         aliases: &AliasOptions,
         locale: Option<&str>,
         i18n_catalogs: &I18nCatalogs,
@@ -303,7 +306,10 @@ impl PreparedPage {
         locale: Option<&str>,
         i18n_catalogs: &I18nCatalogs,
         i18n: &I18nOptions,
-        data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
+        data_cache: &mut std::collections::HashMap<
+            PathBuf,
+            std::sync::Arc<crate::content::DataSet>,
+        >,
     ) -> Result<String> {
         let file = self.file();
         let mut doc = self.doc.clone();
@@ -423,9 +429,21 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
 
     let t = Instant::now();
     let i18n_catalogs = I18nCatalogs::load(&opts.root, &opts.i18n)?;
+    let manifest_meta = if opts.manifest {
+        let path = manifest::ensure_manifest_file(&opts.root)?;
+        Some(manifest::read_manifest_meta(&path)?)
+    } else {
+        None
+    };
     let extra_bind_roots = Vec::new();
-    let (registry, prepared, data_sources) =
-        prepare_pages(&pages, &opts.root, &opts.aliases, &extra_bind_roots)?;
+    let (registry, prepared, data_sources) = prepare_pages(
+        &pages,
+        &opts.root,
+        &opts.aliases,
+        &opts.forms,
+        manifest_meta.as_ref(),
+        &extra_bind_roots,
+    )?;
     let prepare_ms = t.elapsed().as_millis();
     let fragments = registry.len();
     phases.push(BuildPhase {
@@ -440,13 +458,6 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     let registry = Arc::new(registry);
     let route_rows = Mutex::new(Vec::with_capacity(prepared.len()));
     let warnings = Mutex::new(Vec::new());
-
-    let manifest_meta = if opts.manifest {
-        let path = manifest::ensure_manifest_file(&opts.root)?;
-        Some(manifest::read_manifest_meta(&path)?)
-    } else {
-        None
-    };
 
     let t = Instant::now();
     let results: Vec<Result<EmitResult>> = prepared
@@ -608,6 +619,8 @@ fn prepare_pages(
     pages: &[PageSource],
     site_root: &Path,
     aliases: &AliasOptions,
+    forms: &FormsOptions,
+    manifest: Option<&ManifestMeta>,
     extra_bind_roots: &[String],
 ) -> Result<(FragmentRegistry, Vec<PreparedPage>, usize)> {
     let mut registry = FragmentRegistry::with_extra_bind_roots(site_root, extra_bind_roots);
@@ -617,7 +630,8 @@ fn prepare_pages(
     for page in pages {
         let file = page.path.display().to_string();
         let html = fs::read_to_string(&page.path).map_err(|e| Error::read(file.clone(), e))?;
-        let doc = parse::parse_document(&html).map_err(|e| e.in_file(&file, &html))?;
+        let mut doc = parse::parse_document(&html).map_err(|e| e.in_file(&file, &html))?;
+        bind::transform_page_styles(&mut doc.children);
         let dir = page.path.parent().unwrap_or_else(|| Path::new("."));
         let data = funnel::load_data_from_document(
             &doc,
@@ -649,6 +663,12 @@ fn prepare_pages(
             },
             extra_bind_roots,
         )?;
+        crate::aliases::resolve_paths_in_document(&mut doc, aliases, Some((&file, &html)))?;
+        crate::font::expand_font_links(&mut doc, aliases, Some((&file, &html)))?;
+        if let Some(meta) = manifest {
+            crate::manifest::inject_manifest_tags(&mut doc, meta);
+        }
+        crate::forms::wire_forms_in_document(&mut doc, forms, Some((&file, &html)))?;
         prepared.push(PreparedPage {
             source: page.clone(),
             html,
@@ -918,7 +938,7 @@ fn pagination_items_for_locale(
     site_root: &Path,
     collection_id: &str,
     needle_refs: &[&str],
-    data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
+    data_cache: &mut std::collections::HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     aliases: &AliasOptions,
     locale: Option<&str>,
     i18n_catalogs: &I18nCatalogs,
@@ -969,7 +989,7 @@ fn emit_pagination_chunks(
     locale: Option<&str>,
     i18n_catalogs: &I18nCatalogs,
     manifest: Option<&ManifestMeta>,
-    data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
+    data_cache: &mut std::collections::HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     outs: &mut Vec<PathBuf>,
 ) -> Result<()> {
     let item_param = pagination_item_param(page, param);
@@ -1075,7 +1095,7 @@ fn emit_paginated_item_chunk(
     locale: Option<&str>,
     i18n_catalogs: &I18nCatalogs,
     manifest: Option<&ManifestMeta>,
-    data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
+    data_cache: &mut std::collections::HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     outs: &mut Vec<PathBuf>,
 ) -> Result<()> {
     let items = chunk
@@ -1435,7 +1455,7 @@ fn emit_locale_collection_items(
     items: &[Value],
     loc: &str,
     needle_refs: &[&str],
-    data_cache: &mut std::collections::HashMap<PathBuf, crate::content::DataSet>,
+    data_cache: &mut std::collections::HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     outs: &mut Vec<PathBuf>,
     seen: &mut HashSet<String>,
 ) -> Result<()> {

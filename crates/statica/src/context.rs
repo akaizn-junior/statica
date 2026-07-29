@@ -5,7 +5,9 @@
 //! see their bound value and linked data sources.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use serde_json::Value;
 
@@ -87,10 +89,15 @@ impl CanonicalContext {
         current: Option<&Value>,
         page_data: &HashMap<String, DataSource>,
         locale: Option<&str>,
+        bound_roots: &HashSet<&str>,
     ) -> Self {
         let mut data = serde_json::Map::new();
-        for (id, source) in page_data {
-            data.insert(id.clone(), source.value());
+        if bound_roots.contains(CanonicalRoot::Data.as_str()) {
+            data.extend(
+                page_data
+                    .iter()
+                    .map(|(id, source)| (id.clone(), source.value())),
+            );
         }
 
         let current = current.cloned().unwrap_or(Value::Null);
@@ -106,20 +113,22 @@ impl CanonicalContext {
                 .is_some_and(|obj| obj.contains_key("items") && obj.contains_key("total_pages"));
 
         let mut params = serde_json::Map::new();
-        for param in &source.params {
-            let value = if param == i18n::LOCALE_PARAM {
-                locale.map_or(Value::Null, |loc| Value::String(loc.to_string()))
-            } else {
-                funnel::read_field(&current, param)
-                    .or_else(|| {
-                        nested_item
-                            .as_ref()
-                            .and_then(|item| funnel::read_field(item, param))
-                    })
-                    .cloned()
-                    .unwrap_or(Value::Null)
-            };
-            params.insert(param.clone(), value);
+        if bound_roots.contains(CanonicalRoot::Page.as_str()) {
+            for param in &source.params {
+                let value = if param == i18n::LOCALE_PARAM {
+                    locale.map_or(Value::Null, |loc| Value::String(loc.to_string()))
+                } else {
+                    funnel::read_field(&current, param)
+                        .or_else(|| {
+                            nested_item
+                                .as_ref()
+                                .and_then(|item| funnel::read_field(item, param))
+                        })
+                        .cloned()
+                        .unwrap_or(Value::Null)
+                };
+                params.insert(param.clone(), value);
+            }
         }
 
         let mut page = serde_json::Map::new();
@@ -133,20 +142,28 @@ impl CanonicalContext {
         }
 
         let mut value = serde_json::Map::new();
-        value.insert(CanonicalRoot::Data.as_str().into(), Value::Object(data));
-        value.insert(
-            CanonicalRoot::Item.as_str().into(),
-            if is_pagination && nested_item.is_none() {
-                Value::Null
-            } else {
-                render_item
-            },
-        );
-        value.insert(CanonicalRoot::Page.as_str().into(), Value::Object(page));
-        value.insert(
-            CanonicalRoot::I18n.as_str().into(),
-            serde_json::json!({ "locale": locale.unwrap_or("") }),
-        );
+        if bound_roots.contains(CanonicalRoot::Data.as_str()) {
+            value.insert(CanonicalRoot::Data.as_str().into(), Value::Object(data));
+        }
+        if bound_roots.contains(CanonicalRoot::Item.as_str()) {
+            value.insert(
+                CanonicalRoot::Item.as_str().into(),
+                if is_pagination && nested_item.is_none() {
+                    Value::Null
+                } else {
+                    render_item
+                },
+            );
+        }
+        if bound_roots.contains(CanonicalRoot::Page.as_str()) {
+            value.insert(CanonicalRoot::Page.as_str().into(), Value::Object(page));
+        }
+        if bound_roots.contains(CanonicalRoot::I18n.as_str()) {
+            value.insert(
+                CanonicalRoot::I18n.as_str().into(),
+                serde_json::json!({ "locale": locale.unwrap_or("") }),
+            );
+        }
 
         Self {
             value: Value::Object(value),
@@ -172,7 +189,7 @@ impl CanonicalContext {
                     id: id.to_string(),
                     kind: DataKind::Json,
                     path: PathBuf::from(format!("statica:{id}")),
-                    data: DataSet::Json(value),
+                    data: Arc::new(DataSet::Json(value)),
                 },
             );
         }
@@ -299,7 +316,7 @@ mod tests {
             id: id.to_string(),
             kind: DataKind::Json,
             path: PathBuf::from(format!("{id}.json")),
-            data: DataSet::Json(value),
+            data: Arc::new(DataSet::Json(value)),
         }
     }
 

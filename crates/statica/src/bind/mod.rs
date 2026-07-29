@@ -137,19 +137,19 @@ pub fn render_page_document(
     current: Option<&Value>,
     page_data: &HashMap<String, DataSource>,
     aliases: &AliasOptions,
-    forms: &FormsOptions,
-    manifest: Option<&ManifestMeta>,
+    _forms: &FormsOptions,
+    _manifest: Option<&ManifestMeta>,
     locale: Option<&str>,
     i18n_catalog: Option<&Value>,
-    data_cache: &mut HashMap<PathBuf, crate::content::DataSet>,
+    data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     site: Option<(&str, &str)>,
 ) -> Result<String> {
-    let mut doc = doc.clone();
-    let canonical = CanonicalContext::new(source, current, page_data, locale);
     let bind = html_element(&doc)
         .and_then(|el| el.attr("data-bind"))
         .and_then(|raw| funnel::parse_bind_decl(Some(raw)).ok())
         .unwrap_or(BindDecl::None);
+    let canonical = CanonicalContext::new(source, current, page_data, locale, &bind.scope_names());
+    let mut doc = doc.clone();
     let bind_ctx = funnel::bind_context(&bind, canonical.value());
     let context_data = canonical.as_data_sources(page_data);
     let context_tree = ContextTree::new(ContextScope::Page, bind_ctx, context_data.clone());
@@ -169,15 +169,8 @@ pub fn render_page_document(
     )?;
     let data_t_context = context_tree.translated_context(i18n_catalog);
     i18n::apply_data_t(&mut doc.children, &data_t_context);
-    crate::aliases::resolve_paths_in_document(&mut doc, aliases, site)?;
-    crate::font::expand_font_links(&mut doc, aliases, site)?;
-    if let Some(meta) = manifest {
-        crate::manifest::inject_manifest_tags(&mut doc, meta);
-    }
-    crate::forms::wire_forms_in_document(&mut doc, forms, site)?;
     funnel::strip_authoring(&mut doc);
     clear_remaining_named_slots(&mut doc.children);
-    transform_page_styles(&mut doc.children);
     scope::dedupe_helpers_in_document(&mut doc);
     scope::dedupe_styles_in_document(&mut doc);
     Ok(crate::parse::serialize_document(&doc))
@@ -185,7 +178,7 @@ pub fn render_page_document(
 
 /// Transform unscoped page `<style>` (fragment styles already went through
 /// [`crate::css::transform_and_scope`]).
-fn transform_page_styles(nodes: &mut [Node]) {
+pub fn transform_page_styles(nodes: &mut [Node]) {
     for node in nodes {
         if let Node::Element(el) = node {
             if el.is_style() {
@@ -211,7 +204,7 @@ pub fn expand_usage_slots_in_nodes(
     data_map: &HashMap<String, DataSource>,
     locale: Option<&str>,
     i18n_catalog: Option<&Value>,
-    data_cache: &mut HashMap<PathBuf, crate::content::DataSet>,
+    data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
 ) -> Result<()> {
@@ -305,7 +298,7 @@ fn render_each(
     children: &[Node],
     locale: Option<&str>,
     i18n_catalog: Option<&Value>,
-    data_cache: &mut HashMap<PathBuf, crate::content::DataSet>,
+    data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
     each_expr: &str,
@@ -351,7 +344,7 @@ fn render_fragment_nodes(
     children: &[Node],
     locale: Option<&str>,
     i18n_catalog: Option<&Value>,
-    data_cache: &mut HashMap<PathBuf, crate::content::DataSet>,
+    data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
 ) -> Result<Vec<Node>> {
@@ -377,11 +370,9 @@ fn render_fragment_nodes(
     let ctx = context_tree.render_context();
 
     let mut nodes = fragment::template_children(frag);
-    scope::apply_scope_to_nodes(&mut nodes, &frag.scope_id);
     fill_attr_templates_in_nodes(&mut nodes, &ctx);
     fill_named_slots(&mut nodes, &ctx);
     fill_default_slots(&mut nodes, children);
-    scope::rewrite_scripts_in_nodes(&mut nodes, &frag.scope_id);
     expand_usage_slots_in_nodes(
         registry,
         &mut nodes,

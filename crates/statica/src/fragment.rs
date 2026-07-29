@@ -10,6 +10,7 @@ use crate::aliases::{self, AliasOptions};
 use crate::error::{Error, Result};
 use crate::funnel::{self, BindDecl, DataSource};
 use crate::parse::{self, Document, Element, Node};
+use crate::scope;
 
 #[derive(Debug, Clone)]
 pub struct Fragment {
@@ -17,7 +18,6 @@ pub struct Fragment {
     pub template: Element,
     /// Bind scope from `<template data-bind="name">` or `data-bind="{a, b}"`.
     pub bind: BindDecl,
-    pub scope_id: String,
     /// Non-locale funnel sources loaded at registry time.
     pub data: HashMap<String, DataSource>,
     /// Whether the fragment declares funnel sources with `${locale}` in `src`.
@@ -27,7 +27,7 @@ pub struct Fragment {
 pub struct FragmentRegistry {
     site_root: PathBuf,
     fragments: HashMap<String, Fragment>,
-    data_cache: HashMap<PathBuf, crate::content::DataSet>,
+    data_cache: HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     extra_bind_roots: Vec<String>,
 }
 
@@ -60,7 +60,9 @@ impl FragmentRegistry {
         self.fragments.len()
     }
 
-    pub fn data_cache_mut(&mut self) -> &mut HashMap<PathBuf, crate::content::DataSet> {
+    pub fn data_cache_mut(
+        &mut self,
+    ) -> &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>> {
         &mut self.data_cache
     }
 
@@ -155,11 +157,14 @@ impl FragmentRegistry {
         let scope_id = format!("{id}-{hash}");
         let has_locale_data = funnel::document_has_locale_data(&file_doc);
 
+        let mut template = template_el.clone();
+        scope::apply_scope_to_nodes(&mut template.children, &scope_id);
+        scope::rewrite_scripts_in_nodes(&mut template.children, &scope_id);
+
         let frag = Fragment {
             path,
-            template: template_el.clone(),
+            template,
             bind,
-            scope_id,
             data,
             has_locale_data,
         };
@@ -174,7 +179,7 @@ impl FragmentRegistry {
         &self,
         frag: &Fragment,
         locale: Option<&str>,
-        data_cache: &mut HashMap<PathBuf, crate::content::DataSet>,
+        data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
         aliases: &AliasOptions,
     ) -> Result<HashMap<String, DataSource>> {
         let mut data = frag.data.clone();
