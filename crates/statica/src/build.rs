@@ -1104,7 +1104,7 @@ fn emit_paginated_item_chunk(
 ) -> Result<()> {
     let items = chunk
         .value
-        .get("items")
+        .get(paginate::PaginationField::Items.as_str())
         .and_then(Value::as_array)
         .ok_or_else(|| page.at(&["page.pagination.items"], "pagination chunk missing items"))?;
     for item in items {
@@ -1116,11 +1116,19 @@ fn emit_paginated_item_chunk(
                 ),
             )
         })?;
-        let ctx = serde_json::json!({
-            "item": item,
-            "pagination": chunk.value,
-            page_param: chunk.page,
-        });
+        let mut ctx = serde_json::Map::new();
+        ctx.insert(
+            crate::context::CanonicalRoot::Item.as_str().into(),
+            item.clone(),
+        );
+        ctx.insert(
+            crate::context::CanonicalPageField::Pagination
+                .as_str()
+                .into(),
+            chunk.value.clone(),
+        );
+        ctx.insert(page_param.into(), Value::String(chunk.page.clone()));
+        let ctx = Value::Object(ctx);
         let ctx = locale.map_or(ctx.clone(), |loc| i18n::merge_locale_into(&ctx, loc));
         let rendered = page.render(
             registry,

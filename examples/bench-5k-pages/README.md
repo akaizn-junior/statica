@@ -1,6 +1,6 @@
 # bench-5k-pages
 
-**5000** funnel items, paginated **1 per page** → `blog/1/` … `blog/5000/` (+ `blog/` index + home) = **5002** HTML pages on disk.
+**5000** funnel items, paginated **10 per page** → `blog/1/` … `blog/500/`, plus nested readable post pages at `blog/[page]/[slug]/` (+ `blog/` index + home) = **5502** HTML pages on disk.
 
 ```bash
 statica build examples/bench-5k-pages

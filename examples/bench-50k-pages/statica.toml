@@ -10,9 +10,9 @@ enabled = true
 [rss]
 enabled = false
 
-# 50000 posts → page_size 1 → blog/1 … blog/50000 (+ blog/ via index)
+# 50000 posts → page_size 10 → blog/1 … blog/5000 plus nested post pages.
 [[pagination]]
-page_size = 1
+page_size = 10
 sort_by = "slug"
 sort_desc = false
 index = true

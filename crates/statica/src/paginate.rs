@@ -14,7 +14,7 @@
 //!
 //! This is **UI list pagination**, not sitemap URL-set splitting (see [`crate::feeds`]).
 
-use serde_json::{json, Value};
+use serde_json::{Map, Value};
 
 use crate::funnel;
 
@@ -59,6 +59,101 @@ impl Default for PaginationRule {
 pub struct PageChunk {
     pub page: String,
     pub value: Value,
+}
+
+/// Fields exposed in `page.pagination` for paginated routes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PaginationField {
+    /// Page folder value as a string, e.g. `"3"`.
+    Page,
+    /// Page number as an integer.
+    PageNumber,
+    /// Total generated pagination pages.
+    TotalPages,
+    /// Number of items after offset/limit.
+    TotalItems,
+    /// Number of source items before offset/limit.
+    SourceTotal,
+    /// Items per page.
+    PerPage,
+    /// Alias for `per_page`.
+    PageSize,
+    /// Configured item limit.
+    Limit,
+    /// Configured item offset.
+    Offset,
+    /// Field used for sorting.
+    SortBy,
+    /// Whether sorting is descending.
+    SortDesc,
+    /// Configured max pages.
+    MaxPages,
+    /// Whether a previous page exists.
+    HasPrev,
+    /// Whether a next page exists.
+    HasNext,
+    /// Previous page folder value.
+    Prev,
+    /// Next page folder value.
+    Next,
+    /// Route path for this page without leading/trailing slash.
+    Path,
+    /// Absolute href for this page.
+    Href,
+    /// Absolute href for the previous page.
+    PrevHref,
+    /// Absolute href for the next page.
+    NextHref,
+    /// Absolute href for the first page.
+    FirstHref,
+    /// Absolute href for the last page.
+    LastHref,
+    /// Optional full page-number navigation list.
+    Pages,
+    /// Whether a page-number navigation entry is the current page.
+    Current,
+    /// Current chunk items.
+    Items,
+}
+
+impl PaginationField {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Page => "page",
+            Self::PageNumber => "page_number",
+            Self::TotalPages => "total_pages",
+            Self::TotalItems => "total_items",
+            Self::SourceTotal => "source_total",
+            Self::PerPage => "per_page",
+            Self::PageSize => "page_size",
+            Self::Limit => "limit",
+            Self::Offset => "offset",
+            Self::SortBy => "sort_by",
+            Self::SortDesc => "sort_desc",
+            Self::MaxPages => "max_pages",
+            Self::HasPrev => "has_prev",
+            Self::HasNext => "has_next",
+            Self::Prev => "prev",
+            Self::Next => "next",
+            Self::Path => "path",
+            Self::Href => "href",
+            Self::PrevHref => "prev_href",
+            Self::NextHref => "next_href",
+            Self::FirstHref => "first_href",
+            Self::LastHref => "last_href",
+            Self::Pages => "pages",
+            Self::Current => "current",
+            Self::Items => "items",
+        }
+    }
+}
+
+/// Returns true when an object has the required shape of a pagination chunk.
+#[must_use]
+pub fn is_pagination_chunk(obj: &Map<String, Value>) -> bool {
+    obj.contains_key(PaginationField::Items.as_str())
+        && obj.contains_key(PaginationField::TotalPages.as_str())
 }
 
 /// Sort → offset → limit, then return the working item list.
@@ -164,46 +259,104 @@ pub fn chunk_items(
         let mut pages = page_links.clone();
         for link in &mut pages {
             if let Some(obj) = link.as_object_mut() {
-                let is_current = obj.get("page").and_then(Value::as_str) == Some(page.as_str());
-                obj.insert("current".into(), Value::Bool(is_current));
+                let is_current = obj
+                    .get(PaginationField::Page.as_str())
+                    .and_then(Value::as_str)
+                    == Some(page.as_str());
+                obj.insert(
+                    PaginationField::Current.as_str().into(),
+                    Value::Bool(is_current),
+                );
             }
         }
 
+        let value = pagination_value(PaginationValueInput {
+            page: page.clone(),
+            page_number,
+            total_pages,
+            total_items,
+            source_total: items.len(),
+            per,
+            rule,
+            has_prev,
+            has_next,
+            prev,
+            next,
+            path,
+            href,
+            prev_href,
+            next_href,
+            first_href: absolute_href(&route_with_param(route, param, "1")),
+            last_href: absolute_href(&route_with_param(route, param, &total_pages.to_string())),
+            pages,
+            chunk,
+        });
+
         out.push(PageChunk {
             page: page.clone(),
-            value: json!({
-                "page": page,
-                "page_number": page_number,
-                "total_pages": total_pages,
-                "total_items": total_items,
-                "source_total": items.len(),
-                "per_page": per,
-                "page_size": per,
-                "limit": rule.limit,
-                "offset": rule.offset,
-                "sort_by": rule.sort_by,
-                "sort_desc": rule.sort_desc,
-                "max_pages": rule.max_pages,
-                "has_prev": has_prev,
-                "has_next": has_next,
-                "prev": prev,
-                "next": next,
-                "path": path,
-                "href": href,
-                "prev_href": prev_href,
-                "next_href": next_href,
-                "first_href": absolute_href(&route_with_param(route, param, "1")),
-                "last_href": absolute_href(&route_with_param(
-                    route,
-                    param,
-                    &total_pages.to_string()
-                )),
-                "pages": pages,
-                "items": chunk,
-            }),
+            value,
         });
     }
     out
+}
+
+struct PaginationValueInput<'a> {
+    page: String,
+    page_number: usize,
+    total_pages: usize,
+    total_items: usize,
+    source_total: usize,
+    per: usize,
+    rule: &'a PaginationRule,
+    has_prev: bool,
+    has_next: bool,
+    prev: String,
+    next: String,
+    path: String,
+    href: String,
+    prev_href: String,
+    next_href: String,
+    first_href: String,
+    last_href: String,
+    pages: Vec<Value>,
+    chunk: &'a [Value],
+}
+
+fn pagination_value(input: PaginationValueInput<'_>) -> Value {
+    let mut obj = Map::new();
+    insert(&mut obj, PaginationField::Page, input.page);
+    insert(&mut obj, PaginationField::PageNumber, input.page_number);
+    insert(&mut obj, PaginationField::TotalPages, input.total_pages);
+    insert(&mut obj, PaginationField::TotalItems, input.total_items);
+    insert(&mut obj, PaginationField::SourceTotal, input.source_total);
+    insert(&mut obj, PaginationField::PerPage, input.per);
+    insert(&mut obj, PaginationField::PageSize, input.per);
+    insert(&mut obj, PaginationField::Limit, input.rule.limit);
+    insert(&mut obj, PaginationField::Offset, input.rule.offset);
+    insert(
+        &mut obj,
+        PaginationField::SortBy,
+        input.rule.sort_by.clone(),
+    );
+    insert(&mut obj, PaginationField::SortDesc, input.rule.sort_desc);
+    insert(&mut obj, PaginationField::MaxPages, input.rule.max_pages);
+    insert(&mut obj, PaginationField::HasPrev, input.has_prev);
+    insert(&mut obj, PaginationField::HasNext, input.has_next);
+    insert(&mut obj, PaginationField::Prev, input.prev);
+    insert(&mut obj, PaginationField::Next, input.next);
+    insert(&mut obj, PaginationField::Path, input.path);
+    insert(&mut obj, PaginationField::Href, input.href);
+    insert(&mut obj, PaginationField::PrevHref, input.prev_href);
+    insert(&mut obj, PaginationField::NextHref, input.next_href);
+    insert(&mut obj, PaginationField::FirstHref, input.first_href);
+    insert(&mut obj, PaginationField::LastHref, input.last_href);
+    insert(&mut obj, PaginationField::Pages, input.pages);
+    insert(&mut obj, PaginationField::Items, input.chunk);
+    Value::Object(obj)
+}
+
+fn insert(field_map: &mut Map<String, Value>, field: PaginationField, value: impl Into<Value>) {
+    field_map.insert(field.as_str().into(), value.into());
 }
 
 /// Rewrite pagination nav paths/hrefs for a concrete locale (`[locale]` → `en`, etc.).
@@ -214,23 +367,32 @@ pub fn apply_locale_to_chunk(chunk: &PageChunk, locale: &str) -> PageChunk {
         return chunk.clone();
     };
     for key in [
-        "path",
-        "href",
-        "prev_href",
-        "next_href",
-        "first_href",
-        "last_href",
+        PaginationField::Path,
+        PaginationField::Href,
+        PaginationField::PrevHref,
+        PaginationField::NextHref,
+        PaginationField::FirstHref,
+        PaginationField::LastHref,
     ] {
-        if let Some(s) = obj.get(key).and_then(Value::as_str) {
-            obj.insert(key.into(), Value::String(localize_route_token(s, locale)));
+        if let Some(s) = obj.get(key.as_str()).and_then(Value::as_str) {
+            obj.insert(
+                key.as_str().into(),
+                Value::String(localize_route_token(s, locale)),
+            );
         }
     }
-    if let Some(pages) = obj.get_mut("pages").and_then(Value::as_array_mut) {
+    if let Some(pages) = obj
+        .get_mut(PaginationField::Pages.as_str())
+        .and_then(Value::as_array_mut)
+    {
         for link in pages {
             if let Some(link) = link.as_object_mut() {
-                for key in ["path", "href"] {
-                    if let Some(s) = link.get(key).and_then(Value::as_str) {
-                        link.insert(key.into(), Value::String(localize_route_token(s, locale)));
+                for key in [PaginationField::Path, PaginationField::Href] {
+                    if let Some(s) = link.get(key.as_str()).and_then(Value::as_str) {
+                        link.insert(
+                            key.as_str().into(),
+                            Value::String(localize_route_token(s, locale)),
+                        );
                     }
                 }
             }
@@ -251,13 +413,14 @@ fn build_page_links(route: &str, param: &str, total_pages: usize) -> Vec<Value> 
         .map(|n| {
             let page = n.to_string();
             let path = route_with_param(route, param, &page);
-            json!({
-                "page": page,
-                "page_number": n,
-                "path": path,
-                "href": absolute_href(&path),
-                "current": false,
-            })
+            let href = absolute_href(&path);
+            let mut link = Map::new();
+            insert(&mut link, PaginationField::Page, page);
+            insert(&mut link, PaginationField::PageNumber, n);
+            insert(&mut link, PaginationField::Path, path);
+            insert(&mut link, PaginationField::Href, href);
+            insert(&mut link, PaginationField::Current, false);
+            Value::Object(link)
         })
         .collect()
 }

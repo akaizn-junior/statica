@@ -49,6 +49,28 @@ impl CanonicalRoot {
     }
 }
 
+/// Fields under the canonical `page` root.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CanonicalPageField {
+    /// Source route for the current page, e.g. `blog/[page]`.
+    Route,
+    /// Resolved dynamic route params keyed by param name.
+    Params,
+    /// Pagination chunk and navigation metadata for `[page]` routes.
+    Pagination,
+}
+
+impl CanonicalPageField {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Route => "route",
+            Self::Params => "params",
+            Self::Pagination => "pagination",
+        }
+    }
+}
+
 /// Where a context is being used.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContextScope {
@@ -103,14 +125,20 @@ impl CanonicalContext {
         let current = current.cloned().unwrap_or(Value::Null);
         let nested_item = current
             .get(CanonicalRoot::Item.as_str())
-            .filter(|_| current.get("pagination").is_some())
+            .filter(|_| {
+                current
+                    .get(CanonicalPageField::Pagination.as_str())
+                    .is_some()
+            })
             .cloned();
-        let pagination = current.get("pagination").cloned();
+        let pagination = current
+            .get(CanonicalPageField::Pagination.as_str())
+            .cloned();
         let render_item = nested_item.clone().unwrap_or_else(|| current.clone());
         let is_pagination = pagination.is_some()
             || current
                 .as_object()
-                .is_some_and(|obj| obj.contains_key("items") && obj.contains_key("total_pages"));
+                .is_some_and(crate::paginate::is_pagination_chunk);
 
         let mut params = serde_json::Map::new();
         if bound_roots.contains(CanonicalRoot::Page.as_str()) {
@@ -132,11 +160,17 @@ impl CanonicalContext {
         }
 
         let mut page = serde_json::Map::new();
-        page.insert("route".into(), Value::String(source.route.clone()));
-        page.insert("params".into(), Value::Object(params));
+        page.insert(
+            CanonicalPageField::Route.as_str().into(),
+            Value::String(source.route.clone()),
+        );
+        page.insert(
+            CanonicalPageField::Params.as_str().into(),
+            Value::Object(params),
+        );
         if is_pagination {
             page.insert(
-                "pagination".into(),
+                CanonicalPageField::Pagination.as_str().into(),
                 pagination.unwrap_or_else(|| current.clone()),
             );
         }

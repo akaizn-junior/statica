@@ -591,7 +591,9 @@ fn resolve_each_array<'a>(
         return array_at_path(current.unwrap_or(&Value::Null), &rest);
     }
     if let Some(value) = current.and_then(|cur| funnel::read_field(cur, first)) {
-        return array_at_path(value, &rest);
+        if let Some(items) = array_at_path(value, &rest)? {
+            return Ok(Some(items));
+        }
     }
     if let Some(source) = local_data.get(first).or_else(|| parent_data.get(first)) {
         if let Some(value) = data_source_value(source) {

@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use crate::context::CanonicalRoot;
 use crate::fragment::FragmentRegistry;
 use crate::parse::{Document, Element, Node};
 
@@ -162,7 +163,7 @@ fn collect_path_root(path: &str, roots: &mut HashSet<String>) {
         .split('.')
         .find(|part| !part.is_empty())
         .unwrap_or("");
-    if !root.is_empty() && !matches!(root, "data" | "item" | "page" | "i18n" | "this") {
+    if !root.is_empty() && root != "this" && CanonicalRoot::from_str(root).is_none() {
         roots.insert(root.to_string());
     }
 }
