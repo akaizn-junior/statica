@@ -1344,6 +1344,65 @@ fn responsive_images_wrap_img_in_picture() {
     assert!(dir.join("dist/assets/hero-800w.jpg").exists());
 }
 
+#[test]
+fn emits_default_404_when_author_omits_one() {
+    let dir = tempfile_dir();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head><title>Home</title></head>
+  <body><h1>Home</h1></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+
+    let report = build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/404/index.html")).unwrap();
+    assert!(html.contains("<title>404 Not Found</title>"));
+    assert!(html.contains("The page you are looking for does not exist."));
+    assert_eq!(report.pages_written, 1);
+    assert!(!report.outputs.contains(&dir.join("dist/404/index.html")));
+}
+
+#[test]
+fn preserves_authored_404_page() {
+    let dir = tempfile_dir();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head><title>Home</title></head>
+  <body><h1>Home</h1></body>
+</html>"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(dir.join("404")).unwrap();
+    std::fs::write(
+        dir.join("404/index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head><title>Custom Missing</title></head>
+  <body><h1>Custom Missing</h1></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+
+    let report = build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/404/index.html")).unwrap();
+    assert!(html.contains("<title>Custom Missing</title>"));
+    assert!(!html.contains("The page you are looking for does not exist."));
+    assert_eq!(report.pages_written, 2);
+}
+
 fn tempfile_dir() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static N: AtomicU64 = AtomicU64::new(0);

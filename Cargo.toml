@@ -6,7 +6,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.32.1"
+version = "0.32.2"
 edition = "2021"
 license = "MIT"
 authors = ["statica"]
@@ -33,6 +33,7 @@ toml = "0.8"
 walkdir = "2"
 axum = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "net", "signal"] }
+tower = "0.5"
 tower-http = { version = "0.5", features = ["fs"] }
 hex = "0.4"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std"] }
@@ -52,4 +53,4 @@ minify-html = "0.18.1"
 globwalk = "0.9"
 pulldown-cmark = "0.13"
 serde_yaml = "0.9"
-statica = { version = "0.32.1", path = "crates/statica" }
+statica = { version = "0.32.2", path = "crates/statica" }

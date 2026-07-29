@@ -1,6 +1,6 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH statica-serve 1  "serve 0.32.1" 
+.TH statica-serve 1  "serve 0.32.2" 
 .SH NAME
 statica\-serve \- Serve out_dir over HTTP (preview a build)
 .SH SYNOPSIS
@@ -9,7 +9,7 @@ statica\-serve \- Serve out_dir over HTTP (preview a build)
 Serve a previously built out_dir over HTTP.
 .PP
 Uses axum + tower\-http ServeDir: directory indexes, precompressed gzip,
-and index.html fallback. Does not rebuild — run `statica build` first
+and 404 fallback. Does not rebuild — run `statica build` first
 (or use `statica watch` to build continuously).
 .SH OPTIONS
 .TP
@@ -147,4 +147,4 @@ Notes:
   Prints Local + Network (LAN) URLs for phone testing.
   Fails if out_dir is missing.
 .SH VERSION
-v0.32.1
+v0.32.2

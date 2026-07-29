@@ -1,11 +1,14 @@
 //! Local static preview server — **axum** + **tower-http** `ServeDir`
-//! (directory indexes, precompressed gzip, SPA-friendly fallback).
+//! (directory indexes, precompressed gzip, 404 fallback).
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
+use axum::http::StatusCode;
+use axum::response::Response;
 use axum::Router;
+use tower::{service_fn, Service};
 use tower_http::services::{ServeDir, ServeFile};
 
 use crate::style;
@@ -22,12 +25,28 @@ pub async fn serve_dir(out_dir: &Path, host: IpAddr, port: u16) -> Result<()> {
         );
     }
 
-    let index = out_dir.join("index.html");
+    let not_found = not_found_file(out_dir);
+    let not_found_service = service_fn(move |request| {
+        let mut service = ServeFile::new(not_found.clone());
+        async move {
+            match service.call(request).await {
+                Ok(mut response) => {
+                    *response.status_mut() = StatusCode::NOT_FOUND;
+                    Ok(response)
+                }
+                Err(_) => {
+                    let mut response = Response::new(Default::default());
+                    *response.status_mut() = StatusCode::NOT_FOUND;
+                    Ok(response)
+                }
+            }
+        }
+    });
     let app = Router::new().fallback_service(
         ServeDir::new(out_dir.to_path_buf())
             .append_index_html_on_directories(true)
             .precompressed_gzip()
-            .fallback(ServeFile::new(index)),
+            .fallback(not_found_service),
     );
 
     let addr = SocketAddr::from((host, port));
@@ -41,6 +60,18 @@ pub async fn serve_dir(out_dir: &Path, host: IpAddr, port: u16) -> Result<()> {
         .await
         .context("preview server exited with error")?;
     Ok(())
+}
+
+fn not_found_file(out_dir: &Path) -> std::path::PathBuf {
+    let flat = out_dir.join("404.html");
+    if flat.is_file() {
+        return flat;
+    }
+    let nested = out_dir.join("404").join("index.html");
+    if nested.is_file() {
+        return nested;
+    }
+    out_dir.join("index.html")
 }
 
 fn print_urls(out_dir: &Path, host: IpAddr, port: u16) {

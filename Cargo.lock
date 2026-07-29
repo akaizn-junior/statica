@@ -3203,7 +3203,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "statica"
-version = "0.32.1"
+version = "0.32.2"
 dependencies = [
  "chrono",
  "csv",
@@ -3237,7 +3237,7 @@ dependencies = [
 
 [[package]]
 name = "statica-cli"
-version = "0.32.1"
+version = "0.32.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -3250,6 +3250,7 @@ dependencies = [
  "statica",
  "tokio",
  "toml",
+ "tower",
  "tower-http",
 ]
 

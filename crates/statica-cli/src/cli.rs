@@ -184,7 +184,7 @@ const SERVE_ABOUT: &str = "\
 Serve a previously built out_dir over HTTP.
 
 Uses axum + tower-http ServeDir: directory indexes, precompressed gzip,
-and index.html fallback. Does not rebuild — run `statica build` first
+and 404 fallback. Does not rebuild — run `statica build` first
 (or use `statica watch` to build continuously).";
 
 const SERVE_AFTER: &str = "\

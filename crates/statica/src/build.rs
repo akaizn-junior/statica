@@ -512,6 +512,8 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
         log.step(format!("redirect  / → /{}/", opts.i18n.default_locale));
     }
 
+    ensure_default_404(&opts.out_dir)?;
+
     routes.sort_by(|a, b| a.route.cmp(&b.route));
 
     let mut assets_processed = 0;
@@ -616,6 +618,37 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
         fragments,
         data_sources,
     })
+}
+
+fn ensure_default_404(out_dir: &Path) -> Result<()> {
+    let flat = out_dir.join("404.html");
+    let nested = out_dir.join("404").join("index.html");
+    if flat.exists() || nested.exists() {
+        return Ok(());
+    }
+    emit::write_html(&nested, default_404_html())?;
+    Ok(())
+}
+
+fn default_404_html() -> &'static str {
+    r#"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>404 Not Found</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 10vh auto; padding: 0 1rem; line-height: 1.5; }
+      a { color: #0f766e; }
+    </style>
+  </head>
+  <body>
+    <h1>404 Not Found</h1>
+    <p>The page you are looking for does not exist.</p>
+    <p><a href="/">Return home</a></p>
+  </body>
+</html>
+"#
 }
 
 fn prepare_pages(
