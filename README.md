@@ -1,6 +1,6 @@
 # statica
 
-**Just HTML**. statica is a static web builder that just works!
+**Just HTML.** statica turns ordinary HTML files into a static site. You write valid HTML, link build-time data and fragments, and statica emits plain files.
 
 Full reference: [docs/guide.md](docs/guide.md) · Man pages: [docs/man/](docs/man/)
 
@@ -164,6 +164,9 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 - Data link IDs are directly available by `id`; they cannot be named `data`, `item`, `page`, or `i18n`
 - Collection: linked data + `[slug]`; current record is `item`
 - Pagination: linked data + `[page]`; page chunk is `page.pagination`
+- Fragments never receive canonical page context; pass values through the mount context or link fragment-local data
+
+Keep content funnels build-time. Production output should not fetch site data at runtime unless you are intentionally adding unrelated client behavior.
 
 ## Crate layout
 

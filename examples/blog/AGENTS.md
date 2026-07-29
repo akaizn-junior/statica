@@ -98,4 +98,5 @@ index = true
 - Keep it minimal — one clear example per feature
 - Run `cargo test -p statica builds_blog_fixture` after changes
 - Update `docs/guide.md` if you introduce a new authoring pattern
-- Do not add JavaScript frameworks or build tools — statica IS the build tool
+- Keep funnel data in `content/`, fragments in `ui/`, and route pages as `**/index.html`
+- Do not add JavaScript frameworks or build tools — statica is the build tool

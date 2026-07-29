@@ -54,12 +54,13 @@ Re-export from `lib.rs`. Keep the surface minimal:
 - Assert on **emitted HTML strings**, not internal state
 - Temp dir helper pattern at bottom of `build_fixture.rs`
 
-### Adding a pipeline feature
+### Adding or changing pipeline behavior
 
 1. Identify the correct stage — binding logic belongs in `bind/`, not `emit`
 2. Add unit tests in the module
 3. Add integration test in `build_fixture.rs` with minimal HTML fixture
-4. Update `docs/guide.md` if user-facing
+4. Update `examples/blog` when the behavior should be dogfooded
+5. Update `docs/guide.md` if user-facing
 
 ### Dependencies
 

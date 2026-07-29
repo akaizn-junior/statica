@@ -62,3 +62,7 @@ Unit tests co-located in `config.rs`, `env.rs`, `cmd/util.rs`. Test SPEC parsing
 3. Map to `BuildOptions` field in `config.rs` or command handler
 4. Update `docs/guide.md` and `README.md`
 5. Rebuild to regenerate man pages
+
+### Changing command behavior
+
+Keep path semantics cwd-based and keep the default command equivalent to `build`. If the change affects user-visible output, update clap help first so the man pages regenerate from the same source.

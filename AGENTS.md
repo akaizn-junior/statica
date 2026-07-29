@@ -47,6 +47,13 @@ statica
 
 CI runs `cargo build -p statica-cli --release` and `cargo test` on push/PR. Pushing a version bump to `main` tags `v{version}` and dispatches the global release build (binaries, GitHub Release, crates.io, npm, Homebrew tap).
 
+## Change checklist
+
+- Engine behavior: update tests in `crates/statica`, then `docs/guide.md`; update `examples/blog` when the feature needs a dogfood example.
+- CLI behavior: update clap help, `README.md`, `docs/guide.md`, and regenerate `docs/man/` with `cargo build -p statica-cli --release`.
+- Site authoring examples: keep `examples/blog` canonical and mention new patterns in `examples/blog/AGENTS.md` when future agents should copy them.
+- User-facing copy: spell the product, binary, and crate names as lowercase `statica`.
+
 ## Documentation map
 
 | Need | Read |
@@ -85,6 +92,7 @@ When creating or editing HTML sites that statica builds — whether in `examples
 - **Fragments are build-time components.** A fragment is a `<template id="...">` imported and mounted by matching `id`. Fragment CSS/JS is scoped at build time.
 - **Context is explicit.** Pages may use canonical roots only after `<html data-bind="...">` asks for them. Fragments never receive canonical page context.
 - **Default build command is short.** Prefer examples like `statica .` or `statica examples/blog`; use `statica build …` when documenting the explicit subcommand.
+- **Verification follows the layer changed.** Core changes need core tests; CLI changes need CLI tests and regenerated man pages; authoring changes should build the fixture.
 
 ### Data funnels
 

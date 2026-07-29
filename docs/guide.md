@@ -1,8 +1,10 @@
 # statica guide
 
-**Just HTML.** This guide is the direct reference for authoring and config.
+**Just HTML.** This guide is the direct reference for authoring rules and configuration.
 
 For install and starting a new site, use [../README.md](../README.md).
+
+statica source files are valid HTML. Data, fragments, translations, forms, and pagination are resolved at build time; the generated site is plain static HTML/CSS/JS.
 
 ## Commands
 
@@ -83,7 +85,7 @@ Use `${...}` only in attributes.
 <a href="/posts/${slug}/" data-t="${headline}">Fallback link</a>
 ```
 
-Every `${...}` placeholder in `data-t` and attributes must be a dotted identifier path declared by the fragment `data-bind`. Literal `data-t` text renders as written. statica does not evaluate JS expressions such as `${a + b}`, and there is no magic flattening.
+Every `${...}` placeholder in `data-t` and attributes must be a dotted identifier path available in the current binding scope. For pages, that scope is declared on `<html data-bind>` plus data link ids. For fragments, it is declared on `<template data-bind>` plus fragment-local data link ids. Literal `data-t` text renders as written. statica does not evaluate JS expressions such as `${a + b}`, and there is no magic flattening.
 
 ```html
 <!-- direct fields -->
@@ -126,7 +128,7 @@ statica fills that object during the build:
 | `page.pagination` | Pagination metadata and page chunk for `[page]` routes |
 | `i18n.locale` | Active locale, or empty when i18n is not active |
 
-`<html data-bind>` documents which canonical roots the page uses. A page can use declared data link ids directly by `id`, but it must bind canonical roots such as `data`, `item`, `page`, or `i18n` before using them.
+`<html data-bind>` declares which canonical roots the page uses. A page can use declared data link ids directly by `id`, but it must bind canonical roots such as `data`, `item`, `page`, or `i18n` before using them.
 
 Page lookup order is: bound page data, declared data link ids, then no fallback. Data link ids cannot be `data`, `item`, `page`, or `i18n`.
 
@@ -242,6 +244,8 @@ Loop with `data-each`.
 
 Fragment paths are relative to the file that declares them. Fragments may import their own data and other fragments.
 
+Fragments do not inherit canonical page roots. A fragment can read only values passed through its render context and names introduced by its own data links. Use `data-each` on mount slots for loops; keep `data-bind` on the fragment `<template>`.
+
 ## CSS And JS
 
 Inline `<style>` in pages and fragments is always transformed with lightningcss.
@@ -337,7 +341,7 @@ Catalogs live at `content/i18n/{locale}.json`.
 </html>
 ```
 
-`data-t` replaces element text with a plain template string. Literal text renders as written, and `${...}` placeholders must be dotted identifier paths using the same page or fragment variables available to build-time binding. i18n catalog values live under `i18n.*`, and pages must bind `i18n` before using them. Fragments do not receive canonical page context; fragment values must come from `data-bind` or fragment-local data links. `${...}` works in attributes and `data-t`, not text nodes, and statica never evaluates JS expressions.
+i18n catalog values live under `i18n.*`, and pages must bind `{i18n}` before using them. The same binding rules apply here: `${...}` works in attributes and `data-t`, not text nodes, and placeholders must be dotted identifier paths. Fragments do not receive `i18n` automatically; pass translated values into the fragment or link fragment-local data.
 
 Locale-specific data can use `${locale}` in funnel `href`.
 

@@ -1,12 +1,14 @@
 # statica documentation
 
-**Just HTML**
+**Just HTML.** Start with the README for installation, then use the guide as the source of truth for authoring rules and configuration.
 
 | Doc | Contents |
 | --- | -------- |
 | [../README.md](../README.md) | Install, quick start, and getting a new site going |
 | [guide.md](guide.md) | Direct authoring and config reference |
 | [man/](man/) | Unix man pages (regenerated from clap on `cargo build -p statica-cli`) |
+
+When CLI behavior changes, update clap help in `crates/statica-cli/src/cli.rs`, refresh the relevant README/guide text, then regenerate these man pages with `cargo build -p statica-cli`.
 
 ```bash
 man docs/man/statica.1
