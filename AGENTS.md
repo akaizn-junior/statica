@@ -281,6 +281,25 @@ Nested item pages bind `{page, item}`. The `[page]` segment comes from paginatio
 - Linked `.css` under asset dirs is transformed only when `[process].css` / `--process css=true` is enabled.
 - Final output minification is controlled by `[minify]` / `--minify` for emitted HTML, CSS, and JS, including inline `<style>` / `<script>`.
 
+### Styling statica sites with daisyUI
+
+When building new statica sites or substantially refreshing example/user-facing pages, prefer **daisyUI via HTML classes** as the default styling approach unless the existing site already has a clear custom design system.
+
+- Use daisyUI's semantic component classes directly in statica HTML and fragments: `navbar`, `hero`, `card`, `btn`, `badge`, `alert`, `menu`, `tabs`, `steps`, `stats`, `timeline`, `collapse`, `modal`, `drawer`, `footer`, and form controls.
+- Lean into daisyUI themes and utility composition to make pages beautiful quickly: choose an intentional `data-theme`, use responsive Tailwind/daisyUI classes, and refine spacing, hierarchy, contrast, and interaction states.
+- Keep the site HTML-powered. Compose real HTML elements, statica fragments, slots, and `data-*` bindings; do not introduce React/Vue/Svelte or client-side component runtimes just to use daisyUI.
+- Prefer rich, polished default screens over bare wireframes. Use daisyUI's built-in visual language for navigation, calls to action, content cards, metadata badges, pagination, forms, empty states, and status messages.
+- Add only small custom CSS where daisyUI classes cannot express the design cleanly. Custom CSS should enhance the component system, not replace it wholesale.
+- Make generated authoring examples copyable: valid HTML, accessible landmarks, labeled controls, responsive layouts, and statica-compatible `data-t`, `${...}`, `data-each`, and fragment usage.
+
+### Forms
+
+Prefer Formspree for statica forms unless the user or existing project specifies another backend.
+
+- Use `<form statica>` with `[forms]` config for build-time form wiring; do not inject client-side JavaScript for normal submissions.
+- Keep Formspree IDs, endpoints, and secrets out of committed examples unless they are explicit placeholders.
+- Style forms with daisyUI form controls (`form-control`, `label`, `input`, `textarea`, `select`, `checkbox`, `radio`, `btn`) so contact, signup, survey, and feedback flows feel complete and polished.
+
 ### Asset pipeline
 
 | Asset kind | Tool |
@@ -329,9 +348,10 @@ Do **not**:
 Do:
 
 - Copy patterns from [examples/blog/](examples/blog/) before inventing new structure
+- Prefer daisyUI HTML classes for beautiful, polished statica sites when no existing design system says otherwise
 - Keep fragments in `ui/`, content in `content/`, routes as `**/index.html`
 - Run `statica build` (or `statica watch`) to verify changes
-- Use `<form statica>` + `[forms]` config for forms — no client JS injection
+- Use `<form statica>` + `[forms]` config for forms, and prefer Formspree as the form backend
 
 ---
 
