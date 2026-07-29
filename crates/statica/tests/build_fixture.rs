@@ -104,7 +104,7 @@ More **content** here.
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
     <title>Post</title>
@@ -155,7 +155,7 @@ Glob **works**.
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
     <title>Post</title>
@@ -190,7 +190,7 @@ fn duplicate_slug_errors() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
     <title>Post</title>
@@ -262,7 +262,7 @@ fn fragment_mount_receives_current_item_without_data_bind() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
     <link rel="statica/fragment" type="text/html" href="../../ui/post-card.html" id="post-card" />
@@ -302,7 +302,7 @@ fn data_bind_on_fragment_mount_errors() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
     <link rel="statica/fragment" type="text/html" href="../../ui/post-card.html" id="post-card" />
@@ -329,7 +329,7 @@ fn page_undeclared_bind_field_errors() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
     <title>Post</title>
@@ -354,7 +354,7 @@ fn page_undeclared_attr_field_errors() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
   </head>
@@ -378,7 +378,7 @@ fn page_declared_data_source_is_bound_for_attrs() {
     std::fs::write(
         dir.join("index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="./site.json" id="site" />
     <link rel="canonical" href="${site.canonical}" />
@@ -395,6 +395,33 @@ fn page_declared_data_source_is_bound_for_attrs() {
 
     let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
     assert!(html.contains(r#"href="https://example.com/""#));
+}
+
+#[test]
+fn page_bound_data_precedes_data_source_id() {
+    let dir = tempfile_dir();
+    std::fs::write(dir.join("route.json"), r#""From data id""#).unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{page: {route}}">
+  <head>
+    <link rel="statica/data" href="./route.json" id="route" />
+    <meta name="route" content="${route}" />
+  </head>
+  <body></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains(r#"content="""#), "{html}");
+    assert!(!html.contains("From data id"), "{html}");
 }
 
 #[test]
@@ -424,6 +451,52 @@ fn data_link_id_cannot_use_canonical_page_root() {
 }
 
 #[test]
+fn fragment_bound_data_precedes_linked_data_id() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("ui/label.json"),
+        r#"{"text":"From fragment data"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("posts.json"),
+        r#"[{"slug":"a","label":{"text":"From bound item"}}]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("ui/badge.html"),
+        r#"<link rel="statica/data" href="./label.json" id="label" />
+<template id="badge" data-bind="{label}">
+  <span data-t="${label.text}">Fallback</span>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{item}">
+  <head>
+    <link rel="statica/data" href="./posts.json" id="posts" />
+  </head>
+  <body>
+    <link rel="statica/fragment" type="text/html" href="./ui/badge.html" id="badge" />
+    <slot id="badge" data-each="posts"></slot>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains(">From bound item</span>"));
+}
+
+#[test]
 fn page_linked_each_source_is_bound() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("ui")).unwrap();
@@ -438,7 +511,7 @@ fn page_linked_each_source_is_bound() {
     std::fs::write(
         dir.join("index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{data}">
   <head>
     <link rel="statica/data" href="./posts.json" id="posts" />
     <link rel="statica/fragment" type="text/html" href="./ui/post-card.html" id="post-card" />
@@ -473,7 +546,7 @@ fn page_undeclared_each_source_errors() {
     std::fs::write(
         dir.join("index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="./posts.json" id="posts" />
     <link rel="statica/fragment" type="text/html" href="./ui/post-card.html" id="post-card" />
@@ -520,7 +593,7 @@ fn select_slot_expands_to_options() {
     std::fs::write(
         dir.join("index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{data}">
   <head>
     <link rel="statica/data" href="./countries.json" id="countries" />
   </head>
@@ -552,7 +625,7 @@ fn statica_form_wires_formspree_action() {
     std::fs::write(
         dir.join("index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{data}">
   <body>
     <form name="contact" statica>
       <input type="email" name="email" required />
@@ -586,7 +659,7 @@ fn font_link_expands_in_build() {
     std::fs::write(
         dir.join("index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/font" href="@Google/?family=Outfit:wght@400;700&display=swap" />
   </head>
@@ -611,7 +684,7 @@ fn manifest_scaffolds_and_injects_tags() {
     std::fs::write(
         dir.join("index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <meta charset="utf-8" />
   </head>
@@ -654,7 +727,7 @@ fn i18n_expands_locale_param_from_config() {
     std::fs::write(
         dir.join("[locale]/about/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{i18n}">
   <head><title data-t="${i18n.title}">About</title></head>
   <body>
     <h1 data-t="${i18n.title}">About</h1>
@@ -703,7 +776,7 @@ fn i18n_catalog_keys_must_use_canonical_i18n_root() {
     std::fs::write(
         dir.join("[locale]/about/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <body><h1 data-t="${about.title}">About</h1></body>
 </html>"#,
     )
@@ -739,7 +812,7 @@ fn data_t_binds_page_context_text_without_i18n() {
     std::fs::write(
         dir.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="../../content/posts.json" id="posts">
     <title data-t="${item.headline}">Fallback title</title>
@@ -777,7 +850,7 @@ fn i18n_emits_root_redirect_to_default_locale() {
     std::fs::write(
         dir.join("[locale]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{i18n}">
   <head><title data-t="${i18n.title}">Home</title></head>
   <body><h1 data-t="${i18n.title}">Home</h1></body>
 </html>"#,
@@ -823,7 +896,7 @@ fn i18n_skips_root_redirect_when_author_has_root_page() {
     .unwrap();
     std::fs::write(
         dir.join("[locale]/index.html"),
-        r#"<!doctype html><html><body><h1 data-t="${i18n.title}">Home</h1></body></html>"#,
+        r#"<!doctype html><html data-bind="{i18n}"><body><h1 data-t="${i18n.title}">Home</h1></body></html>"#,
     )
     .unwrap();
 
@@ -864,7 +937,7 @@ fn i18n_loads_locale_specific_funnel_data() {
     std::fs::write(
         dir.join("[locale]/posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{item, i18n}">
   <head>
     <link rel="statica/data" href="../../../content/posts.${locale}.json" id="posts" />
     <title data-t="${i18n.title}">Posts</title>
@@ -900,7 +973,7 @@ fn i18n_loads_locale_specific_funnel_data() {
 }
 
 #[test]
-fn i18n_fragment_inherits_parent_locale_for_data_t() {
+fn i18n_fragment_cannot_use_canonical_context_without_bound_data() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("[locale]/about")).unwrap();
     std::fs::create_dir_all(dir.join("ui")).unwrap();
@@ -921,7 +994,7 @@ fn i18n_fragment_inherits_parent_locale_for_data_t() {
     std::fs::write(
         dir.join("[locale]/about/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{i18n}">
   <body>
     <link rel="statica/fragment" type="text/html" href="../../ui/button.html" id="button" />
     <slot id="button"></slot>
@@ -932,7 +1005,7 @@ fn i18n_fragment_inherits_parent_locale_for_data_t() {
     std::fs::write(
         dir.join("index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{i18n, page}">
   <body>
     <link rel="statica/fragment" type="text/html" href="./ui/button.html" id="button" />
     <slot id="button"></slot>
@@ -951,20 +1024,8 @@ fn i18n_fragment_inherits_parent_locale_for_data_t() {
         ..Default::default()
     };
 
-    build(&opts).expect("build");
-
-    let en = std::fs::read_to_string(dir.join("dist/en/about/index.html")).unwrap();
-    assert!(en.contains("Contact us"));
-    assert!(!en.contains("data-t"));
-
-    let pt = std::fs::read_to_string(dir.join("dist/pt/about/index.html")).unwrap();
-    assert!(pt.contains("Contacte-nos"));
-    assert!(!pt.contains("data-t"));
-
-    let home = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
-    assert!(!home.contains("data-t"));
-    assert!(!home.contains("${cta}"));
-    assert!(!home.contains("Contact us"));
+    let err = build(&opts).unwrap_err().to_string();
+    assert!(err.contains("`i18n` is not bound"), "{err}");
 }
 
 #[test]
@@ -993,7 +1054,7 @@ fn i18n_translates_a11y_attributes() {
     std::fs::write(
         dir.join("[locale]/about/index.html"),
         r##"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{i18n}">
   <body>
     <a href="#main" aria-label="Skip to main content" data-t-aria-label="${i18n.skip}"></a>
     <img src="/sunset.jpg" alt="Sunset over the hills" data-t-alt="${i18n.photo.alt}" />
@@ -1055,7 +1116,7 @@ fn i18n_pagination_chunks_once_for_shared_data() {
     std::fs::write(
         dir.join("[locale]/blog/[page]/index.html"),
         r#"<!doctype html>
-<html lang="en">
+<html lang="en" data-bind="{i18n, page}">
   <head>
     <link rel="statica/data" href="../../../content/posts.json" id="posts" />
     <title data-t="${i18n.blog_title}">Blog</title>
