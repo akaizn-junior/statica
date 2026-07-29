@@ -107,7 +107,7 @@ Every fragment needs matching `id` on all three parts:
 | Fragment text content | `data-t="${field}"` | Field must be declared in fragment `data-bind`; slots are for fragment mounts/default content |
 | Fragment attributes | `${field}` | Same fragment `data-bind` rule |
 | Whole object | `data-bind="posts"` on fragments | Use `${posts.field}` or nested slots |
-| Page context narrowing | `<html data-bind="{item, page}">` | Optional destructure of `{data, item, page, i18n}` |
+| Page canonical context | `<html data-bind="{item, page}">` | Required before using canonical roots such as `item`, `page`, or `i18n` |
 | Destructured fields | `data-bind="{slug, headline}"` | Use `${slug}` directly |
 | Current item in loop | `data-each="items"` | On fragment mount `<slot id="...">` |
 | Loops | `data-each="items"` | On `<slot id="fragment-id">` |
@@ -121,7 +121,7 @@ Every fragment needs matching `id` on all three parts:
 **Collection page** — `[param]` folder + linked array data source:
 
 ```html
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
   <title>Post</title>
 </html>
@@ -130,13 +130,13 @@ Every fragment needs matching `id` on all three parts:
 **Pagination page** — `[page]` folder + `[[pagination]]` in `statica.toml`:
 
 ```html
-<html lang="en">
+<html lang="en" data-bind="{page}">
   <slot id="post-list"></slot>
   <a href="${page.pagination.prev_href}">Previous</a>
 </html>
 ```
 
-Page context roots are `data`, `item`, `page`, and `i18n`; pagination metadata lives at `page.pagination`. See [docs/guide.md](docs/guide.md).
+Page context roots are `data`, `item`, `page`, and `i18n`; pagination metadata lives at `page.pagination`. Pages must declare canonical roots with `<html data-bind="…">` before use. See [docs/guide.md](docs/guide.md).
 
 **i18n page** — `[locale]/` segment + `[i18n]` config. Use `data-t="${i18n.section.key}"` for catalog text; `${i18n.locale}` works in attributes and `data-t`, not text nodes.
 

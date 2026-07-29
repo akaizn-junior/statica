@@ -99,7 +99,7 @@ Every `${...}` placeholder in `data-t` and attributes must be a dotted identifie
 
 ## Pages
 
-Page binding uses a canonical context. If `<html>` has no `data-bind`, these roots are available:
+Page binding uses a canonical context. The build process creates this object:
 
 ```json
 {
@@ -126,9 +126,9 @@ statica fills that object during the build:
 | `page.pagination` | Pagination metadata and page chunk for `[page]` routes |
 | `i18n.locale` | Active locale, or empty when i18n is not active |
 
-`<html data-bind>` is optional. When present, it narrows/destructures this canonical context.
+`<html data-bind>` documents which canonical roots the page uses. A page can use declared data link ids directly, but it must bind canonical roots such as `item`, `page`, or `i18n` before using them.
 
-Page variables are valid only when their root comes from this canonical context or from a declared data link id. Data link ids cannot be `data`, `item`, `page`, or `i18n`.
+Page lookup order is: bound page data, declared data link ids, then no fallback. Data link ids cannot be `data`, `item`, `page`, or `i18n`.
 
 ### Static
 
@@ -147,7 +147,7 @@ posts/[slug]/index.html
 ```
 
 ```html
-<html lang="en">
+<html lang="en" data-bind="{item}">
   <head>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
     <title>Post</title>
@@ -178,7 +178,7 @@ blog/[page]/index.html
 ```
 
 ```html
-<html lang="en">
+<html lang="en" data-bind="{page}">
   <body>
     <p>
       Page <span data-t="${page.pagination.page}"></span> of
@@ -323,12 +323,13 @@ dir = "content/i18n"
 Catalogs live at `content/i18n/{locale}.json`.
 
 ```html
+<html data-bind="{i18n}">
 <span data-t="${i18n.nav.home}">Home</span>
-<title data-t="${item.headline}">Fallback title</title>
 <a href="/${i18n.locale}/">Home</a>
+</html>
 ```
 
-`data-t` replaces element text with a plain template string. Literal text renders as written, and `${...}` placeholders must be dotted identifier paths using the same page or fragment variables available to build-time binding. i18n catalog values live under `i18n.*`, alongside canonical roots such as `item.*`, `page.*`, `data.*`, and declared fragment fields. `${...}` works in attributes and `data-t`, not text nodes, and statica never evaluates JS expressions.
+`data-t` replaces element text with a plain template string. Literal text renders as written, and `${...}` placeholders must be dotted identifier paths using the same page or fragment variables available to build-time binding. i18n catalog values live under `i18n.*`, and pages must bind `i18n` before using them. Fragments do not receive canonical page context; fragment values must come from `data-bind` or fragment-local data links. `${...}` works in attributes and `data-t`, not text nodes, and statica never evaluates JS expressions.
 
 Locale-specific data can use `${locale}` in funnel `src`.
 

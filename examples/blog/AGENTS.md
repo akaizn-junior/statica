@@ -53,7 +53,7 @@ Points at an explicit `.md` glob with YAML front matter — see `content/posts/*
 
 [`posts/[slug]/index.html`](posts/[slug]/index.html):
 
-- Page context uses `item.*`, `data.*`, `page.*`, and `i18n.*`
+- Page context roots such as `item`, `page`, and `i18n` are declared on `<html data-bind>`
 - Data links in `<head>`
 - `data-t="${item.headline}"` for scalar item text
 - Fragment imports with relative paths from the page file
@@ -62,7 +62,7 @@ Points at an explicit `.md` glob with YAML front matter — see `content/posts/*
 
 [`blog/[page]/index.html`](blog/[page]/index.html):
 
-- Same canonical page context
+- Same explicit canonical page context
 - `<slot id="post-list">` passes the pagination context into the fragment
 - `${page.pagination.prev_href}`, `${page.pagination.next_href}`, `data-each="page.pagination.pages"` for nav
 

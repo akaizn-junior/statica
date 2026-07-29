@@ -161,7 +161,7 @@ blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
 - Attributes → `${item.slug}` / `${page.pagination.next_href}` / `${i18n.locale}`
 - Fragment mount: `<slot id="fragment-id"></slot>` passes the current item/context
 - Fragment loop: `<slot id="fragment-id" data-each="items"></slot>` passes each item
-- Page `data-bind` is optional narrowing of `{data, item, page, i18n}`
+- Page `data-bind` declares canonical roots such as `{item}`, `{page}`, or `{i18n}` before use
 - Collection: linked data + `[slug]`; current record is `item`
 - Pagination: linked data + `[page]`; page chunk is `page.pagination`
 
