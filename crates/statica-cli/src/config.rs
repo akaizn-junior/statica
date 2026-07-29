@@ -245,11 +245,11 @@ pub struct SitemapConfig {
     pub urls_per_file: usize,
 }
 
-/// `[[pagination]]` — chunk a data array into `route/[page]/` pages.
+/// `[[pagination]]` — chunk a data array into `[page]` pages.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct PaginationConfig {
-    /// Page template route, e.g. `blog/[page]` or `posts/[page]`.
+    /// Optional route root, e.g. `blog`; empty applies to every `[page]` route.
     pub route: String,
     /// Items per generated page.
     #[serde(alias = "per_page")]
@@ -272,6 +272,21 @@ pub struct PaginationConfig {
     /// Also emit page 1 at the parent path (`blog/` for `blog/[page]`).
     #[serde(default)]
     pub index: bool,
+}
+
+impl Default for PaginationConfig {
+    fn default() -> Self {
+        Self {
+            route: String::new(),
+            page_size: 10,
+            limit: 0,
+            offset: 0,
+            sort_by: String::new(),
+            sort_desc: false,
+            max_pages: 0,
+            index: false,
+        }
+    }
 }
 
 /// `[rss]` — RSS 2.0 feed from collection pages.
@@ -648,7 +663,7 @@ impl StaticaConfig {
     /// Apply CLI flag / SPEC overrides. CLI wins over values loaded from disk.
     ///
     /// Nested tables are applied from compact SPECs (`--rss 'title=…,limit=20'`,
-    /// `--pagination 'route=…'`, etc.). See `docs/guide.md`.
+    /// `--pagination 'page_size=…'`, etc.). See `docs/guide.md`.
     pub fn apply_cli(&mut self, cli: &crate::cli::ConfigCli) -> Result<()> {
         if let Some(v) = &cli.project {
             self.project = v.clone();
@@ -808,9 +823,8 @@ description_field = "summary"
 date_field = "published_at"
 collections = []               # empty = all collections; or ["posts"]
 
-# Paginated listings — template at route with [page], data via <html data-bind>
+# Paginated listings — templates with [page], data via <html data-bind>
 # [[pagination]]
-# route = "blog/[page]"        # → .dist/blog/1/, blog/2/, …
 # page_size = 10               # alias: per_page
 # limit = 0                    # max items after offset (0 = all)
 # offset = 0                   # skip first N items
@@ -999,16 +1013,7 @@ fn apply_preview_spec(cfg: &mut PreviewConfig, spec: &str) -> Result<()> {
 }
 
 fn parse_pagination_spec(spec: &str) -> Result<PaginationConfig> {
-    let mut cfg = PaginationConfig {
-        route: String::new(),
-        page_size: 10,
-        limit: 0,
-        offset: 0,
-        sort_by: String::new(),
-        sort_desc: false,
-        max_pages: 0,
-        index: false,
-    };
+    let mut cfg = PaginationConfig::default();
     for_each_kv(spec, |key, value| {
         match key {
             "route" => cfg.route = value.to_string(),
@@ -1039,9 +1044,6 @@ fn parse_pagination_spec(spec: &str) -> Result<PaginationConfig> {
         }
         Ok(())
     })?;
-    if cfg.route.is_empty() {
-        anyhow::bail!("pagination SPEC requires route=…");
-    }
     Ok(cfg)
 }
 
@@ -1320,7 +1322,7 @@ dir = "locales"
             no_sitemap: true,
             rss: Some("title=T,limit=3,collections=posts|notes".into()),
             site_url: Some("https://ex.com".into()),
-            pagination: vec!["route=blog/[page],page_size=2,sort_desc=true,index=true".into()],
+            pagination: vec!["page_size=2,sort_desc=true,index=true".into()],
             preview: Some("port=9000,debounce_ms=50".into()),
             ..crate::cli::ConfigCli::default()
         };

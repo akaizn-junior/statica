@@ -150,7 +150,7 @@ Configuration:
     --process 'css=true,js=false,images=true'
     --minify 'html=true,css=true,js=true'
     --preview host=127.0.0.1,port=9000
-    --pagination 'route=blog/[page],page_size=10,sort_desc=true,index=true'
+    --pagination 'page_size=10,sort_desc=true,index=true'
     --i18n 'locales=en|pt,default=en'
   (collections in --rss use | as list separator)
 

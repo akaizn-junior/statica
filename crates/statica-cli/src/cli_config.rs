@@ -160,9 +160,9 @@ Examples:\n\
         help = "Pagination rule SPEC (repeatable; replaces [[pagination]])",
         long_help = "Replace all [[pagination]] entries. Repeat for multiple rules.\n\
 SPEC is comma-separated key=value:\n\
-  route (required), page_size|per_page, limit, offset,\n\
+  page_size|per_page, limit, offset,\n\
   sort_by, sort_desc, max_pages, index\n\
-Example: --pagination 'route=blog/[page],page_size=10,sort_desc=true,index=true'"
+Example: --pagination 'page_size=10,sort_desc=true,index=true'"
     )]
     pub pagination: Vec<String>,
 
