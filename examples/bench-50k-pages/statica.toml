@@ -1,0 +1,22 @@
+site_url = "http://127.0.0.1:4350"
+out_dir = ".dist"
+clean = true
+copy_assets = false
+ignore_dirs = [".dist", "dist", "target", ".git"]
+
+[sitemap]
+enabled = true
+
+[rss]
+enabled = false
+
+# 50000 posts → page_size 1 → blog/1 … blog/50000 (+ blog/ via index)
+[[pagination]]
+page_size = 1
+sort_by = "slug"
+sort_desc = false
+index = true
+
+[preview]
+host = "127.0.0.1"
+port = 4350

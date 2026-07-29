@@ -157,19 +157,23 @@ pub fn render_page_document(
     let context_tree = ContextTree::new(ContextScope::Page, bind_ctx, context_data.clone());
 
     match PageRenderer::select(registry, doc, locale) {
-        PageRenderer::CompiledPlan => render_with_compiled_plan(
-            registry,
-            render_plan,
-            current,
-            context_data.as_map(),
-            &context_tree.render_context(),
-            &context_tree.translated_context(i18n_catalog),
-            locale,
-            i18n_catalog,
-            data_cache,
-            aliases,
-            site,
-        ),
+        PageRenderer::CompiledPlan => {
+            let linked_roots = render_plan.linked_roots();
+            render_with_compiled_plan(
+                registry,
+                render_plan,
+                current,
+                context_data.as_map(),
+                &context_tree.render_context_with_linked_roots(Some(&linked_roots)),
+                &context_tree
+                    .translated_context_with_linked_roots(i18n_catalog, Some(&linked_roots)),
+                locale,
+                i18n_catalog,
+                data_cache,
+                aliases,
+                site,
+            )
+        }
         PageRenderer::AstMutation => render_with_ast_mutation(
             registry,
             doc,
@@ -414,13 +418,14 @@ fn render_plan_fragment(
     let local = ContextData::new(parent_data.clone()).with_links(&frag_data);
     let bind_ctx = funnel::bind_context(&frag.bind, prop_value);
     let context_tree = ContextTree::new(ContextScope::Fragment, bind_ctx, local.clone());
+    let linked_roots = frag.render_plan.linked_roots();
     render_plan_ops(
         registry,
         frag.render_plan.ops(),
         Some(prop_value),
         local.as_map(),
-        &context_tree.render_context(),
-        &context_tree.translated_context(i18n_catalog),
+        &context_tree.render_context_with_linked_roots(Some(&linked_roots)),
+        &context_tree.translated_context_with_linked_roots(i18n_catalog, Some(&linked_roots)),
         locale,
         i18n_catalog,
         data_cache,

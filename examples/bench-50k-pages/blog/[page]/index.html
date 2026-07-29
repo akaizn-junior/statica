@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-bind="{page}">
+  <head>
+    <meta charset="utf-8" />
+    <title data-t="Page ${page.pagination.page}">Page</title>
+    <link
+      rel="statica/fragment"
+      type="text/html"
+      href="../../ui/post-card.html"
+      id="post-card"
+    />
+    <link rel="statica/data" href="../../content/posts.json" id="posts" />
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+      nav { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+      a { color: #0f766e; }
+      .meta { color: #64748b; font-size: 0.875rem; }
+    </style>
+  </head>
+  <body>
+    <p class="meta">
+      <a href="/">Home</a> · page <span data-t="${page.pagination.page}"></span> of
+      <span data-t="${page.pagination.total_pages}"></span>
+    </p>
+    <slot id="post-card" data-each="page.pagination.items"></slot>
+    <nav>
+      <a href="${page.pagination.first_href}">First</a>
+      <a href="${page.pagination.prev_href}">Previous</a>
+      <a href="${page.pagination.next_href}">Next</a>
+      <a href="${page.pagination.last_href}">Last</a>
+    </nav>
+  </body>
+</html>

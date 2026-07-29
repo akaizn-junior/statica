@@ -109,12 +109,61 @@ impl RenderPlan {
         &self.ops
     }
 
+    #[must_use]
+    pub fn linked_roots(&self) -> HashSet<String> {
+        let mut roots = HashSet::new();
+        collect_linked_roots(&self.ops, &mut roots);
+        roots
+    }
+
     pub fn write_doctype(&self, out: &mut String) {
         if let Some(doctype) = &self.doctype {
             out.push_str("<!DOCTYPE ");
             out.push_str(doctype);
             out.push_str(">\n");
         }
+    }
+}
+
+fn collect_linked_roots(ops: &[Op], roots: &mut HashSet<String>) {
+    for op in ops {
+        match op {
+            Op::Static(_) => {}
+            Op::AttrTemplate(template) | Op::TextTemplate(template) => {
+                collect_template_roots(template, roots);
+            }
+            Op::NamedSlot(name) => collect_path_root(name, roots),
+            Op::DefaultSlot(children) => collect_linked_roots(children, roots),
+            Op::Mount { each, children, .. } => {
+                if let Some(each) = each {
+                    collect_path_root(each, roots);
+                }
+                collect_linked_roots(children, roots);
+            }
+        }
+    }
+}
+
+fn collect_template_roots(template: &str, roots: &mut HashSet<String>) {
+    let mut rest = template;
+    while let Some(start) = rest.find("${") {
+        rest = &rest[start + 2..];
+        let Some(end) = rest.find('}') else {
+            break;
+        };
+        collect_path_root(&rest[..end], roots);
+        rest = &rest[end + 1..];
+    }
+}
+
+fn collect_path_root(path: &str, roots: &mut HashSet<String>) {
+    let root = path
+        .trim()
+        .split('.')
+        .find(|part| !part.is_empty())
+        .unwrap_or("");
+    if !root.is_empty() && !matches!(root, "data" | "item" | "page" | "i18n" | "this") {
+        roots.insert(root.to_string());
     }
 }
 

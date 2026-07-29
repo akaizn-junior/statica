@@ -238,9 +238,17 @@ impl ContextTree {
 
     #[must_use]
     pub fn render_context(&self) -> Value {
+        self.render_context_with_linked_roots(None)
+    }
+
+    #[must_use]
+    pub fn render_context_with_linked_roots(
+        &self,
+        linked_roots: Option<&HashSet<String>>,
+    ) -> Value {
         let mut roots = serde_json::Map::new();
         for layer in self.scope.layers() {
-            for (key, value) in self.roots(*layer) {
+            for (key, value) in self.roots(*layer, linked_roots) {
                 roots.entry(key).or_insert(value);
             }
         }
@@ -249,7 +257,16 @@ impl ContextTree {
 
     #[must_use]
     pub fn translated_context(&self, catalog: Option<&Value>) -> Value {
-        let mut ctx = match self.render_context() {
+        self.translated_context_with_linked_roots(catalog, None)
+    }
+
+    #[must_use]
+    pub fn translated_context_with_linked_roots(
+        &self,
+        catalog: Option<&Value>,
+        linked_roots: Option<&HashSet<String>>,
+    ) -> Value {
+        let mut ctx = match self.render_context_with_linked_roots(linked_roots) {
             Value::Object(map) => map,
             _ => serde_json::Map::new(),
         };
@@ -260,10 +277,14 @@ impl ContextTree {
         Value::Object(ctx)
     }
 
-    fn roots(&self, layer: ContextLayer) -> serde_json::Map<String, Value> {
+    fn roots(
+        &self,
+        layer: ContextLayer,
+        linked_roots_filter: Option<&HashSet<String>>,
+    ) -> serde_json::Map<String, Value> {
         match layer {
             ContextLayer::Bound => value_roots(&self.bound),
-            ContextLayer::Linked => linked_roots(self.data.as_map()),
+            ContextLayer::Linked => linked_roots(self.data.as_map(), linked_roots_filter),
         }
     }
 }
@@ -275,10 +296,16 @@ fn value_roots(value: &Value) -> serde_json::Map<String, Value> {
     }
 }
 
-fn linked_roots(data: &HashMap<String, DataSource>) -> serde_json::Map<String, Value> {
+fn linked_roots(
+    data: &HashMap<String, DataSource>,
+    filter: Option<&HashSet<String>>,
+) -> serde_json::Map<String, Value> {
     let mut roots = serde_json::Map::new();
     for (id, source) in data {
         if CanonicalRoot::from_str(id).is_none() {
+            if filter.is_some_and(|roots| !roots.contains(id)) {
+                continue;
+            }
             roots.insert(id.clone(), source.value());
         }
     }
