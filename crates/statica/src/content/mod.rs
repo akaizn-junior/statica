@@ -2,11 +2,12 @@
 
 mod markdown;
 
-use std::fs;
+use std::fs::{self, File};
+use std::io::{self, BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 
 use globwalk::GlobWalkerBuilder;
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use crate::aliases;
 use crate::error::{Error, Result};
@@ -141,7 +142,6 @@ fn is_content_file(path: &Path, explicit_kind: Option<DataKind>) -> bool {
 }
 
 fn load_file(path: &Path, explicit_kind: Option<DataKind>) -> Result<DataSet> {
-    let text = fs::read_to_string(path).map_err(|e| Error::read(path.display().to_string(), e))?;
     let kind = explicit_kind
         .or_else(|| DataKind::from_path(path))
         .ok_or_else(|| {
@@ -152,13 +152,17 @@ fn load_file(path: &Path, explicit_kind: Option<DataKind>) -> Result<DataSet> {
             )
         })?;
     match kind {
-        DataKind::Json => serde_json::from_str(&text)
+        DataKind::Json => serde_json::from_reader(open_reader(path)?)
             .map(DataSet::Json)
             .map_err(|e| Error::invalid_content(path.display().to_string(), e.to_string())),
-        DataKind::Jsonl => parse_jsonl(&text, path),
-        DataKind::Csv => parse_csv(&text, path),
-        DataKind::Text => Ok(parse_text_lines(&text)),
-        DataKind::Markdown => markdown::parse_markdown_file(&text, path).map(DataSet::Markdown),
+        DataKind::Jsonl => parse_jsonl(open_reader(path)?, path),
+        DataKind::Csv => parse_csv(open_file(path)?, path),
+        DataKind::Text => parse_text_lines(open_reader(path)?, path),
+        DataKind::Markdown => {
+            let text =
+                fs::read_to_string(path).map_err(|e| Error::read(path.display().to_string(), e))?;
+            markdown::parse_markdown_file(&text, path).map(DataSet::Markdown)
+        }
         DataKind::Glob => Err(Error::invalid_content(
             path.display().to_string(),
             "glob is a source pattern, not a file type",
@@ -166,9 +170,18 @@ fn load_file(path: &Path, explicit_kind: Option<DataKind>) -> Result<DataSet> {
     }
 }
 
-fn parse_jsonl(source: &str, path: &Path) -> Result<DataSet> {
+fn open_file(path: &Path) -> Result<File> {
+    File::open(path).map_err(|e| Error::read(path.display().to_string(), e))
+}
+
+fn open_reader(path: &Path) -> Result<BufReader<File>> {
+    open_file(path).map(BufReader::new)
+}
+
+fn parse_jsonl(source: impl BufRead, path: &Path) -> Result<DataSet> {
     let mut values = Vec::new();
     for (idx, line) in source.lines().enumerate() {
+        let line = line.map_err(|e| Error::read(path.display().to_string(), e))?;
         let line = line.trim();
         if line.is_empty() {
             continue;
@@ -184,38 +197,46 @@ fn parse_jsonl(source: &str, path: &Path) -> Result<DataSet> {
     Ok(DataSet::Records(values))
 }
 
-fn parse_text_lines(source: &str) -> DataSet {
-    DataSet::Lines(
-        source
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty())
-            .map(str::to_string)
-            .collect(),
-    )
+fn parse_text_lines(source: impl BufRead, path: &Path) -> Result<DataSet> {
+    source
+        .lines()
+        .map(|line| line.map_err(|e| Error::read(path.display().to_string(), e)))
+        .filter_map(|line| match line {
+            Ok(line) => {
+                let line = line.trim();
+                (!line.is_empty()).then(|| Ok(line.to_string()))
+            }
+            Err(err) => Some(Err(err)),
+        })
+        .collect::<Result<Vec<_>>>()
+        .map(DataSet::Lines)
 }
 
-fn parse_csv(source: &str, path: &Path) -> Result<DataSet> {
+fn parse_csv(source: impl io::Read, path: &Path) -> Result<DataSet> {
     let mut reader = csv::ReaderBuilder::new()
         .trim(csv::Trim::All)
-        .from_reader(source.as_bytes());
+        .from_reader(source);
     let headers = reader
         .headers()
         .map_err(|e| Error::invalid_content(path.display().to_string(), e.to_string()))?
         .clone();
     validate_csv_headers(&headers, path)?;
 
-    let mut rows = Vec::new();
-    for record in reader.records() {
-        let record = record
-            .map_err(|e| Error::invalid_content(path.display().to_string(), e.to_string()))?;
-        let mut row = Map::new();
-        for (header, value) in headers.iter().zip(record.iter()) {
-            row.insert(header.to_string(), Value::String(value.to_string()));
-        }
-        rows.push(Value::Object(row));
-    }
-    Ok(DataSet::Records(rows))
+    reader
+        .records()
+        .map(|record| {
+            let record = record
+                .map_err(|e| Error::invalid_content(path.display().to_string(), e.to_string()))?;
+            Ok(Value::Object(
+                headers
+                    .iter()
+                    .zip(record.iter())
+                    .map(|(header, value)| (header.to_string(), Value::String(value.to_string())))
+                    .collect(),
+            ))
+        })
+        .collect::<Result<Vec<_>>>()
+        .map(DataSet::Records)
 }
 
 fn validate_csv_headers(headers: &csv::StringRecord, path: &Path) -> Result<()> {
