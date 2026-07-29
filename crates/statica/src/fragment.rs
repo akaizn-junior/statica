@@ -10,12 +10,14 @@ use crate::aliases::{self, AliasOptions};
 use crate::error::{Error, Result};
 use crate::funnel::{self, BindDecl, DataSource};
 use crate::parse::{self, Document, Element, Node};
+use crate::render::RenderPlan;
 use crate::scope;
 
 #[derive(Debug, Clone)]
 pub struct Fragment {
     pub path: PathBuf,
     pub template: Element,
+    pub render_plan: RenderPlan,
     /// Bind scope from `<template data-bind="name">` or `data-bind="{a, b}"`.
     pub bind: BindDecl,
     /// Non-locale funnel sources loaded at registry time.
@@ -163,6 +165,7 @@ impl FragmentRegistry {
 
         let frag = Fragment {
             path,
+            render_plan: RenderPlan::compile_fragment(&template.children),
             template,
             bind,
             data,

@@ -29,6 +29,7 @@ use crate::manifest::{self, ManifestMeta};
 use crate::minify::{self, MinifyOptions};
 use crate::paginate::{self, PaginationRule};
 use crate::parse::{self, Document};
+use crate::render::RenderPlan;
 use crate::FormsOptions;
 
 /// Inputs for a build. The CLI maps `statica.toml` into this; core does not read config files.
@@ -198,6 +199,7 @@ struct PreparedPage {
     source: PageSource,
     html: String,
     doc: Document,
+    render_plan: RenderPlan,
     data: std::collections::HashMap<String, DataSource>,
 }
 
@@ -323,6 +325,7 @@ impl PreparedPage {
         bind::render_page_document(
             registry,
             &doc,
+            &self.render_plan,
             &self.source,
             current,
             &page_data,
@@ -672,6 +675,7 @@ fn prepare_pages(
         prepared.push(PreparedPage {
             source: page.clone(),
             html,
+            render_plan: RenderPlan::compile_document(&doc),
             doc,
             data,
         });

@@ -3,6 +3,7 @@
 mod attrs;
 mod slots;
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -16,6 +17,7 @@ use crate::funnel::{self, BindDecl, BindSource, DataSource};
 use crate::i18n;
 use crate::manifest::ManifestMeta;
 use crate::parse::{Document, Element, Node};
+use crate::render::{Op, PageRenderer, RenderPlan};
 use crate::scope;
 use crate::{AliasOptions, FormsOptions};
 
@@ -133,6 +135,7 @@ pub fn validate_collection_page_binds(
 pub fn render_page_document(
     registry: &FragmentRegistry,
     doc: &Document,
+    render_plan: &RenderPlan,
     source: &PageSource,
     current: Option<&Value>,
     page_data: &HashMap<String, DataSource>,
@@ -149,10 +152,53 @@ pub fn render_page_document(
         .and_then(|raw| funnel::parse_bind_decl(Some(raw)).ok())
         .unwrap_or(BindDecl::None);
     let canonical = CanonicalContext::new(source, current, page_data, locale, &bind.scope_names());
-    let mut doc = doc.clone();
     let bind_ctx = funnel::bind_context(&bind, canonical.value());
     let context_data = canonical.as_data_sources(page_data);
     let context_tree = ContextTree::new(ContextScope::Page, bind_ctx, context_data.clone());
+
+    match PageRenderer::select(registry, doc, locale) {
+        PageRenderer::CompiledPlan => render_with_compiled_plan(
+            registry,
+            render_plan,
+            current,
+            context_data.as_map(),
+            &context_tree.render_context(),
+            &context_tree.translated_context(i18n_catalog),
+            locale,
+            i18n_catalog,
+            data_cache,
+            aliases,
+            site,
+        ),
+        PageRenderer::AstMutation => render_with_ast_mutation(
+            registry,
+            doc,
+            current,
+            context_data.as_map(),
+            &context_tree,
+            locale,
+            i18n_catalog,
+            data_cache,
+            aliases,
+            site,
+        ),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_with_ast_mutation(
+    registry: &FragmentRegistry,
+    doc: &Document,
+    current: Option<&Value>,
+    data_map: &HashMap<String, DataSource>,
+    context_tree: &ContextTree,
+    locale: Option<&str>,
+    i18n_catalog: Option<&Value>,
+    data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
+    aliases: &AliasOptions,
+    site: Option<(&str, &str)>,
+) -> Result<String> {
+    let mut doc = doc.clone();
     let ctx = context_tree.render_context();
     fill_attr_templates_in_nodes(&mut doc.children, &ctx);
     fill_named_slots(&mut doc.children, &ctx);
@@ -160,7 +206,7 @@ pub fn render_page_document(
         registry,
         &mut doc.children,
         current,
-        context_data.as_map(),
+        data_map,
         locale,
         i18n_catalog,
         data_cache,
@@ -174,6 +220,228 @@ pub fn render_page_document(
     scope::dedupe_helpers_in_document(&mut doc);
     scope::dedupe_styles_in_document(&mut doc);
     Ok(crate::parse::serialize_document(&doc))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_with_compiled_plan(
+    registry: &FragmentRegistry,
+    render_plan: &RenderPlan,
+    current: Option<&Value>,
+    data_map: &HashMap<String, DataSource>,
+    attr_context: &Value,
+    text_context: &Value,
+    locale: Option<&str>,
+    i18n_catalog: Option<&Value>,
+    data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
+    aliases: &AliasOptions,
+    site: Option<(&str, &str)>,
+) -> Result<String> {
+    let mut out = String::with_capacity(4096);
+    render_plan.write_doctype(&mut out);
+    render_plan_ops(
+        registry,
+        render_plan.ops(),
+        current,
+        data_map,
+        attr_context,
+        text_context,
+        locale,
+        i18n_catalog,
+        data_cache,
+        aliases,
+        site,
+        &[],
+        &mut out,
+    )?;
+    Ok(out)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_plan_ops(
+    registry: &FragmentRegistry,
+    ops: &[Op],
+    current: Option<&Value>,
+    data_map: &HashMap<String, DataSource>,
+    attr_context: &Value,
+    text_context: &Value,
+    locale: Option<&str>,
+    i18n_catalog: Option<&Value>,
+    data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
+    aliases: &AliasOptions,
+    site: Option<(&str, &str)>,
+    default_children: &[Op],
+    out: &mut String,
+) -> Result<()> {
+    for op in ops {
+        match op {
+            Op::Static(text) => out.push_str(text),
+            Op::AttrTemplate(template) => {
+                out.push_str(&escape_attr(&expand_template(template, attr_context)));
+            }
+            Op::TextTemplate(template) => out.push_str(&expand_template(template, text_context)),
+            Op::NamedSlot(name) => {
+                if let Some(value) = funnel::path_value(attr_context, name) {
+                    out.push_str(&funnel::value_to_html(value));
+                }
+            }
+            Op::DefaultSlot(fallback) => {
+                let children = if default_children.is_empty() {
+                    fallback.as_slice()
+                } else {
+                    default_children
+                };
+                render_plan_ops(
+                    registry,
+                    children,
+                    current,
+                    data_map,
+                    attr_context,
+                    text_context,
+                    locale,
+                    i18n_catalog,
+                    data_cache,
+                    aliases,
+                    site,
+                    default_children,
+                    out,
+                )?;
+            }
+            Op::Mount { id, each, children } => {
+                render_plan_mount(
+                    registry,
+                    id,
+                    each.as_deref(),
+                    children,
+                    current,
+                    data_map,
+                    locale,
+                    i18n_catalog,
+                    data_cache,
+                    aliases,
+                    site,
+                    out,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_plan_mount(
+    registry: &FragmentRegistry,
+    id: &str,
+    each: Option<&str>,
+    children: &[Op],
+    current: Option<&Value>,
+    data_map: &HashMap<String, DataSource>,
+    locale: Option<&str>,
+    i18n_catalog: Option<&Value>,
+    data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
+    aliases: &AliasOptions,
+    site: Option<(&str, &str)>,
+    out: &mut String,
+) -> Result<()> {
+    if let Some(each_expr) = each {
+        let list = resolve_each_array(each_expr, current, data_map, data_map)
+            .map_err(|e| relocate_data_err(e, site, each_expr))?;
+        match list {
+            Some(items) => {
+                for item in items.iter() {
+                    render_plan_fragment(
+                        registry,
+                        id,
+                        item,
+                        data_map,
+                        children,
+                        locale,
+                        i18n_catalog,
+                        data_cache,
+                        aliases,
+                        site,
+                        out,
+                    )?;
+                }
+                Ok(())
+            }
+            None => Ok(()),
+        }
+    } else {
+        let value = current.cloned().unwrap_or(Value::Null);
+        render_plan_fragment(
+            registry,
+            id,
+            &value,
+            data_map,
+            children,
+            locale,
+            i18n_catalog,
+            data_cache,
+            aliases,
+            site,
+            out,
+        )
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_plan_fragment(
+    registry: &FragmentRegistry,
+    id: &str,
+    prop_value: &Value,
+    parent_data: &HashMap<String, DataSource>,
+    children: &[Op],
+    locale: Option<&str>,
+    i18n_catalog: Option<&Value>,
+    data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
+    aliases: &AliasOptions,
+    site: Option<(&str, &str)>,
+    out: &mut String,
+) -> Result<()> {
+    let frag = registry.get(id).ok_or_else(|| {
+        let msg =
+            format!("missing fragment id `{id}` (no <link rel=\"statica/fragment\" id=\"{id}\">)");
+        match site {
+            Some((file, source)) => {
+                let dq = format!("id=\"{id}\"");
+                let sq = format!("id='{id}'");
+                Error::at(file, source, &[&dq, &sq], msg)
+            }
+            None => Error::at_file("<page>", msg),
+        }
+    })?;
+    let frag_data = registry.resolve_fragment_data(frag, locale, data_cache, aliases)?;
+    let local = ContextData::new(parent_data.clone()).with_links(&frag_data);
+    let bind_ctx = funnel::bind_context(&frag.bind, prop_value);
+    let context_tree = ContextTree::new(ContextScope::Fragment, bind_ctx, local.clone());
+    render_plan_ops(
+        registry,
+        frag.render_plan.ops(),
+        Some(prop_value),
+        local.as_map(),
+        &context_tree.render_context(),
+        &context_tree.translated_context(i18n_catalog),
+        locale,
+        i18n_catalog,
+        data_cache,
+        aliases,
+        site,
+        children,
+        out,
+    )
+}
+
+fn escape_attr(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '"' => out.push_str("&quot;"),
+            '<' => out.push_str("&lt;"),
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 /// Transform unscoped page `<style>` (fragment styles already went through
@@ -224,12 +492,12 @@ pub fn expand_usage_slots_in_nodes(
 
         if let Some((id, children_nodes, each)) = replace {
             let rendered = if let Some(each_expr) = each {
-                let list = funnel::resolve_expr(&each_expr, current, data_map, data_map)
+                let list = resolve_each_array(&each_expr, current, data_map, data_map)
                     .map_err(|e| relocate_data_err(e, site, &each_expr))?;
                 render_each(
                     registry,
                     &id,
-                    &list,
+                    list,
                     data_map,
                     &children_nodes,
                     locale,
@@ -290,10 +558,85 @@ fn relocate_data_err(err: Error, site: Option<(&str, &str)>, expr: &str) -> Erro
     }
 }
 
+fn resolve_each_array<'a>(
+    expr: &str,
+    current: Option<&'a Value>,
+    local_data: &'a HashMap<String, DataSource>,
+    parent_data: &'a HashMap<String, DataSource>,
+) -> Result<Option<Cow<'a, [Value]>>> {
+    let expr = expr.trim();
+    if expr.is_empty() {
+        return Ok(None);
+    }
+    if expr == "." {
+        return match current {
+            Some(Value::Array(items)) => Ok(Some(Cow::Borrowed(items))),
+            Some(Value::Null) | None => Ok(None),
+            Some(_) => Err(Error::at_file("<data>", "data-each expected an array")),
+        };
+    }
+
+    let mut parts = expr.split('.').filter(|p| !p.is_empty());
+    let first = parts
+        .next()
+        .ok_or_else(|| Error::at_file("<data>", "empty data expression"))?;
+    let rest: Vec<&str> = parts.collect();
+
+    if first == "this" {
+        return array_at_path(current.unwrap_or(&Value::Null), &rest);
+    }
+    if let Some(value) = current.and_then(|cur| funnel::read_field(cur, first)) {
+        return array_at_path(value, &rest);
+    }
+    if let Some(source) = local_data.get(first).or_else(|| parent_data.get(first)) {
+        if let Some(value) = data_source_value(source) {
+            return array_at_path(value, &rest);
+        }
+        if rest.is_empty() {
+            return source
+                .array()
+                .map(|items| Some(Cow::Owned(items)))
+                .ok_or_else(|| Error::at_file("<data>", "data-each expected an array"));
+        }
+    }
+
+    let value = funnel::resolve_expr(expr, current, local_data, parent_data)?;
+    match value {
+        Value::Array(items) => Ok(Some(Cow::Owned(items))),
+        Value::Null => Ok(None),
+        _ => Err(Error::at_file("<data>", "data-each expected an array")),
+    }
+}
+
+fn array_at_path<'a>(mut value: &'a Value, path: &[&str]) -> Result<Option<Cow<'a, [Value]>>> {
+    for part in path {
+        value = match funnel::read_field(value, part) {
+            Some(value) => value,
+            None => return Ok(None),
+        };
+    }
+    match value {
+        Value::Array(items) => Ok(Some(Cow::Borrowed(items))),
+        Value::Null => Ok(None),
+        _ => Err(Error::at_file("<data>", "data-each expected an array")),
+    }
+}
+
+fn data_source_value(source: &DataSource) -> Option<&Value> {
+    match source.data.as_ref() {
+        crate::content::DataSet::Json(value) | crate::content::DataSet::Markdown(value) => {
+            Some(value)
+        }
+        crate::content::DataSet::Records(_)
+        | crate::content::DataSet::Lines(_)
+        | crate::content::DataSet::Glob(_) => None,
+    }
+}
+
 fn render_each(
     registry: &FragmentRegistry,
     id: &str,
-    list: &Value,
+    list: Option<Cow<'_, [Value]>>,
     data_map: &HashMap<String, DataSource>,
     children: &[Node],
     locale: Option<&str>,
@@ -301,25 +644,13 @@ fn render_each(
     data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
-    each_expr: &str,
+    _each_expr: &str,
 ) -> Result<Vec<Node>> {
-    let arr = match list {
-        Value::Array(a) => a,
-        Value::Null => return Ok(Vec::new()),
-        _ => {
-            let msg = format!("data-each for `{id}` expected an array");
-            return Err(match site {
-                Some((file, source)) => {
-                    let dq = format!("data-each=\"{each_expr}\"");
-                    let sq = format!("data-each='{each_expr}'");
-                    Error::at(file, source, &[&dq, &sq], msg)
-                }
-                None => Error::at_file("<page>", msg),
-            });
-        }
+    let Some(arr) = list else {
+        return Ok(Vec::new());
     };
     let mut out = Vec::new();
-    for item in arr {
+    for item in arr.iter() {
         out.extend(render_fragment_nodes(
             registry,
             id,
