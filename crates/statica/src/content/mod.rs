@@ -7,6 +7,7 @@ use std::io::{self, BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 
 use globwalk::GlobWalkerBuilder;
+use rayon::prelude::*;
 use serde_json::Value;
 
 use crate::aliases;
@@ -288,10 +289,17 @@ fn load_glob(
             "glob matched no content files",
         ));
     }
-    let mut items = Vec::with_capacity(paths.len());
-    for path in paths {
-        items.push(load_file(&path, explicit_kind)?);
-    }
+    let items = if paths.len() >= 2_000 {
+        paths
+            .par_iter()
+            .map(|path| load_file(path, explicit_kind))
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        paths
+            .iter()
+            .map(|path| load_file(path, explicit_kind))
+            .collect::<Result<Vec<_>>>()?
+    };
     Ok(LoadedContent {
         kind: DataKind::Glob,
         data: DataSet::Glob(items),
