@@ -23,7 +23,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use statica::{
     AliasOptions, AssetProcessOptions, BuildOptions, FormsOptions, I18nOptions,
-    ImageProcessOptions, MinifyOptions, PaginationRule, RssOptions, SitemapOptions,
+    ImageProcessOptions, MinifyOptions, PaginationRule, RenderMode, RssOptions, SitemapOptions,
 };
 
 /// Canonical config file name in a statica project root.
@@ -48,6 +48,8 @@ pub struct StaticaConfig {
     pub process: ProcessConfig,
     /// Final output minification (`[minify]`).
     pub minify: MinifyConfig,
+    /// Build performance controls (`[performance]`).
+    pub performance: PerformanceConfig,
     pub sitemap: SitemapConfig,
     pub rss: RssConfig,
     /// Paginated listings (`[[pagination]]`).
@@ -79,6 +81,35 @@ pub struct AliasesConfig {
     /// URL prefixes (`[aliases.urls]`).
     #[serde(default)]
     pub urls: HashMap<String, String>,
+}
+
+/// `[performance]` — render/emit scalability controls.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default, deny_unknown_fields)]
+pub struct PerformanceConfig {
+    /// Page rendering mode: auto, serial, or parallel.
+    pub render_mode: RenderModeConfig,
+    /// Worker threads for parallel page rendering (0 = rayon default).
+    pub render_threads: usize,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum RenderModeConfig {
+    #[default]
+    Auto,
+    Serial,
+    Parallel,
+}
+
+impl From<RenderModeConfig> for RenderMode {
+    fn from(mode: RenderModeConfig) -> Self {
+        match mode {
+            RenderModeConfig::Auto => Self::Auto,
+            RenderModeConfig::Serial => Self::Serial,
+            RenderModeConfig::Parallel => Self::Parallel,
+        }
+    }
 }
 
 impl Default for AliasesConfig {
@@ -397,6 +428,7 @@ impl Default for StaticaConfig {
             site_url: String::new(),
             process: ProcessConfig::default(),
             minify: MinifyConfig::default(),
+            performance: PerformanceConfig::default(),
             sitemap: SitemapConfig::default(),
             rss: RssConfig::default(),
             pagination: Vec::new(),
@@ -657,6 +689,8 @@ impl StaticaConfig {
             ignore_dirs,
             root,
             verbose: false,
+            render_mode: self.performance.render_mode.into(),
+            render_threads: self.performance.render_threads,
         }
     }
 
@@ -681,6 +715,16 @@ impl StaticaConfig {
         }
         if let Some(v) = &cli.ignore_dirs {
             self.ignore_dirs = v.clone();
+        }
+        if let Some(v) = cli.render_mode {
+            self.performance.render_mode = match v {
+                crate::cli_config::RenderModeArg::Auto => RenderModeConfig::Auto,
+                crate::cli_config::RenderModeArg::Serial => RenderModeConfig::Serial,
+                crate::cli_config::RenderModeArg::Parallel => RenderModeConfig::Parallel,
+            };
+        }
+        if let Some(v) = cli.render_threads {
+            self.performance.render_threads = v;
         }
 
         if cli.no_process {
@@ -804,6 +848,11 @@ enabled = false
 html = true                    # .html + inline <style>/<script> when css/js on
 css = true                     # .css under out_dir
 js = true                      # .js under out_dir
+
+# Build performance controls
+[performance]
+render_mode = "auto"           # auto | serial | parallel
+render_threads = 0             # worker threads for parallel rendering (0 = auto)
 
 # XML sitemap of every emitted page (needs site_url)
 [sitemap]
@@ -1264,6 +1313,11 @@ fonts = "./assets/fonts"
         assert!(!cfg.sitemap.enabled);
         assert!(!cfg.rss.enabled);
         assert_eq!(cfg.preview.host, "0.0.0.0");
+        assert!(matches!(
+            cfg.performance.render_mode,
+            RenderModeConfig::Auto
+        ));
+        assert_eq!(cfg.performance.render_threads, 0);
     }
 
     #[test]
@@ -1324,6 +1378,8 @@ dir = "locales"
             rss: Some("title=T,limit=3,collections=posts|notes".into()),
             site_url: Some("https://ex.com".into()),
             pagination: vec!["page_size=2,sort_desc=true,index=true".into()],
+            render_mode: Some(crate::cli_config::RenderModeArg::Parallel),
+            render_threads: Some(4),
             preview: Some("port=9000,debounce_ms=50".into()),
             ..crate::cli::ConfigCli::default()
         };
@@ -1339,5 +1395,13 @@ dir = "locales"
         assert_eq!(cfg.pagination.len(), 1);
         assert_eq!(cfg.pagination[0].page_size, 2);
         assert!(cfg.pagination[0].index);
+        assert!(matches!(
+            cfg.performance.render_mode,
+            RenderModeConfig::Parallel
+        ));
+        assert_eq!(cfg.performance.render_threads, 4);
+        let opts = cfg.to_build_options("/tmp/site");
+        assert_eq!(opts.render_mode, RenderMode::Parallel);
+        assert_eq!(opts.render_threads, 4);
     }
 }

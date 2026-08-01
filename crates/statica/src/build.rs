@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use rayon::prelude::*;
+use rayon::ThreadPoolBuilder;
 use serde_json::Value;
 
 use crate::aliases::AliasOptions;
@@ -61,6 +62,10 @@ pub struct BuildOptions {
     pub ignore_dirs: Vec<String>,
     /// Emit step lines to stderr during the build (CLI: `--verbose`).
     pub verbose: bool,
+    /// Page rendering mode.
+    pub render_mode: RenderMode,
+    /// Maximum page-render worker threads when rendering in parallel (0 = rayon default).
+    pub render_threads: usize,
 }
 
 impl BuildOptions {
@@ -91,6 +96,8 @@ impl BuildOptions {
             ],
             root,
             verbose: false,
+            render_mode: RenderMode::Auto,
+            render_threads: 0,
         }
     }
 
@@ -102,6 +109,38 @@ impl BuildOptions {
 
     fn log(&self) -> BuildLog {
         BuildLog::new(self.verbose)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RenderMode {
+    Auto,
+    Serial,
+    Parallel,
+}
+
+impl RenderMode {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Serial => "serial",
+            Self::Parallel => "parallel",
+        }
+    }
+
+    fn should_render_parallel(self) -> bool {
+        matches!(self, Self::Auto | Self::Parallel)
+    }
+}
+
+fn render_detail(mode: RenderMode, threads: usize) -> String {
+    match (mode, threads) {
+        (RenderMode::Serial, _) => "serial".to_string(),
+        (RenderMode::Auto, 0) => "auto".to_string(),
+        (RenderMode::Parallel, 0) => "parallel auto-threads".to_string(),
+        (RenderMode::Auto, n) => format!("auto, {n} threads"),
+        (RenderMode::Parallel, n) => format!("parallel, {n} threads"),
     }
 }
 
@@ -463,32 +502,63 @@ pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
     let warnings = Mutex::new(Vec::new());
 
     let t = Instant::now();
-    let results: Vec<Result<EmitResult>> = prepared
-        .par_iter()
-        .map(|page| {
-            emit_prepared(
-                opts,
-                page,
-                &registry,
-                &i18n_catalogs,
-                manifest_meta.as_ref(),
-                &warnings,
-                &route_rows,
-            )
-        })
-        .collect();
+    let render_mode = opts.render_mode;
+    let render_emit_parallel = || {
+        prepared
+            .par_iter()
+            .map(|page| {
+                emit_prepared(
+                    opts,
+                    page,
+                    &registry,
+                    &i18n_catalogs,
+                    manifest_meta.as_ref(),
+                    &warnings,
+                    &route_rows,
+                )
+            })
+            .collect::<Vec<Result<EmitResult>>>()
+    };
+    let results: Vec<Result<EmitResult>> = match render_mode {
+        RenderMode::Auto | RenderMode::Parallel if opts.render_threads == 0 => {
+            render_emit_parallel()
+        }
+        RenderMode::Serial => prepared
+            .iter()
+            .map(|page| {
+                emit_prepared(
+                    opts,
+                    page,
+                    &registry,
+                    &i18n_catalogs,
+                    manifest_meta.as_ref(),
+                    &warnings,
+                    &route_rows,
+                )
+            })
+            .collect(),
+        RenderMode::Auto | RenderMode::Parallel => ThreadPoolBuilder::new()
+            .num_threads(opts.render_threads)
+            .build()
+            .map_err(|e| Error::at_file("<build>", e.to_string()))?
+            .install(render_emit_parallel),
+    };
     let emit_ms = t.elapsed().as_millis();
 
     let mut outputs = Vec::new();
     for chunk in results {
         outputs.extend(chunk?.outputs);
     }
+    let parallel_detail = render_detail(render_mode, opts.render_threads);
     phases.push(BuildPhase {
         name: "emit",
         duration_ms: emit_ms,
-        detail: format!("{} pages", outputs.len()),
+        detail: format!("{} pages, render {parallel_detail}", outputs.len()),
     });
-    log.step(format!("emit  {} pages ({emit_ms}ms)", outputs.len()));
+    log.step(format!(
+        "emit  {} pages, render {parallel_detail} ({emit_ms}ms)",
+        outputs.len()
+    ));
 
     let mut warnings = warnings
         .into_inner()
@@ -1055,39 +1125,24 @@ fn emit_pagination_chunks(
                 locale,
                 i18n_catalogs,
                 manifest,
-                data_cache,
                 outs,
             )?;
             continue;
         }
-        let ctx = locale.map(|loc| i18n::merge_locale_into(&chunk.value, loc));
-        let rendered = page.render(
+    }
+
+    if item_param.is_none() {
+        emit_paginated_listing_chunks(
+            opts,
+            page,
             registry,
-            &opts.root,
-            ctx.as_ref().or(Some(&chunk.value)),
-            &opts.aliases,
-            &opts.forms,
-            manifest,
+            chunks,
+            param,
             locale,
             i18n_catalogs,
-            &opts.i18n,
-            data_cache,
+            manifest,
+            outs,
         )?;
-        let out = if let Some(loc) = locale {
-            emit::out_path_for_route_replacements(
-                &opts.out_dir,
-                &page.source.route,
-                &[(i18n::LOCALE_PARAM, loc), (param, &chunk.page)],
-            )
-        } else {
-            emit::out_path_for_route(
-                &opts.out_dir,
-                &page.source.route,
-                Some((param, &chunk.page)),
-            )
-        };
-        emit::write_html(&out, &rendered)?;
-        outs.push(out);
     }
 
     if rule.index && item_param.is_none() {
@@ -1132,7 +1187,6 @@ fn emit_paginated_item_chunk(
     locale: Option<&str>,
     i18n_catalogs: &I18nCatalogs,
     manifest: Option<&ManifestMeta>,
-    data_cache: &mut std::collections::HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     outs: &mut Vec<PathBuf>,
 ) -> Result<()> {
     let items = chunk
@@ -1140,15 +1194,23 @@ fn emit_paginated_item_chunk(
         .get(paginate::PaginationField::Items.as_str())
         .and_then(Value::as_array)
         .ok_or_else(|| page.at(&["page.pagination.items"], "pagination chunk missing items"))?;
-    for item in items {
-        let folder = funnel::field_as_str(item, item_param).ok_or_else(|| {
-            page.at(
-                &[item_param],
-                format!(
-                    "pagination item missing field `{item_param}` required by route `[{item_param}]`"
-                ),
-            )
-        })?;
+    let tasks = items
+        .iter()
+        .map(|item| {
+            let folder = funnel::field_as_str(item, item_param).ok_or_else(|| {
+                page.at(
+                    &[item_param],
+                    format!(
+                        "pagination item missing field `{item_param}` required by route `[{item_param}]`"
+                    ),
+                )
+            })?;
+            Ok((item.clone(), folder))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let render = |(item, folder): &(Value, String)| {
+        let mut data_cache = std::collections::HashMap::new();
         let mut ctx = serde_json::Map::new();
         ctx.insert(
             crate::context::CanonicalRoot::Item.as_str().into(),
@@ -1173,7 +1235,7 @@ fn emit_paginated_item_chunk(
             locale,
             i18n_catalogs,
             &opts.i18n,
-            data_cache,
+            &mut data_cache,
         )?;
         let out = if let Some(loc) = locale {
             emit::out_path_for_route_replacements(
@@ -1182,20 +1244,199 @@ fn emit_paginated_item_chunk(
                 &[
                     (i18n::LOCALE_PARAM, loc),
                     (page_param, &chunk.page),
-                    (item_param, &folder),
+                    (item_param, folder),
                 ],
             )
         } else {
             emit::out_path_for_route_replacements(
                 &opts.out_dir,
                 &page.source.route,
-                &[(page_param, &chunk.page), (item_param, &folder)],
+                &[(page_param, &chunk.page), (item_param, folder)],
             )
         };
         emit::write_html(&out, &rendered)?;
-        outs.push(out);
+        Ok(out)
+    };
+    let rendered = if opts.render_mode.should_render_parallel() {
+        tasks
+            .par_iter()
+            .map(render)
+            .collect::<Vec<Result<PathBuf>>>()
+    } else {
+        tasks.iter().map(render).collect::<Vec<Result<PathBuf>>>()
+    };
+    for out in rendered {
+        outs.push(out?);
     }
     Ok(())
+}
+
+fn emit_paginated_listing_chunks(
+    opts: &BuildOptions,
+    page: &PreparedPage,
+    registry: &FragmentRegistry,
+    chunks: &[paginate::PageChunk],
+    param: &str,
+    locale: Option<&str>,
+    i18n_catalogs: &I18nCatalogs,
+    manifest: Option<&ManifestMeta>,
+    outs: &mut Vec<PathBuf>,
+) -> Result<()> {
+    let render = |chunk: &paginate::PageChunk| {
+        let mut data_cache = std::collections::HashMap::new();
+        let ctx = locale.map(|loc| i18n::merge_locale_into(&chunk.value, loc));
+        let rendered = page.render(
+            registry,
+            &opts.root,
+            ctx.as_ref().or(Some(&chunk.value)),
+            &opts.aliases,
+            &opts.forms,
+            manifest,
+            locale,
+            i18n_catalogs,
+            &opts.i18n,
+            &mut data_cache,
+        )?;
+        let out = if let Some(loc) = locale {
+            emit::out_path_for_route_replacements(
+                &opts.out_dir,
+                &page.source.route,
+                &[(i18n::LOCALE_PARAM, loc), (param, &chunk.page)],
+            )
+        } else {
+            emit::out_path_for_route(
+                &opts.out_dir,
+                &page.source.route,
+                Some((param, &chunk.page)),
+            )
+        };
+        emit::write_html(&out, &rendered)?;
+        Ok(out)
+    };
+    let rendered = if opts.render_mode.should_render_parallel() {
+        chunks
+            .par_iter()
+            .map(render)
+            .collect::<Vec<Result<PathBuf>>>()
+    } else {
+        chunks.iter().map(render).collect::<Vec<Result<PathBuf>>>()
+    };
+    for out in rendered {
+        outs.push(out?);
+    }
+    Ok(())
+}
+
+fn emit_collection_items(
+    opts: &BuildOptions,
+    page: &PreparedPage,
+    registry: &FragmentRegistry,
+    i18n_catalogs: &I18nCatalogs,
+    manifest: Option<&ManifestMeta>,
+    param: &str,
+    items: &[Value],
+) -> Result<Vec<PathBuf>> {
+    let render = |item: &Value| {
+        let folder = funnel::field_as_str(item, param).ok_or_else(|| {
+            page.at(
+                &[param],
+                format!("collection item missing field `{param}` required by route `[{param}]`"),
+            )
+        })?;
+        let mut data_cache = std::collections::HashMap::new();
+        let rendered = page.render(
+            registry,
+            &opts.root,
+            Some(item),
+            &opts.aliases,
+            &opts.forms,
+            manifest,
+            None,
+            i18n_catalogs,
+            &opts.i18n,
+            &mut data_cache,
+        )?;
+        let out =
+            emit::out_path_for_route(&opts.out_dir, &page.source.route, Some((param, &folder)));
+        emit::write_html(&out, &rendered)?;
+        Ok(out)
+    };
+    let rendered = if opts.render_mode.should_render_parallel() {
+        items
+            .par_iter()
+            .map(render)
+            .collect::<Vec<Result<PathBuf>>>()
+    } else {
+        items.iter().map(render).collect::<Vec<Result<PathBuf>>>()
+    };
+    rendered.into_iter().collect()
+}
+
+fn emit_locale_collection_items_parallel(
+    opts: &BuildOptions,
+    page: &PreparedPage,
+    registry: &FragmentRegistry,
+    i18n_catalogs: &I18nCatalogs,
+    manifest: Option<&ManifestMeta>,
+    param: &str,
+    items: &[Value],
+    loc: &str,
+    needle_refs: &[&str],
+    seen: &mut HashSet<String>,
+) -> Result<Vec<PathBuf>> {
+    let tasks = items
+        .iter()
+        .map(|item| {
+            let folder = funnel::field_as_str(item, param).ok_or_else(|| {
+                page.at(
+                    needle_refs,
+                    format!(
+                        "collection item missing field `{param}` required by route `[{param}]`"
+                    ),
+                )
+            })?;
+            let key = format!("{loc}:{folder}");
+            if !seen.insert(key) {
+                return Err(page.at(
+                    needle_refs,
+                    format!("duplicate collection value for `[{param}]`: `{folder}`"),
+                ));
+            }
+            Ok((item.clone(), folder))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let render = |(item, folder): &(Value, String)| {
+        let mut data_cache = std::collections::HashMap::new();
+        let ctx = i18n::merge_locale_into(item, loc);
+        let rendered = page.render(
+            registry,
+            &opts.root,
+            Some(&ctx),
+            &opts.aliases,
+            &opts.forms,
+            manifest,
+            Some(loc),
+            i18n_catalogs,
+            &opts.i18n,
+            &mut data_cache,
+        )?;
+        let out = emit::out_path_for_route_replacements(
+            &opts.out_dir,
+            &page.source.route,
+            &[(i18n::LOCALE_PARAM, loc), (param, folder)],
+        );
+        emit::write_html(&out, &rendered)?;
+        Ok(out)
+    };
+    let rendered = if opts.render_mode.should_render_parallel() {
+        tasks
+            .par_iter()
+            .map(render)
+            .collect::<Vec<Result<PathBuf>>>()
+    } else {
+        tasks.iter().map(render).collect::<Vec<Result<PathBuf>>>()
+    };
+    rendered.into_iter().collect()
 }
 
 fn emit_paginated(
@@ -1287,10 +1528,9 @@ fn emit_collection(
     let needles = html_source_needles(&collection_id);
     let needle_refs: Vec<&str> = needles.iter().map(String::as_str).collect();
 
-    let mut data_cache = std::collections::HashMap::new();
     let page_data = page.resolve_page_data(
         &opts.root,
-        &mut data_cache,
+        &mut std::collections::HashMap::new(),
         &opts.aliases,
         None,
         i18n_catalogs,
@@ -1334,9 +1574,8 @@ fn emit_collection(
         .ok_or_else(|| page.at(&needle_refs, "collection without params"))?;
 
     let mut seen = HashSet::with_capacity(items.len());
-    let mut outs = Vec::with_capacity(items.len());
 
-    for item in items {
+    for item in &items {
         let folder = funnel::field_as_str(&item, param).ok_or_else(|| {
             page.at(
                 &needle_refs,
@@ -1349,23 +1588,8 @@ fn emit_collection(
                 format!("duplicate collection value for `[{param}]`: `{folder}`"),
             ));
         }
-        let rendered = page.render(
-            registry,
-            &opts.root,
-            Some(&item),
-            &opts.aliases,
-            &opts.forms,
-            manifest,
-            None,
-            i18n_catalogs,
-            &opts.i18n,
-            &mut data_cache,
-        )?;
-        let out =
-            emit::out_path_for_route(&opts.out_dir, &page.source.route, Some((param, &folder)));
-        emit::write_html(&out, &rendered)?;
-        outs.push(out);
     }
+    let outs = emit_collection_items(opts, page, registry, i18n_catalogs, manifest, param, &items)?;
     let count = outs.len();
     Ok(EmitResult {
         outputs: outs,
@@ -1434,7 +1658,7 @@ fn emit_locale_collection(
                 continue;
             }
             let mut seen = HashSet::new();
-            emit_locale_collection_items(
+            outs.extend(emit_locale_collection_items_parallel(
                 opts,
                 page,
                 registry,
@@ -1444,10 +1668,8 @@ fn emit_locale_collection(
                 &items,
                 loc,
                 &needle_refs,
-                &mut data_cache,
-                &mut outs,
                 &mut seen,
-            )?;
+            )?);
         }
     } else {
         let items = page.shared_collection_items(&collection_id, &needle_refs)?;
@@ -1466,7 +1688,7 @@ fn emit_locale_collection(
         }
         let mut seen = HashSet::new();
         for loc in &opts.i18n.locales {
-            emit_locale_collection_items(
+            outs.extend(emit_locale_collection_items_parallel(
                 opts,
                 page,
                 registry,
@@ -1476,10 +1698,8 @@ fn emit_locale_collection(
                 &items,
                 loc,
                 &needle_refs,
-                &mut data_cache,
-                &mut outs,
                 &mut seen,
-            )?;
+            )?);
         }
     }
 
@@ -1488,58 +1708,6 @@ fn emit_locale_collection(
         outputs: outs,
         route: page.route_row(count, PageKind::Collection),
     })
-}
-
-fn emit_locale_collection_items(
-    opts: &BuildOptions,
-    page: &PreparedPage,
-    registry: &FragmentRegistry,
-    i18n_catalogs: &I18nCatalogs,
-    manifest: Option<&ManifestMeta>,
-    param: &str,
-    items: &[Value],
-    loc: &str,
-    needle_refs: &[&str],
-    data_cache: &mut std::collections::HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
-    outs: &mut Vec<PathBuf>,
-    seen: &mut HashSet<String>,
-) -> Result<()> {
-    for item in items {
-        let folder = funnel::field_as_str(item, param).ok_or_else(|| {
-            page.at(
-                needle_refs,
-                format!("collection item missing field `{param}` required by route `[{param}]`"),
-            )
-        })?;
-        let key = format!("{loc}:{folder}");
-        if !seen.insert(key) {
-            return Err(page.at(
-                needle_refs,
-                format!("duplicate collection value for `[{param}]`: `{folder}`"),
-            ));
-        }
-        let ctx = i18n::merge_locale_into(item, loc);
-        let rendered = page.render(
-            registry,
-            &opts.root,
-            Some(&ctx),
-            &opts.aliases,
-            &opts.forms,
-            manifest,
-            Some(loc),
-            i18n_catalogs,
-            &opts.i18n,
-            data_cache,
-        )?;
-        let out = emit::out_path_for_route_replacements(
-            &opts.out_dir,
-            &page.source.route,
-            &[(i18n::LOCALE_PARAM, loc), (param, &folder)],
-        );
-        emit::write_html(&out, &rendered)?;
-        outs.push(out);
-    }
-    Ok(())
 }
 
 pub fn rebuild_paths(opts: &BuildOptions, changed: &[PathBuf]) -> Result<BuildReport> {

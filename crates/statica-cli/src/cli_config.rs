@@ -13,7 +13,7 @@
 //!
 //! Parsing and application live in [`crate::config::StaticaConfig::apply_cli`].
 
-use clap::{ArgAction, Args};
+use clap::{ArgAction, Args, ValueEnum};
 
 /// Flags that override `statica.toml`. Absent → keep file / defaults.
 ///
@@ -77,6 +77,25 @@ Empty / omitted = that config directory is the site root."
         help = "Comma-separated dirs to skip when discovering pages"
     )]
     pub ignore_dirs: Option<Vec<String>>,
+
+    #[arg(
+        long = "render-mode",
+        value_name = "MODE",
+        global = true,
+        value_enum,
+        help = "Page render mode: auto, serial, or parallel",
+        long_help = "Override [performance].render_mode. auto lets statica choose the fastest page-render path; serial avoids rayon for page rendering; parallel always uses rayon for page rendering."
+    )]
+    pub render_mode: Option<RenderModeArg>,
+
+    #[arg(
+        long = "render-threads",
+        value_name = "N",
+        global = true,
+        help = "Worker threads for parallel page rendering (0 = auto)",
+        long_help = "Override [performance].render_threads. 0 uses rayon's default worker count when page rendering runs in parallel."
+    )]
+    pub render_threads: Option<usize>,
 
     // ── [process] SPEC ─────────────────────────────────────────
     #[arg(
@@ -255,4 +274,11 @@ Examples:\n\
 `statica watch` shows logs by default; pass `--silent` to turn them off."
     )]
     pub silent: bool,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum RenderModeArg {
+    Auto,
+    Serial,
+    Parallel,
 }

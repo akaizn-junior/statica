@@ -75,6 +75,7 @@ pub use aliases::{
 pub use assets::AssetProcessOptions;
 pub use build::{
     build, rebuild_paths, BuildOptions, BuildPhase, BuildReport, BuildRouteKind, BuildRouteRow,
+    RenderMode,
 };
 pub use build_log::BuildLog;
 pub use css::{transform_and_scope, transform_css};
