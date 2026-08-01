@@ -536,23 +536,22 @@ pub fn expand_usage_slots_in_nodes(
             };
             nodes.splice(i..=i, rendered.iter().cloned());
             i += rendered.len().max(1);
-            continue;
+        } else {
+            if let Node::Element(el) = &mut nodes[i] {
+                expand_usage_slots_in_nodes(
+                    registry,
+                    &mut el.children,
+                    current,
+                    data_map,
+                    locale,
+                    i18n_catalog,
+                    data_cache,
+                    aliases,
+                    site,
+                )?;
+            }
+            i += 1;
         }
-
-        if let Node::Element(el) = &mut nodes[i] {
-            expand_usage_slots_in_nodes(
-                registry,
-                &mut el.children,
-                current,
-                data_map,
-                locale,
-                i18n_catalog,
-                data_cache,
-                aliases,
-                site,
-            )?;
-        }
-        i += 1;
     }
     Ok(())
 }

@@ -22,10 +22,7 @@ pub fn fill_named_slots(nodes: &mut [Node], ctx: &Value) {
                 Some(v) => funnel::value_to_html(v),
             };
             nodes[i] = Node::Text(html);
-            i += 1;
-            continue;
-        }
-        if let Node::Element(el) = &mut nodes[i] {
+        } else if let Node::Element(el) = &mut nodes[i] {
             fill_named_slots(&mut el.children, ctx);
         }
         i += 1;
@@ -50,10 +47,7 @@ pub fn fill_default_slots(nodes: &mut Vec<Node>, children: &[Node]) {
             } else {
                 nodes.splice(i..=i, children.iter().cloned());
             }
-            i += 1;
-            continue;
-        }
-        if let Node::Element(el) = &mut nodes[i] {
+        } else if let Node::Element(el) = &mut nodes[i] {
             fill_default_slots(&mut el.children, children);
         }
         i += 1;
@@ -72,12 +66,12 @@ pub fn clear_remaining_named_slots(nodes: &mut Vec<Node>) {
                 let fallback = std::mem::take(&mut el.children);
                 nodes.splice(i..=i, fallback);
             }
-            continue;
-        }
-        if let Node::Element(el) = &mut nodes[i] {
+        } else if let Node::Element(el) = &mut nodes[i] {
             clear_remaining_named_slots(&mut el.children);
+            i += 1;
+        } else {
+            i += 1;
         }
-        i += 1;
     }
 }
 

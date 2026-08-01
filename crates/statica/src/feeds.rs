@@ -258,43 +258,53 @@ struct RssItem {
     date: String,
 }
 
+struct RssCollection<'a> {
+    page: &'a FeedPage<'a>,
+    items: Vec<serde_json::Value>,
+    param: &'a str,
+}
+
+impl<'a> RssCollection<'a> {
+    fn from_feed_page(page: &'a FeedPage<'a>, rss: &RssOptions) -> Option<Self> {
+        if page.source.kind() != PageKind::Collection {
+            return None;
+        }
+        let id = page.collection_id.as_deref()?;
+        if !rss.collections.is_empty() && !rss.collections.iter().any(|c| c == id) {
+            return None;
+        }
+        Some(Self {
+            page,
+            items: page.data.get(id)?.array()?,
+            param: page.source.params.first()?.as_str(),
+        })
+    }
+}
+
 fn collect_rss_items(base: &str, rss: &RssOptions, feed_pages: &[FeedPage<'_>]) -> Vec<RssItem> {
     let mut items = Vec::new();
     for page in feed_pages {
-        if page.source.kind() != PageKind::Collection {
-            continue;
-        }
-        let Some(id) = page.collection_id.as_deref() else {
-            continue;
-        };
-        if !rss.collections.is_empty() && !rss.collections.iter().any(|c| c == id) {
-            continue;
-        }
-        let Some(list) = page.data.get(id) else {
-            continue;
-        };
-        let Some(arr) = list.array() else {
-            continue;
-        };
-        let Some(param) = page.source.params.first() else {
-            continue;
-        };
-        for entry in &arr {
-            let Some(folder) = funnel::field_as_str(entry, param.as_str()) else {
-                continue;
-            };
-            let path = route_to_url(page.source.route.as_str(), param.as_str(), &folder);
-            let title =
-                funnel::field_as_str(entry, &rss.title_field).unwrap_or_else(|| folder.clone());
-            let description =
-                funnel::field_as_str(entry, &rss.description_field).unwrap_or_default();
-            let date = funnel::field_as_str(entry, &rss.date_field).unwrap_or_default();
-            items.push(RssItem {
-                title,
-                link: format!("{base}{path}"),
-                description,
-                date,
-            });
+        if let Some(collection) = RssCollection::from_feed_page(page, rss) {
+            for entry in &collection.items {
+                if let Some(folder) = funnel::field_as_str(entry, collection.param) {
+                    let path = route_to_url(
+                        collection.page.source.route.as_str(),
+                        collection.param,
+                        &folder,
+                    );
+                    let title = funnel::field_as_str(entry, &rss.title_field)
+                        .unwrap_or_else(|| folder.clone());
+                    let description =
+                        funnel::field_as_str(entry, &rss.description_field).unwrap_or_default();
+                    let date = funnel::field_as_str(entry, &rss.date_field).unwrap_or_default();
+                    items.push(RssItem {
+                        title,
+                        link: format!("{base}{path}"),
+                        description,
+                        date,
+                    });
+                }
+            }
         }
     }
     items

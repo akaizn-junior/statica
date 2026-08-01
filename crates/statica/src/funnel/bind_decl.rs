@@ -9,6 +9,7 @@ use oxc_span::SourceType;
 use serde_json::Value;
 
 use crate::error::{Error, Result};
+use crate::funnel::{DottedPath, TemplatePlaceholder, TemplateToken};
 use crate::parse::{Element, Node, SlotKind};
 
 use super::json::read_field;
@@ -363,10 +364,11 @@ fn validate_element(
     }
     if !el.is_script() && !el.is_style() && !is_statica_link(el) {
         for (_k, v) in &el.attrs {
-            if v.contains("${") {
-                for placeholder in template_placeholders(v) {
-                    match placeholder {
-                        TemplatePlaceholder::Path(path) => {
+            if crate::funnel::has_template_tokens(v) {
+                for token in crate::funnel::template_tokens(v) {
+                    match token {
+                        TemplateToken::Text(_) => {}
+                        TemplateToken::Placeholder(TemplatePlaceholder::Path(path)) => {
                             let authored = format!("${{{}}}", path.as_str());
                             ensure_bound(
                                 fragment_id,
@@ -377,7 +379,7 @@ fn validate_element(
                                 &[&authored],
                             )?;
                         }
-                        TemplatePlaceholder::Expression(expr) => {
+                        TemplateToken::Placeholder(TemplatePlaceholder::Expression(expr)) => {
                             let authored = format!("${{{expr}}}");
                             return Err(Error::at(
                                 source.file,
@@ -459,67 +461,6 @@ fn is_identifier_start(c: char) -> bool {
 
 fn is_identifier_continue(c: char) -> bool {
     c == '_' || c.is_ascii_alphanumeric()
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct DottedPath(String);
-
-impl DottedPath {
-    fn parse(raw: &str) -> Option<Self> {
-        let raw = raw.trim();
-        if raw.is_empty() || !raw.split('.').all(is_identifier) {
-            return None;
-        }
-        Some(Self(raw.to_string()))
-    }
-
-    fn root(&self) -> &str {
-        self.0.split('.').next().unwrap_or(self.0.as_str())
-    }
-
-    fn as_str(&self) -> &str {
-        self.0.as_str()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum TemplatePlaceholder {
-    Path(DottedPath),
-    Expression(String),
-}
-
-impl TemplatePlaceholder {
-    fn parse(raw: &str) -> Option<Self> {
-        let raw = raw.trim();
-        if raw.is_empty() {
-            return None;
-        }
-        Some(if let Some(path) = DottedPath::parse(raw) {
-            Self::Path(path)
-        } else {
-            Self::Expression(raw.to_string())
-        })
-    }
-}
-
-fn template_placeholders(raw: &str) -> Vec<TemplatePlaceholder> {
-    let mut out = Vec::new();
-    let bytes = raw.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'$' && i + 1 < bytes.len() && bytes[i + 1] == b'{' {
-            if let Some(end) = raw[i + 2..].find('}') {
-                let path = raw[i + 2..i + 2 + end].trim();
-                if let Some(placeholder) = TemplatePlaceholder::parse(path) {
-                    out.push(placeholder);
-                }
-                i = i + 2 + end + 1;
-                continue;
-            }
-        }
-        i += raw[i..].chars().next().map_or(1, char::len_utf8);
-    }
-    out
 }
 
 #[cfg(test)]
@@ -615,13 +556,17 @@ mod tests {
 
     #[test]
     fn parses_template_placeholders_as_paths_or_expressions() {
-        assert_eq!(
-            template_placeholders("Hi ${item.title} ${a + b} ${ }"),
-            vec![
-                TemplatePlaceholder::Path(DottedPath("item.title".into())),
-                TemplatePlaceholder::Expression("a + b".into()),
-            ]
-        );
+        let tokens = crate::funnel::template_tokens("Hi ${item.title} ${a + b} ${ }");
+        assert!(matches!(
+            &tokens[1],
+            TemplateToken::Placeholder(TemplatePlaceholder::Path(path))
+                if path.as_str() == "item.title"
+        ));
+        assert!(matches!(
+            &tokens[3],
+            TemplateToken::Placeholder(TemplatePlaceholder::Expression(expr))
+                if expr == "a + b"
+        ));
     }
 
     #[test]

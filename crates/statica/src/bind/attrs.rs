@@ -5,7 +5,7 @@
 
 use serde_json::Value;
 
-use crate::funnel;
+use crate::funnel::{self, TemplatePlaceholder, TemplateToken};
 use crate::parse::{Element, Node};
 
 pub fn fill_attr_templates_in_nodes(nodes: &mut [Node], ctx: &Value) {
@@ -22,10 +22,7 @@ fn fill_attrs(el: &mut Element, ctx: &Value) {
         return;
     }
     for (name, v) in &mut el.attrs {
-        if Element::is_translation_attr(name) {
-            continue;
-        }
-        if v.contains("${") {
+        if !Element::is_translation_attr(name) && funnel::has_template_tokens(v) {
             *v = expand_template(v, ctx);
         }
     }
@@ -33,19 +30,16 @@ fn fill_attrs(el: &mut Element, ctx: &Value) {
 
 pub(crate) fn expand_template(raw: &str, ctx: &Value) -> String {
     let mut out = String::with_capacity(raw.len());
-    let bytes = raw.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'$' && i + 1 < bytes.len() && bytes[i + 1] == b'{' {
-            if let Some(end) = raw[i + 2..].find('}') {
-                let path = raw[i + 2..i + 2 + end].trim();
-                out.push_str(&funnel::path_as_str(ctx, path));
-                i = i + 2 + end + 1;
-                continue;
+    for token in funnel::template_tokens(raw) {
+        match token {
+            TemplateToken::Text(text) => out.push_str(text),
+            TemplateToken::Placeholder(TemplatePlaceholder::Path(path)) => {
+                out.push_str(&funnel::path_as_str(ctx, path.as_str()));
+            }
+            TemplateToken::Placeholder(TemplatePlaceholder::Expression(expr)) => {
+                out.push_str(&funnel::path_as_str(ctx, &expr));
             }
         }
-        out.push(raw[i..].chars().next().unwrap_or('\0'));
-        i += raw[i..].chars().next().map_or(1, char::len_utf8);
     }
     out
 }

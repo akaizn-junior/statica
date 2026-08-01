@@ -5,6 +5,7 @@ use std::collections::HashSet;
 
 use crate::context::CanonicalRoot;
 use crate::fragment::FragmentRegistry;
+use crate::funnel::{self, TemplatePlaceholder, TemplateToken};
 use crate::parse::{Document, Element, Node, SlotKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -146,14 +147,10 @@ fn collect_linked_roots(ops: &[Op], roots: &mut HashSet<String>) {
 }
 
 fn collect_template_roots(template: &str, roots: &mut HashSet<String>) {
-    let mut rest = template;
-    while let Some(start) = rest.find("${") {
-        rest = &rest[start + 2..];
-        let Some(end) = rest.find('}') else {
-            break;
-        };
-        collect_path_root(&rest[..end], roots);
-        rest = &rest[end + 1..];
+    for token in funnel::template_tokens(template) {
+        if let TemplateToken::Placeholder(TemplatePlaceholder::Path(path)) = token {
+            collect_path_root(path.as_str(), roots);
+        }
     }
 }
 
@@ -233,34 +230,30 @@ fn compile_attrs(el: &Element, ops: &mut Vec<Op>) {
         .collect();
 
     for (name, value) in &el.attrs {
-        if name == "data-bind" && el.name.eq_ignore_ascii_case("html") {
-            continue;
+        let is_html_bind = name == "data-bind" && el.name.eq_ignore_ascii_case("html");
+        if !is_html_bind && !Element::is_translation_attr(name) {
+            push_static(ops, " ");
+            push_static(ops, name);
+            push_static(ops, "=\"");
+            if let Some(template) = translated_attrs.get(name.as_str()) {
+                ops.push(Op::TextTemplate((*template).to_string()));
+            } else if funnel::has_template_tokens(value) && !(el.is_script() || el.is_style()) {
+                ops.push(Op::AttrTemplate(value.clone()));
+            } else {
+                push_static(ops, &escape_attr(value));
+            }
+            push_static(ops, "\"");
         }
-        if Element::is_translation_attr(name) {
-            continue;
-        }
-        push_static(ops, " ");
-        push_static(ops, name);
-        push_static(ops, "=\"");
-        if let Some(template) = translated_attrs.get(name.as_str()) {
-            ops.push(Op::TextTemplate((*template).to_string()));
-        } else if value.contains("${") && !(el.is_script() || el.is_style()) {
-            ops.push(Op::AttrTemplate(value.clone()));
-        } else {
-            push_static(ops, &escape_attr(value));
-        }
-        push_static(ops, "\"");
     }
 
     for (name, value) in translated_attrs {
-        if el.attrs.contains_key(name) {
-            continue;
+        if !el.attrs.contains_key(name) {
+            push_static(ops, " ");
+            push_static(ops, name);
+            push_static(ops, "=\"");
+            ops.push(Op::TextTemplate(value.to_string()));
+            push_static(ops, "\"");
         }
-        push_static(ops, " ");
-        push_static(ops, name);
-        push_static(ops, "=\"");
-        ops.push(Op::TextTemplate(value.to_string()));
-        push_static(ops, "\"");
     }
 }
 
