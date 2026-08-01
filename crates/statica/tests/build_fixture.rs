@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use statica::{build, BuildOptions};
+use statica::{build, rebuild_paths, BuildOptions};
 
 #[test]
 fn builds_blog_fixture() {
@@ -129,6 +129,71 @@ More **content** here.
     let post2 = std::fs::read_to_string(dir.join("dist/posts/second-post/index.html")).unwrap();
     assert!(post2.contains("Second post"));
     assert!(post2.contains("<strong>content</strong>"));
+}
+
+#[test]
+fn rebuild_paths_reemits_only_changed_static_page() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("about")).unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        "<!doctype html><html><body><h1>Home v1</h1></body></html>",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("about/index.html"),
+        "<!doctype html><html><body><h1>About v1</h1></body></html>",
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("initial build");
+
+    std::fs::write(
+        dir.join("about/index.html"),
+        "<!doctype html><html><body><h1>About v2</h1></body></html>",
+    )
+    .unwrap();
+    opts.clean = false;
+    let report = rebuild_paths(&opts, &[dir.join("about/index.html")]).expect("rebuild");
+
+    assert_eq!(report.pages_written, 1);
+    assert_eq!(report.routes.len(), 1);
+    assert_eq!(report.routes[0].route, "about");
+    let home = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    let about = std::fs::read_to_string(dir.join("dist/about/index.html")).unwrap();
+    assert!(home.contains("Home v1"));
+    assert!(about.contains("About v2"));
+}
+
+#[test]
+fn rebuild_paths_uses_full_build_for_shared_data_changes() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("content")).unwrap();
+    std::fs::write(dir.join("content/site.json"), r#"{"headline":"First"}"#).unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html data-bind="{data}">
+  <head><link rel="statica/data" href="content/site.json" id="site" /></head>
+  <body><h1 data-t="${data.site.headline}">Fallback</h1></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("initial build");
+
+    std::fs::write(dir.join("content/site.json"), r#"{"headline":"Second"}"#).unwrap();
+    opts.clean = false;
+    let report = rebuild_paths(&opts, &[dir.join("content/site.json")]).expect("rebuild");
+
+    assert_eq!(report.pages_written, 1);
+    assert_eq!(report.routes.len(), 1);
+    let home = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(home.contains("Second"));
 }
 
 #[test]

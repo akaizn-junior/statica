@@ -490,3 +490,5 @@ statica watch --preview host=127.0.0.1,port=9000
 `render_threads = 0` uses the default rayon worker count when rendering in parallel; any positive value caps the parallel page-render pool. Output lists stay deterministic.
 
 `--report-json [PATH]` writes the build report as JSON. It includes counts, warnings, outputs, route rows, phase timings, and total duration. Omit `PATH` or pass `-` to write to stdout; pass a file path for CI artifacts or benchmark logs. In `watch`, statica writes the report after the initial build and every rebuild.
+
+`statica watch` rebuilds conservatively. Direct edits to an existing page `index.html` re-emit only that page route when `[process]` and `[minify]` are disabled. Edits to shared inputs such as linked data, fragments, assets, config-driven processing, deleted files, or minified builds use a full rebuild so generated output stays consistent.

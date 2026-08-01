@@ -149,6 +149,8 @@ Set `[performance].render_mode` to `auto`, `serial`, or `parallel`. `serial` avo
 
 Use `--report-json [PATH]` to write the build report as JSON for benchmarks, CI, and integrations. Omit `PATH` or pass `-` to write JSON to stdout; pass a file path to update that file. In `watch`, the report is written after the initial build and each rebuild.
 
+`statica watch` performs conservative incremental rebuilds. Direct edits to an existing page `index.html` re-emit only that page route when global post-processing is off. Changes to shared inputs such as data, fragments, assets, config-driven processing, deleted files, or minified builds fall back to a full rebuild.
+
 ## Authoring
 
 statica source is valid HTML. It uses normal `<template>`, `<slot>`, and `<link>` elements as build-time authoring primitives, so keep them where HTML allows them.
