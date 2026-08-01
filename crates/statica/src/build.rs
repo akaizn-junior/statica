@@ -19,7 +19,7 @@ use crate::aliases::AliasOptions;
 use crate::assets::AssetProcessOptions;
 use crate::bind;
 use crate::build_log::BuildLog;
-use crate::discover::{self, PageKind, PageSource};
+use crate::discover::{self, PageFile, PageKind, PageSource, RouteParam};
 use crate::emit;
 use crate::error::{Error, Result};
 use crate::feeds::{self, FeedPage, RssOptions, SitemapOptions};
@@ -179,7 +179,7 @@ fn pagination_listing_route(
     }
     let page_segment = format!("[{page_param}]");
     let mut parts = Vec::new();
-    for segment in page.source.route.split('/') {
+    for segment in page.source.route.as_str().split('/') {
         parts.push(segment);
         if segment == page_segment {
             break;
@@ -244,7 +244,7 @@ pub struct BuildReport {
 #[derive(Debug, Clone)]
 enum BuildScope {
     Full,
-    SelectedPages(HashSet<PathBuf>),
+    SelectedPages(PageSelection),
 }
 
 impl BuildScope {
@@ -252,10 +252,10 @@ impl BuildScope {
         matches!(self, Self::Full)
     }
 
-    fn contains_page(&self, path: &Path) -> bool {
+    fn contains_page(&self, file: &PageFile) -> bool {
         match self {
             Self::Full => true,
-            Self::SelectedPages(paths) => paths.contains(path),
+            Self::SelectedPages(paths) => paths.contains(file),
         }
     }
 
@@ -275,7 +275,7 @@ enum RebuildPlan {
     /// left stale generated files behind.
     Full { clean: bool },
     /// Re-emit exactly these discovered page source files.
-    SelectedPages(HashSet<PathBuf>),
+    SelectedPages(PageSelection),
 }
 
 /// Watch events from generated or build-output directories do not invalidate
@@ -289,7 +289,7 @@ enum ChangedPathKind {
 /// Result of mapping changed source paths onto page routes.
 #[derive(Debug, Clone)]
 enum PageRebuildSelection {
-    Selected(HashSet<PathBuf>),
+    Selected(PageSelection),
     RequiresFullBuild,
 }
 
@@ -306,6 +306,26 @@ struct PreparedPage {
     doc: Document,
     render_plan: RenderPlan,
     data: std::collections::HashMap<String, DataSource>,
+}
+
+/// Explicit set of source pages selected for a scoped rebuild.
+#[derive(Debug, Clone)]
+struct PageSelection {
+    files: HashSet<PageFile>,
+}
+
+impl PageSelection {
+    fn new(files: HashSet<PageFile>) -> Self {
+        Self { files }
+    }
+
+    fn len(&self) -> usize {
+        self.files.len()
+    }
+
+    fn contains(&self, file: &PageFile) -> bool {
+        self.files.contains(file)
+    }
 }
 
 /// Overlay locale catalog arrays onto page data (i18n-driven `data-each` sources).
@@ -340,11 +360,15 @@ struct EmitResult {
 
 impl PreparedPage {
     fn file(&self) -> String {
-        self.source.path.display().to_string()
+        self.source.path.as_path().display().to_string()
     }
 
     fn base_dir(&self) -> &Path {
-        self.source.path.parent().unwrap_or_else(|| Path::new("."))
+        self.source
+            .path
+            .as_path()
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
     }
 
     fn active_locale<'a>(locale: Option<&'a str>, i18n: &'a I18nOptions) -> Option<&'a str> {
@@ -446,7 +470,7 @@ impl PreparedPage {
     }
 
     fn has_locale_param(&self, i18n: &I18nOptions) -> bool {
-        i18n.route_has_locale(self.source.params.iter().map(String::as_str))
+        i18n.route_has_locale(self.source.params.iter().map(RouteParam::as_str))
     }
 
     fn locale_only(&self, i18n: &I18nOptions) -> bool {
@@ -463,7 +487,7 @@ impl PreparedPage {
 
     fn route_row(&self, pages: usize, kind: impl Into<BuildRouteKind>) -> BuildRouteRow {
         BuildRouteRow {
-            route: self.source.route.clone(),
+            route: self.source.route.as_str().to_string(),
             kind: kind.into(),
             pages,
         }
@@ -810,11 +834,16 @@ fn prepare_pages(
     let mut data_ids = HashSet::new();
 
     for page in pages {
-        let file = page.path.display().to_string();
-        let html = fs::read_to_string(&page.path).map_err(|e| Error::read(file.clone(), e))?;
+        let file = page.path.as_path().display().to_string();
+        let html =
+            fs::read_to_string(page.path.as_path()).map_err(|e| Error::read(file.clone(), e))?;
         let mut doc = parse::parse_document(&html).map_err(|e| e.in_file(&file, &html))?;
         bind::transform_page_styles(&mut doc.children);
-        let dir = page.path.parent().unwrap_or_else(|| Path::new("."));
+        let dir = page
+            .path
+            .as_path()
+            .parent()
+            .unwrap_or_else(|| Path::new("."));
         let data = funnel::load_data_from_document(
             &doc,
             site_root,
@@ -830,7 +859,7 @@ fn prepare_pages(
         bind::validate_collection_page_binds(
             &doc,
             page.kind(),
-            page.params.len() == 1 && page.params[0] == i18n::LOCALE_PARAM,
+            page.params.len() == 1 && page.params[0].as_str() == i18n::LOCALE_PARAM,
             funnel::BindSource {
                 file: &file,
                 source: &html,
@@ -873,7 +902,7 @@ fn emit_prepared(
 ) -> Result<EmitResult> {
     let result = if page.locale_only(&opts.i18n) {
         emit_locales(opts, page, registry, i18n_catalogs, manifest)
-    } else if let Some(rule) = opts.pagination_for(&page.source.route) {
+    } else if let Some(rule) = opts.pagination_for(page.source.route.as_str()) {
         if page.has_locale_param(&opts.i18n) {
             emit_locale_paginated(
                 opts,
@@ -914,7 +943,7 @@ fn emit_prepared(
                     &opts.i18n,
                     &mut data_cache,
                 )?;
-                let out = emit::out_path_for_route(&opts.out_dir, &page.source.route, None);
+                let out = emit::out_path_for_route(&opts.out_dir, page.source.route.as_str(), None);
                 emit::write_html(&out, &rendered)?;
                 Ok(EmitResult {
                     outputs: vec![out],
@@ -959,7 +988,7 @@ fn emit_locales(
         )?;
         let out = emit::out_path_for_route(
             &opts.out_dir,
-            &page.source.route,
+            page.source.route.as_str(),
             Some((i18n::LOCALE_PARAM, loc)),
         );
         emit::write_html(&out, &rendered)?;
@@ -971,11 +1000,11 @@ fn emit_locales(
     })
 }
 
-fn collection_param(params: &[String]) -> Result<&str> {
+fn collection_param(params: &[RouteParam]) -> Result<&str> {
     params
         .iter()
-        .find(|p| *p != i18n::LOCALE_PARAM)
-        .map(String::as_str)
+        .find(|p| p.as_str() != i18n::LOCALE_PARAM)
+        .map(RouteParam::as_str)
         .ok_or_else(|| {
             Error::at_file(
                 "<build>",
@@ -1089,20 +1118,20 @@ fn emit_locale_paginated(
 }
 
 fn pagination_param(page: &PreparedPage, needle_refs: &[&str]) -> Result<String> {
-    if page.source.params.iter().any(|p| p == "page") {
+    if page.source.params.iter().any(|p| p.as_str() == "page") {
         return Ok("page".into());
     }
     page.source
         .params
         .iter()
-        .find(|p| *p != i18n::LOCALE_PARAM)
-        .cloned()
+        .find(|p| p.as_str() != i18n::LOCALE_PARAM)
+        .map(|p| p.as_str().to_string())
         .ok_or_else(|| {
             page.at(
                 needle_refs,
                 format!(
                     "pagination route `{}` needs a [page] segment (e.g. blog/[page])",
-                    page.source.route
+                    page.source.route.as_str()
                 ),
             )
         })
@@ -1112,7 +1141,7 @@ fn pagination_item_param<'a>(page: &'a PreparedPage, page_param: &str) -> Option
     page.source
         .params
         .iter()
-        .map(String::as_str)
+        .map(RouteParam::as_str)
         .find(|param| *param != i18n::LOCALE_PARAM && *param != page_param)
 }
 
@@ -1224,7 +1253,7 @@ fn emit_pagination_chunks(
     if rule.index && item_param.is_none() {
         if let Some(first) = chunks.first() {
             let ctx = locale.map(|loc| i18n::merge_locale_into(&first.value, loc));
-            let index_route = paginate::index_route(&page.source.route, param);
+            let index_route = paginate::index_route(page.source.route.as_str(), param);
             let rendered = page.render(
                 registry,
                 &opts.root,
@@ -1316,7 +1345,7 @@ fn emit_paginated_item_chunk(
         let out = if let Some(loc) = locale {
             emit::out_path_for_route_replacements(
                 &opts.out_dir,
-                &page.source.route,
+                page.source.route.as_str(),
                 &[
                     (i18n::LOCALE_PARAM, loc),
                     (page_param, &chunk.page),
@@ -1326,7 +1355,7 @@ fn emit_paginated_item_chunk(
         } else {
             emit::out_path_for_route_replacements(
                 &opts.out_dir,
-                &page.source.route,
+                page.source.route.as_str(),
                 &[(page_param, &chunk.page), (item_param, folder)],
             )
         };
@@ -1376,13 +1405,13 @@ fn emit_paginated_listing_chunks(
         let out = if let Some(loc) = locale {
             emit::out_path_for_route_replacements(
                 &opts.out_dir,
-                &page.source.route,
+                page.source.route.as_str(),
                 &[(i18n::LOCALE_PARAM, loc), (param, &chunk.page)],
             )
         } else {
             emit::out_path_for_route(
                 &opts.out_dir,
-                &page.source.route,
+                page.source.route.as_str(),
                 Some((param, &chunk.page)),
             )
         };
@@ -1432,8 +1461,11 @@ fn emit_collection_items(
             &opts.i18n,
             &mut data_cache,
         )?;
-        let out =
-            emit::out_path_for_route(&opts.out_dir, &page.source.route, Some((param, &folder)));
+        let out = emit::out_path_for_route(
+            &opts.out_dir,
+            page.source.route.as_str(),
+            Some((param, &folder)),
+        );
         emit::write_html(&out, &rendered)?;
         Ok(out)
     };
@@ -1498,7 +1530,7 @@ fn emit_locale_collection_items_parallel(
         )?;
         let out = emit::out_path_for_route_replacements(
             &opts.out_dir,
-            &page.source.route,
+            page.source.route.as_str(),
             &[(i18n::LOCALE_PARAM, loc), (param, folder)],
         );
         emit::write_html(&out, &rendered)?;
@@ -1648,6 +1680,7 @@ fn emit_collection(
         .params
         .first()
         .ok_or_else(|| page.at(&needle_refs, "collection without params"))?;
+    let param = param.as_str();
 
     let mut seen = HashSet::with_capacity(items.len());
 
@@ -1868,7 +1901,10 @@ fn selected_changed_pages(
         if !path.exists() || path.file_name().is_none_or(|name| name != "index.html") {
             return Ok(PageRebuildSelection::RequiresFullBuild);
         }
-        let Some(page) = pages.iter().find(|page| same_path(&page.path, path)) else {
+        let Some(page) = pages
+            .iter()
+            .find(|page| same_path(page.path.as_path(), path))
+        else {
             return Ok(PageRebuildSelection::RequiresFullBuild);
         };
         selected.insert(page.path.clone());
@@ -1877,7 +1913,7 @@ fn selected_changed_pages(
     if selected.is_empty() {
         Ok(PageRebuildSelection::RequiresFullBuild)
     } else {
-        Ok(PageRebuildSelection::Selected(selected))
+        Ok(PageRebuildSelection::Selected(PageSelection::new(selected)))
     }
 }
 

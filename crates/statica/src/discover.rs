@@ -1,17 +1,74 @@
+use std::fmt;
 use std::path::{Path, PathBuf};
 
 use walkdir::WalkDir;
 
 use crate::error::{Error, Result};
 
+/// Absolute source file for one statica page (`**/index.html`).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PageFile(PathBuf);
+
+impl PageFile {
+    #[must_use]
+    pub fn new(path: PathBuf) -> Self {
+        Self(path)
+    }
+
+    #[must_use]
+    pub fn as_path(&self) -> &Path {
+        &self.0
+    }
+}
+
+/// Filesystem route for a page, relative to the site root.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PageRoute(String);
+
+impl PageRoute {
+    #[must_use]
+    pub fn new(route: String) -> Self {
+        Self(route)
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    #[must_use]
+    pub fn is_home(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+/// Dynamic route segment without brackets, such as `slug`, `page`, or `locale`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RouteParam(String);
+
+impl RouteParam {
+    #[must_use]
+    pub fn new(param: String) -> Self {
+        Self(param)
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for RouteParam {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PageSource {
-    /// Absolute path to index.html
-    pub path: PathBuf,
-    /// Route relative to project root, using `/` (e.g. `posts/[slug]` or `` for home)
-    pub route: String,
-    /// Dynamic param names in order, e.g. ["slug"]
-    pub params: Vec<String>,
+    pub path: PageFile,
+    pub route: PageRoute,
+    pub params: Vec<RouteParam>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,8 +131,8 @@ pub fn discover_pages(root: &Path, ignore_dirs: &[String]) -> Result<Vec<PageSou
         };
         let params = parse_params(&route);
         pages.push(PageSource {
-            path,
-            route,
+            path: PageFile::new(path),
+            route: PageRoute::new(route),
             params,
         });
     }
@@ -83,13 +140,13 @@ pub fn discover_pages(root: &Path, ignore_dirs: &[String]) -> Result<Vec<PageSou
     Ok(pages)
 }
 
-fn parse_params(route: &str) -> Vec<String> {
+fn parse_params(route: &str) -> Vec<RouteParam> {
     route
         .split('/')
         .filter_map(|seg| {
             let seg = seg.trim();
             if seg.starts_with('[') && seg.ends_with(']') && seg.len() > 2 {
-                Some(seg[1..seg.len() - 1].to_string())
+                Some(RouteParam::new(seg[1..seg.len() - 1].to_string()))
             } else {
                 None
             }
@@ -103,7 +160,7 @@ mod tests {
 
     #[test]
     fn parses_slug_param() {
-        assert_eq!(parse_params("posts/[slug]"), vec!["slug".to_string()]);
+        assert_eq!(parse_params("posts/[slug]")[0].as_str(), "slug");
         assert!(parse_params("blog").is_empty());
     }
 }

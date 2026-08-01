@@ -25,6 +25,17 @@ pub struct Element {
     pub void: bool,
 }
 
+/// Authoring role of a `<slot>` element.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SlotKind {
+    /// `<slot name="field">` fills scalar/content values from context.
+    Named(String),
+    /// `<slot>` receives children passed by the fragment mount.
+    Default,
+    /// `<slot id="fragment-id">` mounts a statica fragment.
+    FragmentMount(String),
+}
+
 impl Document {
     #[must_use]
     pub fn new() -> Self {
@@ -71,6 +82,19 @@ impl Element {
     #[must_use]
     pub fn is_slot(&self) -> bool {
         self.name.eq_ignore_ascii_case("slot")
+    }
+
+    #[must_use]
+    pub fn slot_kind(&self) -> Option<SlotKind> {
+        if !self.is_slot() {
+            return None;
+        }
+        match (self.attr("name"), self.attr("id")) {
+            (Some(name), None) => Some(SlotKind::Named(name.to_string())),
+            (None, None) => Some(SlotKind::Default),
+            (None, Some(id)) => Some(SlotKind::FragmentMount(id.to_string())),
+            (Some(_), Some(_)) => None,
+        }
     }
 
     #[must_use]

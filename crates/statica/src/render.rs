@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use crate::context::CanonicalRoot;
 use crate::fragment::FragmentRegistry;
-use crate::parse::{Document, Element, Node};
+use crate::parse::{Document, Element, Node, SlotKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PageRenderer {
@@ -45,21 +45,21 @@ fn compiled_plan_safe_nodes(
     nodes.iter().all(|node| match node {
         Node::Text(_) | Node::Comment(_) => true,
         Node::Element(el) if el.is_style() || el.is_script() => true,
-        Node::Element(el)
-            if el.is_slot() && el.attr("id").is_some() && el.attr("name").is_none() =>
-        {
-            let id = el.attr("id").unwrap_or("");
-            let Some(frag) = registry.get(id) else {
+        Node::Element(el) if matches!(el.slot_kind(), Some(SlotKind::FragmentMount(_))) => {
+            let Some(SlotKind::FragmentMount(id)) = el.slot_kind() else {
+                return true;
+            };
+            let Some(frag) = registry.get(&id) else {
                 return true;
             };
             if !fragment_compiled_plan_safe(&frag.template.children) {
                 return false;
             }
-            if !visiting.insert(id.to_string()) {
+            if !visiting.insert(id.clone()) {
                 return true;
             }
             let safe = compiled_plan_safe_nodes(registry, &frag.template.children, visiting);
-            visiting.remove(id);
+            visiting.remove(&id);
             safe
         }
         Node::Element(el) => compiled_plan_safe_nodes(registry, &el.children, visiting),
@@ -181,26 +181,18 @@ fn compile_node(node: &Node, ops: &mut Vec<Op>) {
         Node::Text(text) => push_static(ops, text),
         Node::Comment(comment) => push_static(ops, &format!("<!--{comment}-->")),
         Node::Element(el) if is_authoring_link(el) => {}
-        Node::Element(el)
-            if el.is_slot() && el.attr("id").is_some() && el.attr("name").is_none() =>
-        {
-            ops.push(Op::Mount {
-                id: el.attr("id").unwrap_or("").to_string(),
-                each: el.attr("data-each").map(str::to_string),
-                children: compile_nodes(&el.children),
-            });
-        }
-        Node::Element(el)
-            if el.is_slot() && el.attr("name").is_some() && el.attr("id").is_none() =>
-        {
-            ops.push(Op::NamedSlot(el.attr("name").unwrap_or("").to_string()));
-        }
-        Node::Element(el)
-            if el.is_slot() && el.attr("name").is_none() && el.attr("id").is_none() =>
-        {
-            ops.push(Op::DefaultSlot(compile_nodes(&el.children)));
-        }
-        Node::Element(el) => compile_element(el, ops),
+        Node::Element(el) => match el.slot_kind() {
+            Some(SlotKind::FragmentMount(id)) => {
+                ops.push(Op::Mount {
+                    id,
+                    each: el.attr("data-each").map(str::to_string),
+                    children: compile_nodes(&el.children),
+                });
+            }
+            Some(SlotKind::Named(name)) => ops.push(Op::NamedSlot(name)),
+            Some(SlotKind::Default) => ops.push(Op::DefaultSlot(compile_nodes(&el.children))),
+            None => compile_element(el, ops),
+        },
     }
 }
 

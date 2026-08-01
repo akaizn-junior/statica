@@ -13,9 +13,34 @@ use crate::parse::{self, Document, Element, Node};
 use crate::render::RenderPlan;
 use crate::scope;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FragmentId(String);
+
+impl FragmentId {
+    #[must_use]
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FragmentFile(PathBuf);
+
+impl FragmentFile {
+    #[must_use]
+    pub fn new(path: PathBuf) -> Self {
+        Self(path)
+    }
+
+    #[must_use]
+    pub fn as_path(&self) -> &Path {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Fragment {
-    pub path: PathBuf,
+    pub path: FragmentFile,
     pub template: Element,
     pub render_plan: RenderPlan,
     /// Bind scope from `<template data-bind="name">` or `data-bind="{a, b}"`.
@@ -28,7 +53,7 @@ pub struct Fragment {
 
 pub struct FragmentRegistry {
     site_root: PathBuf,
-    fragments: HashMap<String, Fragment>,
+    fragments: HashMap<FragmentId, Fragment>,
     data_cache: HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     extra_bind_roots: Vec<String>,
 }
@@ -54,7 +79,7 @@ impl FragmentRegistry {
 
     #[must_use]
     pub fn get(&self, id: &str) -> Option<&Fragment> {
-        self.fragments.get(id)
+        self.fragments.get(&FragmentId::new(id))
     }
 
     #[must_use]
@@ -89,8 +114,9 @@ impl FragmentRegistry {
         aliases: &AliasOptions,
         page: Option<(&str, &str)>,
     ) -> Result<&Fragment> {
-        if self.fragments.contains_key(id) {
-            return self.fragments.get(id).ok_or_else(|| {
+        let fragment_id = FragmentId::new(id);
+        if self.fragments.contains_key(&fragment_id) {
+            return self.fragments.get(&fragment_id).ok_or_else(|| {
                 Error::at_file("<registry>", format!("missing fragment id `{id}`"))
             });
         }
@@ -113,7 +139,7 @@ impl FragmentRegistry {
         )?;
         let nested = funnel::find_fragment_links(&file_doc);
         for (nid, nhref) in &nested {
-            if !self.fragments.contains_key(nid) {
+            if !self.fragments.contains_key(&FragmentId::new(nid)) {
                 self.ensure_loaded(nid, nhref, base_dir, aliases, Some((&file, &raw)))?;
             }
         }
@@ -164,16 +190,16 @@ impl FragmentRegistry {
         scope::rewrite_scripts_in_nodes(&mut template.children, &scope_id);
 
         let frag = Fragment {
-            path,
+            path: FragmentFile::new(path),
             render_plan: RenderPlan::compile_fragment(&template.children),
             template,
             bind,
             data,
             has_locale_data,
         };
-        self.fragments.insert(id.to_string(), frag);
+        self.fragments.insert(fragment_id.clone(), frag);
         self.fragments
-            .get(id)
+            .get(&fragment_id)
             .ok_or_else(|| Error::at_file("<registry>", format!("missing fragment id `{id}`")))
     }
 
@@ -192,11 +218,15 @@ impl FragmentRegistry {
         let Some(loc) = locale else {
             return Ok(data);
         };
-        let raw = fs::read_to_string(&frag.path)
-            .map_err(|e| Error::read(frag.path.display().to_string(), e))?;
-        let file = frag.path.display().to_string();
+        let raw = fs::read_to_string(frag.path.as_path())
+            .map_err(|e| Error::read(frag.path.as_path().display().to_string(), e))?;
+        let file = frag.path.as_path().display().to_string();
         let file_doc = parse::parse_fragment(&raw).map_err(|e| e.in_file(&file, &raw))?;
-        let base_dir = frag.path.parent().unwrap_or_else(|| Path::new("."));
+        let base_dir = frag
+            .path
+            .as_path()
+            .parent()
+            .unwrap_or_else(|| Path::new("."));
         let locale_data = funnel::load_locale_data_from_document(
             &file_doc,
             &self.site_root,

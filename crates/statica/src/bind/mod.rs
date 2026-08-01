@@ -16,7 +16,7 @@ use crate::fragment::{self, FragmentRegistry};
 use crate::funnel::{self, BindDecl, BindSource, DataSource};
 use crate::i18n;
 use crate::manifest::ManifestMeta;
-use crate::parse::{Document, Element, Node};
+use crate::parse::{Document, Element, Node, SlotKind};
 use crate::render::{Op, PageRenderer, RenderPlan};
 use crate::scope;
 use crate::{AliasOptions, FormsOptions};
@@ -24,6 +24,13 @@ use crate::{AliasOptions, FormsOptions};
 pub(crate) use attrs::expand_template;
 pub use attrs::fill_attr_templates_in_nodes;
 pub use slots::{clear_remaining_named_slots, fill_default_slots, fill_named_slots};
+
+#[derive(Debug, Clone)]
+struct FragmentMount {
+    id: String,
+    children: Vec<Node>,
+    each: Option<String>,
+}
 
 fn html_element(doc: &Document) -> Option<&Element> {
     doc.children.iter().find_map(|n| match n {
@@ -484,27 +491,27 @@ pub fn expand_usage_slots_in_nodes(
     let mut i = 0;
     while i < nodes.len() {
         let replace = match &nodes[i] {
-            Node::Element(el)
-                if el.is_slot() && el.attr("id").is_some() && el.attr("name").is_none() =>
-            {
-                let id = el.attr("id").unwrap_or("").to_string();
-                let children_html_nodes = el.children.clone();
-                let each = el.attr("data-each").map(str::to_string);
-                Some((id, children_html_nodes, each))
-            }
+            Node::Element(el) => match el.slot_kind() {
+                Some(SlotKind::FragmentMount(id)) => Some(FragmentMount {
+                    id,
+                    children: el.children.clone(),
+                    each: el.attr("data-each").map(str::to_string),
+                }),
+                Some(SlotKind::Named(_) | SlotKind::Default) | None => None,
+            },
             _ => None,
         };
 
-        if let Some((id, children_nodes, each)) = replace {
-            let rendered = if let Some(each_expr) = each {
+        if let Some(mount) = replace {
+            let rendered = if let Some(each_expr) = mount.each {
                 let list = resolve_each_array(&each_expr, current, data_map, data_map)
                     .map_err(|e| relocate_data_err(e, site, &each_expr))?;
                 render_each(
                     registry,
-                    &id,
+                    &mount.id,
                     list,
                     data_map,
-                    &children_nodes,
+                    &mount.children,
                     locale,
                     i18n_catalog,
                     data_cache,
@@ -516,10 +523,10 @@ pub fn expand_usage_slots_in_nodes(
                 let value = current.cloned().unwrap_or(Value::Null);
                 render_fragment_nodes(
                     registry,
-                    &id,
+                    &mount.id,
                     &value,
                     data_map,
-                    &children_nodes,
+                    &mount.children,
                     locale,
                     i18n_catalog,
                     data_cache,

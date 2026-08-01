@@ -143,26 +143,27 @@ impl CanonicalContext {
         let mut params = serde_json::Map::new();
         if bound_roots.contains(CanonicalRoot::Page.as_str()) {
             for param in &source.params {
-                let value = if param == i18n::LOCALE_PARAM {
+                let param_name = param.as_str();
+                let value = if param_name == i18n::LOCALE_PARAM {
                     locale.map_or(Value::Null, |loc| Value::String(loc.to_string()))
                 } else {
-                    funnel::read_field(&current, param)
+                    funnel::read_field(&current, param_name)
                         .or_else(|| {
                             nested_item
                                 .as_ref()
-                                .and_then(|item| funnel::read_field(item, param))
+                                .and_then(|item| funnel::read_field(item, param_name))
                         })
                         .cloned()
                         .unwrap_or(Value::Null)
                 };
-                params.insert(param.clone(), value);
+                params.insert(param_name.to_string(), value);
             }
         }
 
         let mut page = serde_json::Map::new();
         page.insert(
             CanonicalPageField::Route.as_str().into(),
-            Value::String(source.route.clone()),
+            Value::String(source.route.as_str().to_string()),
         );
         page.insert(
             CanonicalPageField::Params.as_str().into(),

@@ -280,10 +280,10 @@ fn collect_rss_items(base: &str, rss: &RssOptions, feed_pages: &[FeedPage<'_>]) 
             continue;
         };
         for entry in &arr {
-            let Some(folder) = funnel::field_as_str(entry, param) else {
+            let Some(folder) = funnel::field_as_str(entry, param.as_str()) else {
                 continue;
             };
-            let path = route_to_url(&page.source.route, param, &folder);
+            let path = route_to_url(page.source.route.as_str(), param.as_str(), &folder);
             let title =
                 funnel::field_as_str(entry, &rss.title_field).unwrap_or_else(|| folder.clone());
             let description =

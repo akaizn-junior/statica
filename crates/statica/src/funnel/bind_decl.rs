@@ -9,7 +9,7 @@ use oxc_span::SourceType;
 use serde_json::Value;
 
 use crate::error::{Error, Result};
-use crate::parse::{Element, Node};
+use crate::parse::{Element, Node, SlotKind};
 
 use super::json::read_field;
 
@@ -302,14 +302,17 @@ fn validate_mount_element(
     el: &Element,
     source: BindSource<'_>,
 ) -> Result<()> {
-    if el.is_slot() && el.attr("id").is_some() {
-        if let Some(each) = el
-            .attr("data-each")
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            validate_data_expr(fragment_id, scope, each, source)?;
+    match el.slot_kind() {
+        Some(SlotKind::FragmentMount(_)) => {
+            if let Some(each) = el
+                .attr("data-each")
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                validate_data_expr(fragment_id, scope, each, source)?;
+            }
         }
+        Some(SlotKind::Named(_) | SlotKind::Default) | None => {}
     }
     for node in &el.children {
         if let Node::Element(child) = node {
@@ -353,8 +356,9 @@ fn validate_element(
             "data-bind is only valid on <html> and fragment <template>",
         ));
     }
-    if el.is_slot() && el.attr("id").is_none() {
-        if let Some(name) = el.attr("name").map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(SlotKind::Named(name)) = el.slot_kind() {
+        let name = name.trim();
+        if !name.is_empty() {
             let dq = format!("name=\"{name}\"");
             let sq = format!("name='{name}'");
             match DottedPath::parse(name) {

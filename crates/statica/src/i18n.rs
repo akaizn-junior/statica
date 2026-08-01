@@ -139,7 +139,7 @@ pub fn should_emit_root_redirect(i18n: &I18nOptions, pages: &[PageSource], out_d
     if !i18n.enabled {
         return false;
     }
-    if pages.iter().any(|p| p.route.is_empty()) {
+    if pages.iter().any(|p| p.route.is_home()) {
         return false;
     }
     out_dir

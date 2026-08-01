@@ -3,17 +3,16 @@
 use serde_json::Value;
 
 use crate::funnel;
-use crate::parse::Node;
+use crate::parse::{Node, SlotKind};
 
 pub fn fill_named_slots(nodes: &mut [Node], ctx: &Value) {
     let mut i = 0;
     while i < nodes.len() {
         let replace = match &nodes[i] {
-            Node::Element(el)
-                if el.is_slot() && el.attr("name").is_some() && el.attr("id").is_none() =>
-            {
-                Some(el.attr("name").unwrap_or("").to_string())
-            }
+            Node::Element(el) => match el.slot_kind() {
+                Some(SlotKind::Named(name)) => Some(name),
+                Some(SlotKind::Default | SlotKind::FragmentMount(_)) | None => None,
+            },
             _ => None,
         };
         if let Some(name) = replace {
@@ -39,8 +38,7 @@ pub fn fill_default_slots(nodes: &mut Vec<Node>, children: &[Node]) {
     while i < nodes.len() {
         let is_default = matches!(
             &nodes[i],
-            Node::Element(el)
-                if el.is_slot() && el.attr("name").is_none() && el.attr("id").is_none()
+            Node::Element(el) if matches!(el.slot_kind(), Some(SlotKind::Default))
         );
         if is_default {
             if children.is_empty() {
@@ -67,7 +65,7 @@ pub fn clear_remaining_named_slots(nodes: &mut Vec<Node>) {
     while i < nodes.len() {
         let clear = matches!(
             &nodes[i],
-            Node::Element(el) if el.is_slot() && el.attr("name").is_some()
+            Node::Element(el) if matches!(el.slot_kind(), Some(SlotKind::Named(_)))
         );
         if clear {
             if let Node::Element(el) = &mut nodes[i] {
