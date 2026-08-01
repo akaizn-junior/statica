@@ -43,7 +43,7 @@ pub async fn serve_dir(out_dir: &Path, host: IpAddr, port: u16) -> Result<()> {
         }
     });
     let app = Router::new().fallback_service(
-        ServeDir::new(out_dir.to_path_buf())
+        ServeDir::new(out_dir)
             .append_index_html_on_directories(true)
             .precompressed_gzip()
             .fallback(not_found_service),

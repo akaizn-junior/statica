@@ -147,7 +147,7 @@ pub fn render_page_document(
     data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     site: Option<(&str, &str)>,
 ) -> Result<String> {
-    let bind = html_element(&doc)
+    let bind = html_element(doc)
         .and_then(|el| el.attr("data-bind"))
         .and_then(|raw| funnel::parse_bind_decl(Some(raw)).ok())
         .unwrap_or(BindDecl::None);

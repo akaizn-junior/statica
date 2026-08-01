@@ -236,10 +236,68 @@ pub struct BuildReport {
     pub data_sources: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Which page sources should be emitted by this build pass.
+///
+/// Full builds may also run global output passes: redirects, default 404, asset
+/// copy/process, feeds, and minification. Selected page builds are watch-mode
+/// rebuilds for direct page edits and only re-emit the matching routes.
+#[derive(Debug, Clone)]
 enum BuildScope {
     Full,
-    Pages,
+    SelectedPages(HashSet<PathBuf>),
+}
+
+impl BuildScope {
+    fn is_full(&self) -> bool {
+        matches!(self, Self::Full)
+    }
+
+    fn contains_page(&self, path: &Path) -> bool {
+        match self {
+            Self::Full => true,
+            Self::SelectedPages(paths) => paths.contains(path),
+        }
+    }
+
+    fn discover_detail(&self, sources: usize) -> String {
+        match self {
+            Self::Full => format!("{sources} sources"),
+            Self::SelectedPages(paths) => format!("{sources} sources, {} selected", paths.len()),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum RebuildPlan {
+    /// All watched changes were ignored, so the existing output remains valid.
+    Noop,
+    /// Run the complete pipeline. `clean` is true when deleted inputs may have
+    /// left stale generated files behind.
+    Full { clean: bool },
+    /// Re-emit exactly these discovered page source files.
+    SelectedPages(HashSet<PathBuf>),
+}
+
+/// Watch events from generated or build-output directories do not invalidate
+/// source output. Everything else is meaningful until proven otherwise.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChangedPathKind {
+    Ignored,
+    Meaningful,
+}
+
+/// Result of mapping changed source paths onto page routes.
+#[derive(Debug, Clone)]
+enum PageRebuildSelection {
+    Selected(HashSet<PathBuf>),
+    RequiresFullBuild,
+}
+
+/// Whether page-only rebuilds can preserve output correctness for this config.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PageRebuildEligibility {
+    Eligible,
+    RequiresFullBuild,
 }
 
 struct PreparedPage {
@@ -456,23 +514,15 @@ impl PreparedPage {
 }
 
 pub fn build(opts: &BuildOptions) -> Result<BuildReport> {
-    build_scoped(opts, None)
+    build_scoped(opts, &BuildScope::Full)
 }
 
-fn build_scoped(
-    opts: &BuildOptions,
-    selected_pages: Option<&HashSet<PathBuf>>,
-) -> Result<BuildReport> {
+fn build_scoped(opts: &BuildOptions, scope: &BuildScope) -> Result<BuildReport> {
     let started = Instant::now();
     let log = opts.log();
     let mut phases = Vec::new();
-    let scope = if selected_pages.is_some() {
-        BuildScope::Pages
-    } else {
-        BuildScope::Full
-    };
 
-    if scope == BuildScope::Full && opts.clean && opts.out_dir.exists() {
+    if scope.is_full() && opts.clean && opts.out_dir.exists() {
         log.step("clean  output directory");
         fs::remove_dir_all(&opts.out_dir)?;
     }
@@ -485,10 +535,7 @@ fn build_scoped(
     phases.push(BuildPhase {
         name: "discover",
         duration_ms: discover_ms,
-        detail: selected_pages.map_or_else(
-            || format!("{sources} sources"),
-            |selected| format!("{sources} sources, {} selected", selected.len()),
-        ),
+        detail: scope.discover_detail(sources),
     });
     log.step(format!("discover  {sources} sources ({discover_ms}ms)"));
 
@@ -523,11 +570,7 @@ fn build_scoped(
     let registry = Arc::new(registry);
     let selected_prepared: Vec<&PreparedPage> = prepared
         .iter()
-        .filter(|page| {
-            selected_pages
-                .map(|selected| selected.contains(&page.source.path))
-                .unwrap_or(true)
-        })
+        .filter(|page| scope.contains_page(&page.source.path))
         .collect();
     let route_rows = Mutex::new(Vec::with_capacity(selected_prepared.len()));
     let warnings = Mutex::new(Vec::new());
@@ -540,7 +583,7 @@ fn build_scoped(
             .map(|page| {
                 emit_prepared(
                     opts,
-                    *page,
+                    page,
                     &registry,
                     &i18n_catalogs,
                     manifest_meta.as_ref(),
@@ -559,7 +602,7 @@ fn build_scoped(
             .map(|page| {
                 emit_prepared(
                     opts,
-                    *page,
+                    page,
                     &registry,
                     &i18n_catalogs,
                     manifest_meta.as_ref(),
@@ -598,9 +641,7 @@ fn build_scoped(
         .into_inner()
         .map_err(|_| Error::at_file("<build>", "route summary mutex poisoned"))?;
 
-    if scope == BuildScope::Full
-        && i18n::should_emit_root_redirect(&opts.i18n, &pages, &opts.out_dir)
-    {
+    if scope.is_full() && i18n::should_emit_root_redirect(&opts.i18n, &pages, &opts.out_dir) {
         let redirect = opts.out_dir.join("index.html");
         emit::write_html(
             &redirect,
@@ -615,14 +656,14 @@ fn build_scoped(
         log.step(format!("redirect  / → /{}/", opts.i18n.default_locale));
     }
 
-    if scope == BuildScope::Full {
+    if scope.is_full() {
         ensure_default_404(&opts.out_dir)?;
     }
 
     routes.sort_by(|a, b| a.route.cmp(&b.route));
 
     let mut assets_processed = 0;
-    if scope == BuildScope::Full && opts.copy_assets {
+    if scope.is_full() && opts.copy_assets {
         let t = Instant::now();
         let assets =
             emit::copy_static_assets(&opts.root, &opts.out_dir, &opts.asset_dirs, &opts.process)?;
@@ -672,10 +713,10 @@ fn build_scoped(
         .collect();
 
     let mut feed_detail = Vec::new();
-    if scope == BuildScope::Full && opts.sitemap.enabled {
+    if scope.is_full() && opts.sitemap.enabled {
         feed_detail.push("sitemap");
     }
-    if scope == BuildScope::Full && opts.rss.enabled {
+    if scope.is_full() && opts.rss.enabled {
         feed_detail.push("rss");
     }
     if !feed_detail.is_empty() {
@@ -698,7 +739,7 @@ fn build_scoped(
         log.step(format!("feeds  {detail} ({feeds_ms}ms)"));
     }
 
-    if scope == BuildScope::Full && opts.minify.enabled {
+    if scope.is_full() && opts.minify.enabled {
         let t = Instant::now();
         let minified = minify::minify_output_dir(&opts.out_dir, &opts.minify);
         let minify_ms = t.elapsed().as_millis();
@@ -1148,36 +1189,36 @@ fn emit_pagination_chunks(
             "pagination routes support at most one item param besides [page] and [locale]",
         ));
     }
-    for chunk in chunks {
-        if let Some(item_param) = item_param {
-            emit_paginated_item_chunk(
+    match item_param {
+        Some(item_param) => {
+            for chunk in chunks {
+                emit_paginated_item_chunk(
+                    opts,
+                    page,
+                    registry,
+                    chunk,
+                    param,
+                    item_param,
+                    locale,
+                    i18n_catalogs,
+                    manifest,
+                    outs,
+                )?;
+            }
+        }
+        None => {
+            emit_paginated_listing_chunks(
                 opts,
                 page,
                 registry,
-                chunk,
+                chunks,
                 param,
-                item_param,
                 locale,
                 i18n_catalogs,
                 manifest,
                 outs,
             )?;
-            continue;
         }
-    }
-
-    if item_param.is_none() {
-        emit_paginated_listing_chunks(
-            opts,
-            page,
-            registry,
-            chunks,
-            param,
-            locale,
-            i18n_catalogs,
-            manifest,
-            outs,
-        )?;
     }
 
     if rule.index && item_param.is_none() {
@@ -1611,7 +1652,7 @@ fn emit_collection(
     let mut seen = HashSet::with_capacity(items.len());
 
     for item in &items {
-        let folder = funnel::field_as_str(&item, param).ok_or_else(|| {
+        let folder = funnel::field_as_str(item, param).ok_or_else(|| {
             page.at(
                 &needle_refs,
                 format!("collection item missing field `{param}` required by route `[{param}]`"),
@@ -1746,69 +1787,97 @@ fn emit_locale_collection(
 }
 
 pub fn rebuild_paths(opts: &BuildOptions, changed: &[PathBuf]) -> Result<BuildReport> {
-    let meaningful: Vec<PathBuf> = changed
-        .iter()
-        .filter_map(|p| {
-            let path = normalize_changed_path(&opts.root, p);
-            if path.starts_with(&opts.out_dir) {
-                return None;
-            }
-            let s = path.to_string_lossy();
-            if s.contains("/target/") {
-                return None;
-            }
-            Some(path)
-        })
-        .collect();
-
-    if meaningful.is_empty() && !changed.is_empty() {
-        return Ok(BuildReport::default());
-    }
-
-    if meaningful.is_empty() {
-        let mut full = opts.clone();
-        full.clean = true;
-        return build(&full);
-    }
-
-    if can_rebuild_pages_only(opts) {
-        if let Some(selected) = selected_changed_pages(opts, &meaningful)? {
+    match plan_rebuild(opts, changed)? {
+        RebuildPlan::Noop => Ok(BuildReport::default()),
+        RebuildPlan::SelectedPages(paths) => {
             let mut incremental = opts.clone();
             incremental.clean = false;
-            return build_scoped(&incremental, Some(&selected));
+            build_scoped(&incremental, &BuildScope::SelectedPages(paths))
+        }
+        RebuildPlan::Full { clean } => {
+            let mut full = opts.clone();
+            full.clean = clean;
+            build(&full)
         }
     }
-
-    let mut full = opts.clone();
-    full.clean = meaningful.iter().any(|path| !path.exists());
-    build(&full)
 }
 
-fn can_rebuild_pages_only(opts: &BuildOptions) -> bool {
-    !opts.minify.enabled && !opts.process.enabled
+fn plan_rebuild(opts: &BuildOptions, changed: &[PathBuf]) -> Result<RebuildPlan> {
+    let meaningful = meaningful_changed_paths(opts, changed);
+
+    match meaningful.as_slice() {
+        [] if changed.is_empty() => Ok(RebuildPlan::Full { clean: true }),
+        [] => Ok(RebuildPlan::Noop),
+        paths => match page_rebuild_eligibility(opts) {
+            PageRebuildEligibility::Eligible => match selected_changed_pages(opts, paths)? {
+                PageRebuildSelection::Selected(selected) => {
+                    Ok(RebuildPlan::SelectedPages(selected))
+                }
+                PageRebuildSelection::RequiresFullBuild => Ok(RebuildPlan::Full {
+                    clean: paths.iter().any(|path| !path.exists()),
+                }),
+            },
+            PageRebuildEligibility::RequiresFullBuild => Ok(RebuildPlan::Full {
+                clean: paths.iter().any(|path| !path.exists()),
+            }),
+        },
+    }
+}
+
+fn meaningful_changed_paths(opts: &BuildOptions, changed: &[PathBuf]) -> Vec<PathBuf> {
+    changed
+        .iter()
+        .filter_map(|path| {
+            let path = normalize_changed_path(&opts.root, path);
+            match changed_path_kind(opts, &path) {
+                ChangedPathKind::Ignored => None,
+                ChangedPathKind::Meaningful => Some(path),
+            }
+        })
+        .collect()
+}
+
+fn changed_path_kind(opts: &BuildOptions, path: &Path) -> ChangedPathKind {
+    if path.starts_with(&opts.out_dir) {
+        return ChangedPathKind::Ignored;
+    }
+    if path
+        .components()
+        .any(|component| component.as_os_str() == std::ffi::OsStr::new("target"))
+    {
+        return ChangedPathKind::Ignored;
+    }
+    ChangedPathKind::Meaningful
+}
+
+fn page_rebuild_eligibility(opts: &BuildOptions) -> PageRebuildEligibility {
+    if opts.minify.enabled || opts.process.enabled {
+        return PageRebuildEligibility::RequiresFullBuild;
+    }
+    PageRebuildEligibility::Eligible
 }
 
 fn selected_changed_pages(
     opts: &BuildOptions,
     changed: &[PathBuf],
-) -> Result<Option<HashSet<PathBuf>>> {
+) -> Result<PageRebuildSelection> {
     let pages = discover::discover_pages(&opts.root, &opts.ignore_dirs)?;
     let mut selected = HashSet::new();
 
     for path in changed {
         if !path.exists() || path.file_name().is_none_or(|name| name != "index.html") {
-            return Ok(None);
+            return Ok(PageRebuildSelection::RequiresFullBuild);
         }
         let Some(page) = pages.iter().find(|page| same_path(&page.path, path)) else {
-            return Ok(None);
+            return Ok(PageRebuildSelection::RequiresFullBuild);
         };
         selected.insert(page.path.clone());
     }
 
     if selected.is_empty() {
-        Ok(None)
+        Ok(PageRebuildSelection::RequiresFullBuild)
     } else {
-        Ok(Some(selected))
+        Ok(PageRebuildSelection::Selected(selected))
     }
 }
 

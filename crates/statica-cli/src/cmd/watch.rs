@@ -84,11 +84,8 @@ fn start_watcher(
         .spawn(move || {
             let _watcher = watcher;
             let mut pending: Vec<PathBuf> = Vec::new();
-            loop {
-                match rx.recv() {
-                    Ok(paths) => pending.extend(paths),
-                    Err(_) => break,
-                }
+            while let Ok(paths) = rx.recv() {
+                pending.extend(paths);
                 let deadline = Instant::now() + debounce;
                 while Instant::now() < deadline {
                     match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {

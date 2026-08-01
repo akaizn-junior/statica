@@ -1322,8 +1322,10 @@ fonts = "./assets/fonts"
 
     #[test]
     fn maps_feeds() {
-        let mut cfg = StaticaConfig::default();
-        cfg.site_url = "https://example.com".into();
+        let mut cfg = StaticaConfig {
+            site_url: "https://example.com".into(),
+            ..StaticaConfig::default()
+        };
         cfg.rss.enabled = true;
         cfg.rss.title = "Blog".into();
         let opts = cfg.to_build_options(PathBuf::from("/tmp/site"));

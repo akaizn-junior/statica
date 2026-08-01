@@ -173,7 +173,7 @@ pub fn log_build(report: &BuildReport, out_dir: &Path, verb: &str, verbose: bool
     if report.assets_processed > 0 {
         eprintln!(
             "{} {} page(s), {} asset(s) → {} in {}",
-            style::success(format!("{verb}")),
+            style::success(verb),
             style::bold(report.pages_written.to_string()),
             style::bold(report.assets_processed.to_string()),
             style::dim(out_dir.display().to_string()),
@@ -182,7 +182,7 @@ pub fn log_build(report: &BuildReport, out_dir: &Path, verb: &str, verbose: bool
     } else {
         eprintln!(
             "{} {} page(s) → {} in {}",
-            style::success(format!("{verb}")),
+            style::success(verb),
             style::bold(report.pages_written.to_string()),
             style::dim(out_dir.display().to_string()),
             style::dim(format!("{}ms", report.duration_ms)),
