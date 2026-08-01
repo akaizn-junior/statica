@@ -78,6 +78,7 @@ statica build --minify 'html=true,css=true,js=true'
 statica build --process --minify
 statica build --pagination 'page_size=10,sort_desc=true,index=true'
 statica build --i18n 'locales=en|pt,default=en'
+statica build --render-mode serial
 statica watch --preview host=127.0.0.1,port=9000
 ```
 
@@ -120,6 +121,10 @@ index = true
 enabled = false
 limit = 50
 
+[performance]
+render_mode = "auto"
+render_threads = 0
+
 [preview]
 host = "0.0.0.0"
 port = 4321
@@ -138,6 +143,8 @@ locales = ["en"]
 | Fonts | copied as-is |
 
 Inline `<style>` (pages + fragments) is always transformed. Linked `.css` under `asset_dirs` is transformed when `[process].css` is on. Enable `[minify]` / `--minify` for a final pass on emitted HTML, CSS, and JS (including inline `<style>` / `<script>`).
+
+Set `[performance].render_mode` to `auto`, `serial`, or `parallel`. `serial` avoids rayon for page rendering; `parallel` always uses rayon; `auto` uses statica's default page-render profile. Use `render_threads = 0` for the default worker count, or set `--render-threads N` to cap parallel page rendering.
 
 ## Authoring
 

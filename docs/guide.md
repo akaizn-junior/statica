@@ -462,6 +462,10 @@ title_field = "headline"
 description_field = "summary"
 date_field = "published_at"
 collections = []
+
+[performance]
+render_mode = "auto"
+render_threads = 0
 ```
 
 CLI SPEC flags override TOML.
@@ -471,5 +475,15 @@ statica --process 'css=true,js=false,images=true'
 statica --minify 'html=true,css=true,js=true'
 statica --pagination 'page_size=10,index=true'
 statica --i18n 'locales=en|pt,default=en'
+statica --render-mode serial
+statica --render-mode parallel --render-threads 8
 statica watch --preview host=127.0.0.1,port=9000
 ```
+
+`[performance].render_mode` controls page rendering only:
+
+- `auto` uses statica's default page-render profile.
+- `serial` avoids rayon for page rendering, useful for cold-start or profiling comparisons.
+- `parallel` always uses rayon for route emission and high-cardinality collection/paginated item pages.
+
+`render_threads = 0` uses the default rayon worker count when rendering in parallel; any positive value caps the parallel page-render pool. Output lists stay deterministic.

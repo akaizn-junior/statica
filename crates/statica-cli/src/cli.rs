@@ -137,6 +137,7 @@ Examples:
   statica build --project site    Use project=site under found statica.toml
   statica build --process         Optimize public/ CSS, JS, images
   statica build --minify          Shrink HTML, CSS, JS in out_dir
+  statica build --render-mode serial
   statica --site-url https://x.com --rss
   statica serve ./site            Preview .dist over HTTP
   statica watch . --port 8080     Watch, rebuild, serve on :8080

@@ -4,7 +4,7 @@
 .SH NAME
 statica\-build \- Build pages into the output directory
 .SH SYNOPSIS
-\fBstatica build\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-minify\fR] [\fB\-\-no\-minify\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-\-manifest\fR] [\fB\-\-no\-manifest\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBstatica build\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-render\-mode\fR] [\fB\-\-render\-threads\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-minify\fR] [\fB\-\-no\-minify\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-\-manifest\fR] [\fB\-\-no\-manifest\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Build pages into the output directory.
 .PP
@@ -46,6 +46,24 @@ Comma\-separated asset folder names
 .TP
 \fB\-\-ignore\-dirs\fR \fI<DIRS>\fR
 Comma\-separated dirs to skip when discovering pages
+.TP
+\fB\-\-render\-mode\fR \fI<MODE>\fR
+Override [performance].render_mode. auto lets statica choose the fastest page\-render path; serial avoids rayon for page rendering; parallel always uses rayon for page rendering.
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+serial
+.IP \(bu 2
+parallel
+.RE
+.TP
+\fB\-\-render\-threads\fR \fI<N>\fR
+Override [performance].render_threads. 0 uses rayon\*(Aqs default worker count when page rendering runs in parallel.
 .TP
 \fB\-\-process\fR [\fI<SPEC>\fR]
 Enable [process]. Optional SPEC:

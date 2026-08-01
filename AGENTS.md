@@ -76,7 +76,7 @@ CI runs `cargo build -p statica-cli --release` and `cargo test` on push/PR. Push
 - `statica watch [PATH]` rebuilds and serves; `statica serve [PATH]` previews `out_dir`; `statica new <NAME>` scaffolds.
 - Resolve `PATH` against the process **cwd**, then walk up for `statica.toml`.
 - The site root is the config directory, or `project` / `--project` under it.
-- CLI SPEC strings override TOML for nested config (`--rss`, `--sitemap`, `--process`, `--minify`, `--pagination`, `--i18n`, `--preview`).
+- CLI SPEC strings override TOML for nested config (`--rss`, `--sitemap`, `--process`, `--minify`, `--pagination`, `--i18n`, `--preview`); scalar flags like `--render-mode` and `--render-threads` override their matching TOML keys.
 - When changing CLI behavior, update clap help, docs/guide.md, README.md, and regenerate man pages with `cargo build -p statica-cli --release`.
 
 ## Writing statica sites (the statica way)
@@ -93,6 +93,7 @@ When creating or editing HTML sites that statica builds — whether in `examples
 - **Fragments are build-time components.** A fragment is a `<template id="...">` imported and mounted by matching `id`. Fragment CSS/JS is scoped at build time.
 - **Context is explicit.** Pages may use canonical roots only after `<html data-bind="...">` asks for them. Fragments never receive canonical page context.
 - **Default build command is short.** Prefer examples like `statica .` or `statica examples/blog`; use `statica build …` when documenting the explicit subcommand.
+- **Page rendering mode is configurable.** `[performance].render_mode` / `--render-mode` controls page rendering (`auto`, `serial`, `parallel`); `[performance].render_threads` / `--render-threads` caps parallel page-render workers (`0` means auto).
 - **Verification follows the layer changed.** Core changes need core tests; CLI changes need CLI tests and regenerated man pages; authoring changes should build the fixture.
 
 ### Data funnels
