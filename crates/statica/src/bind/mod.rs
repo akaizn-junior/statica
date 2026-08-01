@@ -16,7 +16,7 @@ use crate::fragment::{self, FragmentRegistry};
 use crate::funnel::{self, BindDecl, BindSource, DataSource};
 use crate::i18n;
 use crate::manifest::ManifestMeta;
-use crate::parse::{Document, Element, Node, SlotKind};
+use crate::parse::{Document, EachDirective, Element, Node, SlotKind};
 use crate::render::{Op, PageRenderer, RenderPlan};
 use crate::scope;
 use crate::{AliasOptions, FormsOptions};
@@ -29,7 +29,7 @@ pub use slots::{clear_remaining_named_slots, fill_default_slots, fill_named_slot
 struct FragmentMount {
     id: String,
     children: Vec<Node>,
-    each: Option<String>,
+    each: Option<EachDirective>,
 }
 
 fn html_element(doc: &Document) -> Option<&Element> {
@@ -75,7 +75,7 @@ pub fn require_collection_id(doc: &Document, source: BindSource<'_>) -> Result<S
 }
 
 fn html_bind_raw(doc: &Document) -> Option<&str> {
-    html_element(doc).and_then(|el| el.attr("data-bind"))
+    html_element(doc).and_then(Element::bind_directive)
 }
 
 pub fn collection_needles(id: &str) -> [String; 2] {
@@ -155,7 +155,7 @@ pub fn render_page_document(
     site: Option<(&str, &str)>,
 ) -> Result<String> {
     let bind = html_element(doc)
-        .and_then(|el| el.attr("data-bind"))
+        .and_then(Element::bind_directive)
         .and_then(|raw| funnel::parse_bind_decl(Some(raw)).ok())
         .unwrap_or(BindDecl::None);
     let canonical = CanonicalContext::new(source, current, page_data, locale, &bind.scope_names());
@@ -495,7 +495,7 @@ pub fn expand_usage_slots_in_nodes(
                 Some(SlotKind::FragmentMount(id)) => Some(FragmentMount {
                     id,
                     children: el.children.clone(),
-                    each: el.attr("data-each").map(str::to_string),
+                    each: el.each_directive(),
                 }),
                 Some(SlotKind::Named(_) | SlotKind::Default) | None => None,
             },
@@ -503,9 +503,9 @@ pub fn expand_usage_slots_in_nodes(
         };
 
         if let Some(mount) = replace {
-            let rendered = if let Some(each_expr) = mount.each {
-                let list = resolve_each_array(&each_expr, current, data_map, data_map)
-                    .map_err(|e| relocate_data_err(e, site, &each_expr))?;
+            let rendered = if let Some(each) = mount.each {
+                let list = resolve_each_array(each.expr(), current, data_map, data_map)
+                    .map_err(|e| relocate_data_err(e, site, each.expr()))?;
                 render_each(
                     registry,
                     &mount.id,
@@ -517,7 +517,7 @@ pub fn expand_usage_slots_in_nodes(
                     data_cache,
                     aliases,
                     site,
-                    &each_expr,
+                    each.expr(),
                 )?
             } else {
                 let value = current.cloned().unwrap_or(Value::Null);

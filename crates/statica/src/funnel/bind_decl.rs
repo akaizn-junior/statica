@@ -304,12 +304,8 @@ fn validate_mount_element(
 ) -> Result<()> {
     match el.slot_kind() {
         Some(SlotKind::FragmentMount(_)) => {
-            if let Some(each) = el
-                .attr("data-each")
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                validate_data_expr(fragment_id, scope, each, source)?;
+            if let Some(each) = el.each_directive() {
+                validate_data_expr(fragment_id, scope, each.expr(), source)?;
             }
         }
         Some(SlotKind::Named(_) | SlotKind::Default) | None => {}
@@ -342,11 +338,7 @@ fn validate_element(
     el: &Element,
     source: BindSource<'_>,
 ) -> Result<()> {
-    if let Some(bind) = el
-        .attr("data-bind")
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
+    if let Some(bind) = el.bind_directive() {
         let dq = format!("data-bind=\"{bind}\"");
         let sq = format!("data-bind='{bind}'");
         return Err(Error::at(
@@ -405,11 +397,7 @@ fn validate_element(
 }
 
 fn is_statica_link(el: &Element) -> bool {
-    el.is_link()
-        && el.attr("rel").is_some_and(|rel| {
-            rel.split_whitespace()
-                .any(|part| part == "statica/data" || part == "statica/fragment")
-        })
+    el.statica_link_rel().is_some()
 }
 
 fn validate_data_expr(

@@ -22,17 +22,13 @@ fn fill_attrs(el: &mut Element, ctx: &Value) {
         return;
     }
     for (name, v) in &mut el.attrs {
-        if is_data_t_marker(name) {
+        if Element::is_translation_attr(name) {
             continue;
         }
         if v.contains("${") {
             *v = expand_template(v, ctx);
         }
     }
-}
-
-fn is_data_t_marker(name: &str) -> bool {
-    name == "data-t" || name.starts_with("data-t-")
 }
 
 pub(crate) fn expand_template(raw: &str, ctx: &Value) -> String {

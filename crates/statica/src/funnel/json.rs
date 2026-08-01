@@ -12,7 +12,7 @@ use crate::context::CanonicalRoot;
 use crate::error::{Error, Result};
 use crate::i18n;
 use crate::parse::escape_text;
-use crate::parse::{Document, Element, Node};
+use crate::parse::{Document, Element, Node, StaticaLinkRel};
 
 use std::path::Component;
 
@@ -234,10 +234,7 @@ fn site_err(site: Option<(&str, &str)>, needles: &[&str], message: impl Into<Str
 }
 
 fn is_data_link(el: &Element) -> bool {
-    el.is_link()
-        && el
-            .attr("rel")
-            .is_some_and(|r| r.split_whitespace().any(|p| p == "statica/data"))
+    matches!(el.statica_link_rel(), Some(StaticaLinkRel::Data))
 }
 
 /// Funnel `<link rel="statica/data" id="…">` ids declared on a page.
@@ -400,14 +397,10 @@ fn normalize(path: &Path) -> PathBuf {
 
 /// Collect fragment link declarations from a document.
 pub fn find_fragment_links(doc: &Document) -> Vec<(String, String)> {
-    doc.find(|e| {
-        e.is_link()
-            && e.attr("rel")
-                .is_some_and(|r| r.split_whitespace().any(|p| p == "statica/fragment"))
-    })
-    .into_iter()
-    .filter_map(|el| Some((el.attr("id")?.to_string(), el.attr("href")?.to_string())))
-    .collect()
+    doc.find(|e| matches!(e.statica_link_rel(), Some(StaticaLinkRel::Fragment)))
+        .into_iter()
+        .filter_map(|el| Some((el.attr("id")?.to_string(), el.attr("href")?.to_string())))
+        .collect()
 }
 
 /// Find `<template id=…>` element.
@@ -435,11 +428,7 @@ fn strip_nodes(nodes: &mut Vec<Node>) {
             if is_data_link(el) {
                 return false;
             }
-            if el.is_link()
-                && el
-                    .attr("rel")
-                    .is_some_and(|r| r.split_whitespace().any(|p| p == "statica/fragment"))
-            {
+            if matches!(el.statica_link_rel(), Some(StaticaLinkRel::Fragment)) {
                 return false;
             }
             true

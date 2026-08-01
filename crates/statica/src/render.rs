@@ -185,7 +185,7 @@ fn compile_node(node: &Node, ops: &mut Vec<Op>) {
             Some(SlotKind::FragmentMount(id)) => {
                 ops.push(Op::Mount {
                     id,
-                    each: el.attr("data-each").map(str::to_string),
+                    each: el.each_directive().map(|each| each.expr().to_string()),
                     children: compile_nodes(&el.children),
                 });
             }
@@ -205,7 +205,7 @@ fn compile_element(el: &Element, ops: &mut Vec<Op>) {
         return;
     }
     push_static(ops, ">");
-    if let Some(template) = el.attr("data-t") {
+    if let Some(template) = el.text_directive() {
         ops.push(Op::TextTemplate(template.to_string()));
     } else if el.is_script() || el.is_style() {
         for child in &el.children {
@@ -228,8 +228,7 @@ fn compile_attrs(el: &Element, ops: &mut Vec<Op>) {
         .attrs
         .iter()
         .filter_map(|(name, value)| {
-            name.strip_prefix("data-t-")
-                .map(|target| (target, value.as_str()))
+            Element::translated_attr_target(name).map(|target| (target, value.as_str()))
         })
         .collect();
 
@@ -237,7 +236,7 @@ fn compile_attrs(el: &Element, ops: &mut Vec<Op>) {
         if name == "data-bind" && el.name.eq_ignore_ascii_case("html") {
             continue;
         }
-        if name == "data-t" || name.starts_with("data-t-") {
+        if Element::is_translation_attr(name) {
             continue;
         }
         push_static(ops, " ");
@@ -277,11 +276,7 @@ fn push_static(ops: &mut Vec<Op>, text: &str) {
 }
 
 fn is_authoring_link(el: &Element) -> bool {
-    el.is_link()
-        && el.attr("rel").is_some_and(|rel| {
-            rel.split_whitespace()
-                .any(|part| part == "statica/data" || part == "statica/fragment")
-        })
+    el.statica_link_rel().is_some()
 }
 
 fn escape_attr(s: &str) -> String {

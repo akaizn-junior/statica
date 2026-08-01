@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 
 use crate::aliases::{self, AliasOptions};
 use crate::error::{Error, Result};
-use crate::parse::{Document, Element, Node};
+use crate::parse::{Document, Element, Node, StaticaLinkRel};
 
 const GOOGLE_FONTS_ORIGIN: &str = "https://fonts.googleapis.com";
 const GOOGLE_FONTS_STATIC: &str = "https://fonts.gstatic.com";
@@ -131,10 +131,7 @@ fn link_node(attrs: &[(&str, &str)]) -> Node {
 }
 
 pub fn is_font_link(el: &Element) -> bool {
-    el.is_link()
-        && el
-            .attr("rel")
-            .is_some_and(|r| r.split_whitespace().any(|p| p == "statica/font"))
+    matches!(el.statica_link_rel(), Some(StaticaLinkRel::Font))
 }
 
 fn font_err(site: Option<(&str, &str)>, extra: &[&str], message: impl Into<String>) -> Error {

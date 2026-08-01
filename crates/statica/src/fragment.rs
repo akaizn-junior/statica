@@ -158,10 +158,10 @@ impl FragmentRegistry {
             file: &file,
             source: &raw,
         };
-        let bind = match funnel::parse_bind_decl(template_el.attr("data-bind")) {
+        let bind = match funnel::parse_bind_decl(template_el.bind_directive()) {
             Ok(decl) => decl,
             Err(reason) => {
-                let prop = template_el.attr("data-bind").unwrap_or("").to_string();
+                let prop = template_el.bind_directive().unwrap_or("").to_string();
                 let dq = format!("data-bind=\"{prop}\"");
                 let sq = format!("data-bind='{prop}'");
                 return Err(Error::at(

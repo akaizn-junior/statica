@@ -36,6 +36,35 @@ pub enum SlotKind {
     FragmentMount(String),
 }
 
+/// Loop directive from `data-each="path.to.items"` on a fragment mount.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EachDirective(String);
+
+impl EachDirective {
+    #[must_use]
+    pub fn new(expr: impl Into<String>) -> Option<Self> {
+        let expr = expr.into();
+        if expr.trim().is_empty() {
+            None
+        } else {
+            Some(Self(expr))
+        }
+    }
+
+    #[must_use]
+    pub fn expr(&self) -> &str {
+        &self.0
+    }
+}
+
+/// statica-owned link relations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StaticaLinkRel {
+    Data,
+    Fragment,
+    Font,
+}
+
 impl Document {
     #[must_use]
     pub fn new() -> Self {
@@ -95,6 +124,55 @@ impl Element {
             (None, Some(id)) => Some(SlotKind::FragmentMount(id.to_string())),
             (Some(_), Some(_)) => None,
         }
+    }
+
+    #[must_use]
+    pub fn each_directive(&self) -> Option<EachDirective> {
+        self.attr("data-each")
+            .and_then(|expr| EachDirective::new(expr.to_string()))
+    }
+
+    #[must_use]
+    pub fn bind_directive(&self) -> Option<&str> {
+        self.attr("data-bind")
+            .map(str::trim)
+            .filter(|expr| !expr.is_empty())
+    }
+
+    #[must_use]
+    pub fn text_directive(&self) -> Option<&str> {
+        self.attr("data-t")
+    }
+
+    #[must_use]
+    pub fn translated_attr_target(name: &str) -> Option<&str> {
+        name.strip_prefix("data-t-")
+    }
+
+    #[must_use]
+    pub fn is_translation_attr(name: &str) -> bool {
+        name == "data-t" || Self::translated_attr_target(name).is_some()
+    }
+
+    #[must_use]
+    pub fn statica_link_rel(&self) -> Option<StaticaLinkRel> {
+        if !self.is_link() {
+            return None;
+        }
+        let rel = self.attr("rel")?;
+        if rel.split_whitespace().any(|part| part == "statica/data") {
+            return Some(StaticaLinkRel::Data);
+        }
+        if rel
+            .split_whitespace()
+            .any(|part| part == "statica/fragment")
+        {
+            return Some(StaticaLinkRel::Fragment);
+        }
+        if rel.split_whitespace().any(|part| part == "statica/font") {
+            return Some(StaticaLinkRel::Font);
+        }
+        None
     }
 
     #[must_use]
