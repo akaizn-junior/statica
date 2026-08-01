@@ -12,6 +12,8 @@
 //! Relative paths are never resolved against the binary install location.
 
 use std::env;
+use std::fs;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -188,6 +190,28 @@ pub fn log_build(report: &BuildReport, out_dir: &Path, verb: &str, verbose: bool
     }
 }
 
+pub fn write_report_json(report: &BuildReport, path: Option<&Path>) -> Result<()> {
+    let Some(path) = path else {
+        return Ok(());
+    };
+    if path == Path::new("-") {
+        let stdout = io::stdout();
+        let mut lock = stdout.lock();
+        serde_json::to_writer_pretty(&mut lock, report)
+            .context("failed to serialize build report")?;
+        writeln!(lock).context("failed to write build report")?;
+        return Ok(());
+    }
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create report directory {}", parent.display()))?;
+    }
+    let file = fs::File::create(path)
+        .with_context(|| format!("failed to create build report {}", path.display()))?;
+    serde_json::to_writer_pretty(file, report).context("failed to write build report JSON")?;
+    Ok(())
+}
+
 fn route_type_label(row: &BuildRouteRow) -> (&'static str, &'static str) {
     match row.kind {
         BuildRouteKind::Static => ("○", "static"),
@@ -295,6 +319,26 @@ mod tests {
         };
         let (resolved, _) = load_project(&root, &cli).unwrap();
         assert_eq!(resolved, site.canonicalize().unwrap());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn writes_build_report_json_file() {
+        let root = temp_tree();
+        let path = root.join("reports/build.json");
+        let report = BuildReport {
+            pages_written: 3,
+            assets_processed: 1,
+            duration_ms: 42,
+            ..BuildReport::default()
+        };
+
+        write_report_json(&report, Some(&path)).unwrap();
+
+        let json = fs::read_to_string(&path).unwrap();
+        assert!(json.contains("\"pages_written\": 3"));
+        assert!(json.contains("\"assets_processed\": 1"));
+        assert!(json.contains("\"duration_ms\": 42"));
         let _ = fs::remove_dir_all(root);
     }
 }

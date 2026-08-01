@@ -477,6 +477,7 @@ statica --pagination 'page_size=10,index=true'
 statica --i18n 'locales=en|pt,default=en'
 statica --render-mode serial
 statica --render-mode parallel --render-threads 8
+statica --report-json report.json
 statica watch --preview host=127.0.0.1,port=9000
 ```
 
@@ -487,3 +488,5 @@ statica watch --preview host=127.0.0.1,port=9000
 - `parallel` always uses rayon for route emission and high-cardinality collection/paginated item pages.
 
 `render_threads = 0` uses the default rayon worker count when rendering in parallel; any positive value caps the parallel page-render pool. Output lists stay deterministic.
+
+`--report-json [PATH]` writes the build report as JSON. It includes counts, warnings, outputs, route rows, phase timings, and total duration. Omit `PATH` or pass `-` to write to stdout; pass a file path for CI artifacts or benchmark logs. In `watch`, statica writes the report after the initial build and every rebuild.

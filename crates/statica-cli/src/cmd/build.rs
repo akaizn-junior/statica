@@ -10,5 +10,6 @@ pub fn run(dir: &Path, overrides: &ConfigCli) -> Result<()> {
     let opts = util::build_options(&config, &root, overrides, false);
     let report = util::run_build(&opts)?;
     util::log_build(&report, &opts.out_dir, "Built", opts.verbose);
+    util::write_report_json(&report, overrides.report_json.as_deref())?;
     Ok(())
 }

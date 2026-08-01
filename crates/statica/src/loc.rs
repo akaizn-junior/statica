@@ -2,8 +2,10 @@
 
 use std::fmt;
 
+use serde::Serialize;
+
 /// Authoring diagnostic: `file:line:column: message` + optional rustc-style snippet.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Diagnostic {
     pub file: String,
     pub line: u32,

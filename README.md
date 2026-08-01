@@ -79,6 +79,7 @@ statica build --process --minify
 statica build --pagination 'page_size=10,sort_desc=true,index=true'
 statica build --i18n 'locales=en|pt,default=en'
 statica build --render-mode serial
+statica build --report-json report.json
 statica watch --preview host=127.0.0.1,port=9000
 ```
 
@@ -145,6 +146,8 @@ locales = ["en"]
 Inline `<style>` (pages + fragments) is always transformed. Linked `.css` under `asset_dirs` is transformed when `[process].css` is on. Enable `[minify]` / `--minify` for a final pass on emitted HTML, CSS, and JS (including inline `<style>` / `<script>`).
 
 Set `[performance].render_mode` to `auto`, `serial`, or `parallel`. `serial` avoids rayon for page rendering; `parallel` always uses rayon; `auto` uses statica's default page-render profile. Use `render_threads = 0` for the default worker count, or set `--render-threads N` to cap parallel page rendering.
+
+Use `--report-json [PATH]` to write the build report as JSON for benchmarks, CI, and integrations. Omit `PATH` or pass `-` to write JSON to stdout; pass a file path to update that file. In `watch`, the report is written after the initial build and each rebuild.
 
 ## Authoring
 

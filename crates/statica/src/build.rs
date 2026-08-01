@@ -12,6 +12,7 @@ use std::time::Instant;
 
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::aliases::AliasOptions;
@@ -188,7 +189,7 @@ fn pagination_listing_route(
 }
 
 /// One timed pipeline step (for `--verbose` summary).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BuildPhase {
     pub name: &'static str,
     pub duration_ms: u128,
@@ -196,7 +197,8 @@ pub struct BuildPhase {
 }
 
 /// Pages emitted for one discovered source route.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BuildRouteKind {
     Static,
     Collection,
@@ -213,14 +215,14 @@ impl From<PageKind> for BuildRouteKind {
 }
 
 /// Pages emitted for one discovered source route.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BuildRouteRow {
     pub route: String,
     pub kind: BuildRouteKind,
     pub pages: usize,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct BuildReport {
     pub pages_written: usize,
     pub assets_processed: usize,

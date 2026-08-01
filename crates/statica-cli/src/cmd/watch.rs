@@ -25,12 +25,23 @@ pub async fn run(dir: &Path, overrides: &ConfigCli) -> Result<()> {
 
     let report = util::run_build(&opts)?;
     util::log_build(&report, &opts.out_dir, "Built", opts.verbose);
+    util::write_report_json(&report, overrides.report_json.as_deref())?;
 
-    start_watcher(root.clone(), opts.clone(), &config.preview)?;
+    start_watcher(
+        root.clone(),
+        opts.clone(),
+        &config.preview,
+        overrides.report_json.clone(),
+    )?;
     preview::serve_dir(&opts.out_dir, host, port).await
 }
 
-fn start_watcher(root: PathBuf, opts: BuildOptions, preview_cfg: &PreviewConfig) -> Result<()> {
+fn start_watcher(
+    root: PathBuf,
+    opts: BuildOptions,
+    preview_cfg: &PreviewConfig,
+    report_json: Option<PathBuf>,
+) -> Result<()> {
     let ignore_dirs = opts.ignore_dirs.clone();
     let debounce = Duration::from_millis(preview_cfg.debounce_ms);
     let poll = Duration::from_secs(preview_cfg.poll_interval_secs.max(1));
@@ -95,12 +106,17 @@ fn start_watcher(root: PathBuf, opts: BuildOptions, preview_cfg: &PreviewConfig)
                 let mut rebuild_opts = opts.clone();
                 rebuild_opts.clean = false;
                 match util::run_rebuild(&rebuild_opts, &changed) {
-                    Ok(report) => util::log_build(
-                        &report,
-                        &rebuild_opts.out_dir,
-                        "Rebuilt",
-                        rebuild_opts.verbose,
-                    ),
+                    Ok(report) => {
+                        util::log_build(
+                            &report,
+                            &rebuild_opts.out_dir,
+                            "Rebuilt",
+                            rebuild_opts.verbose,
+                        );
+                        if let Err(e) = util::write_report_json(&report, report_json.as_deref()) {
+                            eprintln!("{} {e:#}", style::error("report failed:"));
+                        }
+                    }
                     Err(e) => eprintln!("{} {e:#}", style::error("rebuild failed:")),
                 }
             }

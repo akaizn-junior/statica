@@ -13,6 +13,8 @@
 //!
 //! Parsing and application live in [`crate::config::StaticaConfig::apply_cli`].
 
+use std::path::PathBuf;
+
 use clap::{ArgAction, Args, ValueEnum};
 
 /// Flags that override `statica.toml`. Absent → keep file / defaults.
@@ -274,6 +276,18 @@ Examples:\n\
 `statica watch` shows logs by default; pass `--silent` to turn them off."
     )]
     pub silent: bool,
+
+    /// Write the build report as JSON (`-` or omitted value = stdout).
+    #[arg(
+        long = "report-json",
+        value_name = "PATH",
+        num_args = 0..=1,
+        default_missing_value = "-",
+        global = true,
+        help = "Write build report JSON (- for stdout)",
+        long_help = "Write the build report as JSON for CI, benchmarks, and integrations. With no PATH, writes to stdout. Use `--report-json report.json` to write a file."
+    )]
+    pub report_json: Option<PathBuf>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]

@@ -3247,6 +3247,7 @@ dependencies = [
  "notify",
  "owo-colors",
  "serde",
+ "serde_json",
  "statica",
  "tokio",
  "toml",
