@@ -212,13 +212,12 @@ impl CanonicalContext {
 
     #[must_use]
     pub fn as_data_sources(&self, page_data: &HashMap<String, DataSource>) -> ContextData {
-        let mut out = page_data.clone();
-        for root in CanonicalRoot::ALL {
+        let canonical_sources = CanonicalRoot::ALL.into_iter().map(|root| {
             let id = root.as_str();
             let value = funnel::read_field(&self.value, id)
                 .cloned()
                 .unwrap_or(Value::Null);
-            out.insert(
+            (
                 id.to_string(),
                 DataSource {
                     id: id.to_string(),
@@ -226,9 +225,15 @@ impl CanonicalContext {
                     path: PathBuf::from(format!("statica:{id}")),
                     data: Arc::new(DataSet::Json(value)),
                 },
-            );
-        }
-        ContextData(out)
+            )
+        });
+        ContextData(
+            page_data
+                .clone()
+                .into_iter()
+                .chain(canonical_sources)
+                .collect(),
+        )
     }
 }
 
@@ -249,11 +254,17 @@ impl ContextData {
 
     #[must_use]
     pub fn with_links(&self, links: &HashMap<String, DataSource>) -> Self {
-        let mut out = self.0.clone();
-        for (id, source) in links {
-            out.insert(id.clone(), source.clone());
-        }
-        Self(out)
+        Self(
+            self.0
+                .clone()
+                .into_iter()
+                .chain(
+                    links
+                        .iter()
+                        .map(|(id, source)| (id.clone(), source.clone())),
+                )
+                .collect(),
+        )
     }
 }
 

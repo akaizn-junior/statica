@@ -282,32 +282,31 @@ impl<'a> RssCollection<'a> {
 }
 
 fn collect_rss_items(base: &str, rss: &RssOptions, feed_pages: &[FeedPage<'_>]) -> Vec<RssItem> {
-    let mut items = Vec::new();
-    for page in feed_pages {
-        if let Some(collection) = RssCollection::from_feed_page(page, rss) {
-            for entry in &collection.items {
-                if let Some(folder) = funnel::field_as_str(entry, collection.param) {
-                    let path = route_to_url(
-                        collection.page.source.route.as_str(),
-                        collection.param,
-                        &folder,
-                    );
-                    let title = funnel::field_as_str(entry, &rss.title_field)
-                        .unwrap_or_else(|| folder.clone());
-                    let description =
-                        funnel::field_as_str(entry, &rss.description_field).unwrap_or_default();
-                    let date = funnel::field_as_str(entry, &rss.date_field).unwrap_or_default();
-                    items.push(RssItem {
-                        title,
-                        link: format!("{base}{path}"),
-                        description,
-                        date,
-                    });
-                }
-            }
-        }
-    }
-    items
+    feed_pages
+        .iter()
+        .filter_map(|page| RssCollection::from_feed_page(page, rss))
+        .flat_map(|collection| {
+            collection.items.into_iter().filter_map(move |entry| {
+                let folder = funnel::field_as_str(&entry, collection.param)?;
+                let path = route_to_url(
+                    collection.page.source.route.as_str(),
+                    collection.param,
+                    &folder,
+                );
+                let title = funnel::field_as_str(&entry, &rss.title_field)
+                    .unwrap_or_else(|| folder.clone());
+                let description =
+                    funnel::field_as_str(&entry, &rss.description_field).unwrap_or_default();
+                let date = funnel::field_as_str(&entry, &rss.date_field).unwrap_or_default();
+                Some(RssItem {
+                    title,
+                    link: format!("{base}{path}"),
+                    description,
+                    date,
+                })
+            })
+        })
+        .collect()
 }
 
 fn into_rss_item(item: RssItem) -> Item {

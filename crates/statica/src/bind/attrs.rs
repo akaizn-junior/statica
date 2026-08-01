@@ -4,6 +4,7 @@
 //! rendering. Runtime expansion stays lenient for already-validated templates.
 
 use serde_json::Value;
+use std::borrow::Cow;
 
 use crate::funnel::{self, TemplatePlaceholder, TemplateToken};
 use crate::parse::{Element, Node};
@@ -29,19 +30,18 @@ fn fill_attrs(el: &mut Element, ctx: &Value) {
 }
 
 pub(crate) fn expand_template(raw: &str, ctx: &Value) -> String {
-    let mut out = String::with_capacity(raw.len());
-    for token in funnel::template_tokens(raw) {
-        match token {
-            TemplateToken::Text(text) => out.push_str(text),
+    funnel::template_tokens(raw)
+        .into_iter()
+        .map(|token| match token {
+            TemplateToken::Text(text) => Cow::Borrowed(text),
             TemplateToken::Placeholder(TemplatePlaceholder::Path(path)) => {
-                out.push_str(&funnel::path_as_str(ctx, path.as_str()));
+                Cow::Owned(funnel::path_as_str(ctx, path.as_str()))
             }
             TemplateToken::Placeholder(TemplatePlaceholder::Expression(expr)) => {
-                out.push_str(&funnel::path_as_str(ctx, &expr));
+                Cow::Owned(funnel::path_as_str(ctx, &expr))
             }
-        }
-    }
-    out
+        })
+        .collect()
 }
 
 #[cfg(test)]

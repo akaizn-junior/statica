@@ -238,11 +238,12 @@ pub fn locale_bind_context(locale: &str) -> Value {
 #[must_use]
 pub fn merge_locale_into(item: &Value, locale: &str) -> Value {
     match item {
-        Value::Object(map) => {
-            let mut out = map.clone();
-            out.insert(LOCALE_PARAM.into(), Value::String(locale.to_string()));
-            Value::Object(out)
-        }
+        Value::Object(map) => Value::Object(
+            map.clone()
+                .into_iter()
+                .chain([(LOCALE_PARAM.into(), Value::String(locale.to_string()))])
+                .collect(),
+        ),
         _ => locale_bind_context(locale),
     }
 }

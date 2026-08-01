@@ -643,19 +643,22 @@ fn build_scoped(opts: &BuildOptions, scope: &BuildScope) -> Result<BuildReport> 
     };
     let emit_ms = t.elapsed().as_millis();
 
-    let mut outputs = Vec::new();
-    for chunk in results {
-        outputs.extend(chunk?.outputs);
-    }
+    let render_outputs = results
+        .into_iter()
+        .map(|result| result.map(|chunk| chunk.outputs))
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
     let parallel_detail = render_detail(render_mode, opts.render_threads);
     phases.push(BuildPhase {
         name: "emit",
         duration_ms: emit_ms,
-        detail: format!("{} pages, render {parallel_detail}", outputs.len()),
+        detail: format!("{} pages, render {parallel_detail}", render_outputs.len()),
     });
     log.step(format!(
         "emit  {} pages, render {parallel_detail} ({emit_ms}ms)",
-        outputs.len()
+        render_outputs.len()
     ));
 
     let mut warnings = warnings
@@ -665,20 +668,28 @@ fn build_scoped(opts: &BuildOptions, scope: &BuildScope) -> Result<BuildReport> 
         .into_inner()
         .map_err(|_| Error::at_file("<build>", "route summary mutex poisoned"))?;
 
-    if scope.is_full() && i18n::should_emit_root_redirect(&opts.i18n, &pages, &opts.out_dir) {
-        let redirect = opts.out_dir.join("index.html");
-        emit::write_html(
-            &redirect,
-            &i18n::root_redirect_html(&opts.i18n.default_locale),
-        )?;
-        outputs.push(redirect);
-        routes.push(BuildRouteRow {
-            route: String::new(),
-            kind: BuildRouteKind::Static,
-            pages: 1,
-        });
-        log.step(format!("redirect  / → /{}/", opts.i18n.default_locale));
-    }
+    let root_redirect =
+        if scope.is_full() && i18n::should_emit_root_redirect(&opts.i18n, &pages, &opts.out_dir) {
+            let redirect = opts.out_dir.join("index.html");
+            emit::write_html(
+                &redirect,
+                &i18n::root_redirect_html(&opts.i18n.default_locale),
+            )?;
+            routes.push(BuildRouteRow {
+                route: String::new(),
+                kind: BuildRouteKind::Static,
+                pages: 1,
+            });
+            log.step(format!("redirect  / → /{}/", opts.i18n.default_locale));
+            Some(redirect)
+        } else {
+            None
+        };
+
+    let outputs = render_outputs
+        .into_iter()
+        .chain(root_redirect)
+        .collect::<Vec<_>>();
 
     if scope.is_full() {
         ensure_default_404(&opts.out_dir)?;

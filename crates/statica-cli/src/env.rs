@@ -79,23 +79,21 @@ pub fn read_env_file(path: &Path) -> Result<HashMap<String, String>> {
 }
 
 fn parse_env_text(text: &str) -> HashMap<String, String> {
-    let mut out = HashMap::new();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        let line = line.strip_prefix("export ").unwrap_or(line).trim();
-        let Some((key, raw_value)) = line.split_once('=') else {
-            continue;
-        };
-        let key = key.trim();
-        if key.is_empty() {
-            continue;
-        }
-        out.insert(key.to_string(), parse_env_value(raw_value.trim()));
-    }
-    out
+    text.lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                return None;
+            }
+            let line = line.strip_prefix("export ").unwrap_or(line).trim();
+            let (key, raw_value) = line.split_once('=')?;
+            let key = key.trim();
+            if key.is_empty() {
+                return None;
+            }
+            Some((key.to_string(), parse_env_value(raw_value.trim())))
+        })
+        .collect()
 }
 
 fn parse_env_value(raw: &str) -> String {
