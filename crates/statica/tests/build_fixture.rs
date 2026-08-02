@@ -1383,7 +1383,7 @@ fn responsive_images_wrap_img_in_picture() {
         r##"<!doctype html>
 <html lang="en">
   <body>
-    <img src="/assets/hero.jpg" alt="Hero" data-statica-img-sizes="(max-width: 768px) 100vw, 50vw" />
+    <img src="/assets/hero.jpg" alt="Hero" data-s-img-sizes="(max-width: 768px) 100vw, 50vw" />
   </body>
 </html>"##,
     )
@@ -1413,7 +1413,8 @@ fn responsive_images_wrap_img_in_picture() {
     assert!(html.contains("loading=\"lazy\""));
     assert!(html.contains("width=\"800\""));
     assert!(html.contains("height=\"600\""));
-    assert!(!html.contains("data-statica-img"));
+    assert!(!html.contains("data-s-img"));
+    assert!(!html.contains("data-statica"));
     assert!(dir.join("dist/assets/hero-400w.webp").exists());
     assert!(dir.join("dist/assets/hero-800w.jpg").exists());
 }

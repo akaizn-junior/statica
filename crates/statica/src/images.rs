@@ -27,7 +27,7 @@ pub struct ImageProcessOptions {
     pub formats: Vec<String>,
     /// Lossy encode quality (jpeg / webp).
     pub quality: u8,
-    /// Default `sizes` when an `<img>` has none and no `data-statica-img-sizes`.
+    /// Default `sizes` when an `<img>` has none and no `data-s-img-sizes`.
     pub default_sizes: String,
     /// Rewrite local `<img>` tags in emitted HTML into `<picture>`.
     pub responsive: bool,
@@ -453,8 +453,8 @@ impl<'a> ImageRewriteRequest<'a> {
         let fallback_srcset = self.image.srcset_for_format(&self.image.source_format);
 
         let mut img = self.img.clone();
-        img.attrs.shift_remove("data-statica-img");
-        img.attrs.shift_remove("data-statica-img-sizes");
+        img.attrs.shift_remove("data-s-img");
+        img.attrs.shift_remove("data-s-img-sizes");
         img.attrs.insert("src".into(), fallback);
         if !fallback_srcset.is_empty() {
             img.attrs.insert("srcset".into(), fallback_srcset);
@@ -492,7 +492,7 @@ impl<'a> ImageRewriteDecision<'a> {
         };
         match (
             img.attr("srcset").is_some(),
-            image_opt_out(img.attr("data-statica-img")),
+            image_opt_out(img.attr("data-s-img")),
             is_local_src(src),
         ) {
             (false, false, true) => Self::Rewrite { src },
@@ -518,7 +518,7 @@ fn picture_formats(opts: &ImageProcessOptions, image: &ResponsiveImage) -> Vec<S
 }
 
 fn image_sizes(img: &Element, opts: &ImageProcessOptions) -> String {
-    img.attr("data-statica-img-sizes")
+    img.attr("data-s-img-sizes")
         .or_else(|| img.attr("sizes"))
         .unwrap_or(opts.default_sizes.as_str())
         .to_string()
@@ -755,7 +755,7 @@ mod tests {
             ]),
             IndexMap::from([
                 ("src".into(), "/photo.jpg".into()),
-                ("data-statica-img".into(), "false".into()),
+                ("data-s-img".into(), "false".into()),
             ]),
             IndexMap::from([("src".into(), "https://example.com/photo.jpg".into())]),
         ] {
