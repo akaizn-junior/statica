@@ -365,14 +365,16 @@ fn looped_fragments_keep_css_and_script_scoped_per_instance() {
         dir.join("ui/card.html"),
         r#"<template id="card" data-bind="{label}">
   <style>
+    #title { letter-spacing: 0; }
     .card { color: red; }
     .card strong { font-weight: 700; }
   </style>
   <article class="card">
-    <strong data-t="${label}">Label</strong>
+    <strong id="title" data-t="${label}">Label</strong>
   </article>
   <script type="module">
     $.querySelector(".card").setAttribute("data-ready", "true");
+    $.getElementById("title").setAttribute("data-title-ready", "true");
   </script>
 </template>"#,
     )
@@ -409,6 +411,11 @@ fn looped_fragments_keep_css_and_script_scoped_per_instance() {
         html.contains(".card[data-s=\"card-") || html.contains(".card[data-s=card-"),
         "{html}"
     );
+    assert!(
+        html.contains("#title[data-s=\"card-") || html.contains("#title[data-s=card-"),
+        "{html}"
+    );
+    assert!(!html.contains("data-s-id"), "{html}");
     assert!(html.contains("var root = host || document;"), "{html}");
 }
 
