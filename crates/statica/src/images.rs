@@ -392,23 +392,7 @@ fn build_picture_from_img(
     let Node::Element(img) = node else {
         return None;
     };
-    if img.attr("srcset").is_some() {
-        return None;
-    }
-    if matches!(img.attr("data-statica-img"), Some("false" | "off" | "0")) {
-        return None;
-    }
-    let src = img.attr("src")?;
-    if !is_local_src(src) {
-        return None;
-    }
-    let resp = manifest.get(src)?;
-
-    let sizes = img
-        .attr("data-statica-img-sizes")
-        .or_else(|| img.attr("sizes"))
-        .unwrap_or(opts.default_sizes.as_str())
-        .to_string();
+    let request = ImageRewriteRequest::from_img(img, manifest, opts)?;
 
     let mut picture = Element {
         name: "picture".into(),
@@ -417,61 +401,140 @@ fn build_picture_from_img(
         void: false,
     };
 
-    let mut formats: Vec<String> = opts.formats.clone();
-    if !formats
-        .iter()
-        .any(|f| f.eq_ignore_ascii_case(&resp.source_format))
-    {
-        formats.push(resp.source_format.clone());
-    }
-
-    for format in &formats {
-        let srcset = resp.srcset_for_format(format);
-        if srcset.is_empty() {
-            continue;
-        }
-        let mut source = Element {
-            name: "source".into(),
-            attrs: IndexMap::new(),
-            children: Vec::new(),
-            void: true,
-        };
-        source.attrs.insert("type".into(), resp.mime_for(format));
-        source.attrs.insert("srcset".into(), srcset);
-        source.attrs.insert("sizes".into(), sizes.clone());
-        picture.children.push(Node::Element(source));
-    }
-
-    let fallback = resp
-        .largest_for_format(&resp.source_format)
-        .map_or_else(|| resp.source_url.clone(), |v| v.url.clone());
-    let fallback_srcset = resp.srcset_for_format(&resp.source_format);
-
-    let mut img_el = img.clone();
-    img_el.attrs.shift_remove("data-statica-img");
-    img_el.attrs.shift_remove("data-statica-img-sizes");
-    img_el.attrs.insert("src".into(), fallback);
-    if !fallback_srcset.is_empty() {
-        img_el.attrs.insert("srcset".into(), fallback_srcset);
-    }
-    img_el.attrs.insert("sizes".into(), sizes);
-    if !img_el.attrs.contains_key("width") {
-        img_el.attrs.insert("width".into(), resp.width.to_string());
-    }
-    if !img_el.attrs.contains_key("height") {
-        img_el
-            .attrs
-            .insert("height".into(), resp.height.to_string());
-    }
-    if !img_el.attrs.contains_key("loading") {
-        img_el.attrs.insert("loading".into(), "lazy".into());
-    }
-    if !img_el.attrs.contains_key("decoding") {
-        img_el.attrs.insert("decoding".into(), "async".into());
-    }
-
-    picture.children.push(Node::Element(img_el));
+    picture
+        .children
+        .extend(request.source_nodes().map(Node::Element));
+    picture.children.push(Node::Element(request.fallback_img()));
     Some(Node::Element(picture))
+}
+
+struct ImageRewriteRequest<'a> {
+    img: &'a Element,
+    image: &'a ResponsiveImage,
+    sizes: String,
+    formats: Vec<String>,
+}
+
+impl<'a> ImageRewriteRequest<'a> {
+    fn from_img(
+        img: &'a Element,
+        manifest: &'a ImageManifest,
+        opts: &ImageProcessOptions,
+    ) -> Option<Self> {
+        match ImageRewriteDecision::for_img(img) {
+            ImageRewriteDecision::Rewrite { src } => {
+                let image = manifest.get(src)?;
+                Some(Self {
+                    img,
+                    image,
+                    sizes: image_sizes(img, opts),
+                    formats: picture_formats(opts, image),
+                })
+            }
+            ImageRewriteDecision::Skip => None,
+        }
+    }
+
+    fn source_nodes(&self) -> impl Iterator<Item = Element> + '_ {
+        self.format_order().filter_map(|format| {
+            let srcset = self.image.srcset_for_format(format);
+            (!srcset.is_empty()).then(|| source_element(self.image, format, &srcset, &self.sizes))
+        })
+    }
+
+    fn fallback_img(&self) -> Element {
+        let fallback = self
+            .image
+            .largest_for_format(&self.image.source_format)
+            .map_or_else(
+                || self.image.source_url.clone(),
+                |variant| variant.url.clone(),
+            );
+        let fallback_srcset = self.image.srcset_for_format(&self.image.source_format);
+
+        let mut img = self.img.clone();
+        img.attrs.shift_remove("data-statica-img");
+        img.attrs.shift_remove("data-statica-img-sizes");
+        img.attrs.insert("src".into(), fallback);
+        if !fallback_srcset.is_empty() {
+            img.attrs.insert("srcset".into(), fallback_srcset);
+        }
+        img.attrs.insert("sizes".into(), self.sizes.clone());
+        img.attrs
+            .entry("width".into())
+            .or_insert_with(|| self.image.width.to_string());
+        img.attrs
+            .entry("height".into())
+            .or_insert_with(|| self.image.height.to_string());
+        img.attrs
+            .entry("loading".into())
+            .or_insert_with(|| "lazy".into());
+        img.attrs
+            .entry("decoding".into())
+            .or_insert_with(|| "async".into());
+        img
+    }
+
+    fn format_order(&self) -> impl Iterator<Item = &str> {
+        self.formats.iter().map(String::as_str)
+    }
+}
+
+enum ImageRewriteDecision<'a> {
+    Rewrite { src: &'a str },
+    Skip,
+}
+
+impl<'a> ImageRewriteDecision<'a> {
+    fn for_img(img: &'a Element) -> Self {
+        let Some(src) = img.attr("src") else {
+            return Self::Skip;
+        };
+        match (
+            img.attr("srcset").is_some(),
+            image_opt_out(img.attr("data-statica-img")),
+            is_local_src(src),
+        ) {
+            (false, false, true) => Self::Rewrite { src },
+            _ => Self::Skip,
+        }
+    }
+}
+
+fn image_opt_out(value: Option<&str>) -> bool {
+    matches!(value, Some("false" | "off" | "0"))
+}
+
+fn picture_formats(opts: &ImageProcessOptions, image: &ResponsiveImage) -> Vec<String> {
+    let source_missing = !opts
+        .formats
+        .iter()
+        .any(|format| format.eq_ignore_ascii_case(&image.source_format));
+    opts.formats
+        .iter()
+        .cloned()
+        .chain(source_missing.then(|| image.source_format.clone()))
+        .collect()
+}
+
+fn image_sizes(img: &Element, opts: &ImageProcessOptions) -> String {
+    img.attr("data-statica-img-sizes")
+        .or_else(|| img.attr("sizes"))
+        .unwrap_or(opts.default_sizes.as_str())
+        .to_string()
+}
+
+fn source_element(image: &ResponsiveImage, format: &str, srcset: &str, sizes: &str) -> Element {
+    let mut source = Element {
+        name: "source".into(),
+        attrs: IndexMap::new(),
+        children: Vec::new(),
+        void: true,
+    };
+    source.attrs.insert("type".into(), image.mime_for(format));
+    source.attrs.insert("srcset".into(), srcset.to_string());
+    source.attrs.insert("sizes".into(), sizes.to_string());
+    source
 }
 
 impl ResponsiveImage {
@@ -661,6 +724,49 @@ mod tests {
         };
         assert_eq!(picture_el.name, "picture");
         assert_eq!(picture_el.children.len(), 3); // webp source, jpg source, img
+    }
+
+    #[test]
+    fn image_rewrite_skips_existing_srcset_opt_out_and_remote() {
+        let mut manifest = ImageManifest::default();
+        manifest.insert(
+            "/photo.jpg",
+            ResponsiveImage {
+                width: 1200,
+                height: 800,
+                source_format: "jpg".into(),
+                source_mime: "image/jpeg".into(),
+                source_url: "/photo.jpg".into(),
+                variants: vec![ImageVariant {
+                    width: 1200,
+                    height: 800,
+                    format: "jpg".into(),
+                    mime: "image/jpeg".into(),
+                    url: "/photo-1200w.jpg".into(),
+                }],
+            },
+        );
+        let opts = ImageProcessOptions::default();
+
+        for attrs in [
+            IndexMap::from([
+                ("src".into(), "/photo.jpg".into()),
+                ("srcset".into(), "/photo-1200w.jpg 1200w".into()),
+            ]),
+            IndexMap::from([
+                ("src".into(), "/photo.jpg".into()),
+                ("data-statica-img".into(), "false".into()),
+            ]),
+            IndexMap::from([("src".into(), "https://example.com/photo.jpg".into())]),
+        ] {
+            let img = Node::Element(Element {
+                name: "img".into(),
+                attrs,
+                children: Vec::new(),
+                void: true,
+            });
+            assert!(build_picture_from_img(&img, &manifest, &opts).is_none());
+        }
     }
 
     #[test]
