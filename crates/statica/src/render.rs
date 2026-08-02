@@ -31,6 +31,7 @@ impl PageRenderer {
 pub struct RenderPlan {
     doctype: Option<String>,
     ops: Vec<Op>,
+    linked_roots: HashSet<String>,
 }
 
 fn compiled_plan_safe(registry: &FragmentRegistry, nodes: &[Node]) -> bool {
@@ -92,17 +93,23 @@ pub enum Op {
 impl RenderPlan {
     #[must_use]
     pub fn compile_document(doc: &Document) -> Self {
+        let ops = compile_nodes(&doc.children);
+        let linked_roots = collect_linked_roots_for_ops(&ops);
         Self {
             doctype: doc.doctype.clone(),
-            ops: compile_nodes(&doc.children),
+            ops,
+            linked_roots,
         }
     }
 
     #[must_use]
     pub fn compile_fragment(children: &[Node]) -> Self {
+        let ops = compile_nodes(children);
+        let linked_roots = collect_linked_roots_for_ops(&ops);
         Self {
             doctype: None,
-            ops: compile_nodes(children),
+            ops,
+            linked_roots,
         }
     }
 
@@ -112,10 +119,8 @@ impl RenderPlan {
     }
 
     #[must_use]
-    pub fn linked_roots(&self) -> HashSet<String> {
-        let mut roots = HashSet::new();
-        collect_linked_roots(&self.ops, &mut roots);
-        roots
+    pub const fn linked_roots(&self) -> &HashSet<String> {
+        &self.linked_roots
     }
 
     pub fn write_doctype(&self, out: &mut String) {
@@ -125,6 +130,12 @@ impl RenderPlan {
             out.push_str(">\n");
         }
     }
+}
+
+fn collect_linked_roots_for_ops(ops: &[Op]) -> HashSet<String> {
+    let mut roots = HashSet::new();
+    collect_linked_roots(ops, &mut roots);
+    roots
 }
 
 fn collect_linked_roots(ops: &[Op], roots: &mut HashSet<String>) {
