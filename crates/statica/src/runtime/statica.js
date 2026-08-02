@@ -36,7 +36,7 @@
 
   function createScope(scriptEl, scopeId) {
     var host = findHost(scriptEl, scopeId);
-    var root = (host && host.parentNode) || document;
+    var root = host || document;
 
     function qs(sel) {
       var scoped = scopeSelector(sel, scopeId);

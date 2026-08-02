@@ -353,6 +353,66 @@ fn fragment_mount_receives_current_item_without_data_bind() {
 }
 
 #[test]
+fn looped_fragments_keep_css_and_script_scoped_per_instance() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("items.json"),
+        r#"[{"label":"One"},{"label":"Two"}]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("ui/card.html"),
+        r#"<template id="card" data-bind="{label}">
+  <style>
+    .card { color: red; }
+    .card strong { font-weight: 700; }
+  </style>
+  <article class="card">
+    <strong data-t="${label}">Label</strong>
+  </article>
+  <script type="module">
+    $.querySelector(".card").setAttribute("data-ready", "true");
+  </script>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/data" href="./items.json" id="items" />
+    <link rel="statica/fragment" type="text/html" href="./ui/card.html" id="card" />
+  </head>
+  <body><slot id="card" data-each="items"></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert_eq!(html.matches("<article").count(), 2, "{html}");
+    assert_eq!(html.matches("<style>").count(), 1, "{html}");
+    assert_eq!(html.matches("data-s-scope=\"card-").count(), 2, "{html}");
+    assert_eq!(html.matches("function __staticaScope").count(), 1, "{html}");
+    assert_eq!(
+        html.matches("const $ = __statica.scope").count(),
+        2,
+        "{html}"
+    );
+    assert!(
+        html.contains(".card[data-s=\"card-") || html.contains(".card[data-s=card-"),
+        "{html}"
+    );
+    assert!(html.contains("var root = host || document;"), "{html}");
+}
+
+#[test]
 fn data_bind_on_fragment_mount_errors() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
