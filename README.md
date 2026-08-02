@@ -171,6 +171,8 @@ If the site does not define `404.html` or `404/index.html`, statica writes a def
 <slot id="post-card"></slot>
 ```
 
+`@Google` is a normal URL alias from `[aliases.urls]`; the Google Fonts preconnect behavior is handled by a built-in font recipe after alias resolution.
+
 - Scalar page text → `data-t="${item.field}"`, or literal text with `data-t="Plain text"`
 - Attributes → `${item.slug}` / `${page.pagination.next_href}` / `${i18n.locale}`
 - Fragment mount: `<slot id="fragment-id"></slot>` passes the current item/context

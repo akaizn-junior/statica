@@ -301,7 +301,7 @@ Use `statica/font` for stylesheet-like font links.
 <link rel="statica/font" href="./fonts/outfit.css" />
 ```
 
-Google Fonts links emit preconnect hints. Local font CSS emits a normal stylesheet link. Font files are copied through `asset_dirs`.
+statica includes a Google Fonts recipe: when a resolved `statica/font` stylesheet URL points at `fonts.googleapis.com`, it emits the Google preconnect hints once per page. Other local or remote font CSS emits a normal stylesheet link. Font files are copied through `asset_dirs`.
 
 ## Forms
 

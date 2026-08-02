@@ -2,6 +2,13 @@ use std::path::PathBuf;
 
 use statica::{build, rebuild_paths, BuildOptions};
 
+fn add_google_font_alias(opts: &mut BuildOptions) {
+    opts.aliases.urls.insert(
+        "Google".into(),
+        statica::UrlAlias::new("https://fonts.googleapis.com/css2"),
+    );
+}
+
 #[test]
 fn builds_blog_fixture() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/blog");
@@ -30,6 +37,7 @@ fn builds_blog_fixture() {
         index: true,
         ..Default::default()
     }];
+    add_google_font_alias(&mut opts);
 
     let report = build(&opts).expect("build");
     assert!(report.pages_written >= 10, "pages={}", report.pages_written);
@@ -733,6 +741,7 @@ fn font_link_expands_in_build() {
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
     opts.clean = true;
+    add_google_font_alias(&mut opts);
     build(&opts).expect("build");
 
     let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();

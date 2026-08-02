@@ -545,6 +545,7 @@ fn build_scoped(opts: &BuildOptions, scope: &BuildScope) -> Result<BuildReport> 
     let started = Instant::now();
     let log = opts.log();
     let mut phases = Vec::new();
+    opts.aliases.validate()?;
 
     if scope.is_full() && opts.clean && opts.out_dir.exists() {
         log.step("clean  output directory");
@@ -886,7 +887,7 @@ fn prepare_pages(
             extra_bind_roots,
         )?;
         crate::aliases::resolve_paths_in_document(&mut doc, aliases, Some((&file, &html)))?;
-        crate::font::expand_font_links(&mut doc, aliases, Some((&file, &html)))?;
+        crate::font::expand_font_links(&mut doc, Some((&file, &html)))?;
         if let Some(meta) = manifest {
             crate::manifest::inject_manifest_tags(&mut doc, meta);
         }

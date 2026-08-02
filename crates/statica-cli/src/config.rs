@@ -23,7 +23,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use statica::{
     AliasOptions, AssetProcessOptions, BuildOptions, FormsOptions, I18nOptions,
-    ImageProcessOptions, MinifyOptions, PaginationRule, RenderMode, RssOptions, SitemapOptions,
+    ImageProcessOptions, LocalAlias, MinifyOptions, PaginationRule, RenderMode, RssOptions,
+    SitemapOptions, UrlAlias,
 };
 
 /// Canonical config file name in a statica project root.
@@ -122,33 +123,23 @@ impl From<AliasOptions> for AliasesConfig {
     fn from(opts: AliasOptions) -> Self {
         Self {
             symbol: opts.symbol,
-            paths: opts.paths,
-            urls: opts.urls,
+            paths: opts
+                .paths
+                .into_iter()
+                .map(|(name, alias)| (name, alias.base))
+                .collect(),
+            urls: opts
+                .urls
+                .into_iter()
+                .map(|(name, alias)| (name, alias.base))
+                .collect(),
         }
     }
 }
 
 impl AliasesConfig {
     pub fn validate(&self) -> Result<()> {
-        for (name, base) in &self.paths {
-            if is_url_alias_base(base) {
-                anyhow::bail!(
-                    "[aliases.paths].{name} must be a local path, not a URL (use [aliases.urls] for URLs)"
-                );
-            }
-        }
-        for (name, base) in &self.urls {
-            if !is_url_alias_base(base) {
-                anyhow::bail!("[aliases.urls].{name} must be a URL (http:// or https://)");
-            }
-        }
-        for name in self.paths.keys() {
-            if self.urls.contains_key(name) {
-                anyhow::bail!(
-                    "alias `{name}` is defined in both [aliases.paths] and [aliases.urls]"
-                );
-            }
-        }
+        self.to_core().validate()?;
         Ok(())
     }
 
@@ -156,14 +147,18 @@ impl AliasesConfig {
     pub fn to_core(&self) -> AliasOptions {
         AliasOptions {
             symbol: self.symbol.clone(),
-            paths: self.paths.clone(),
-            urls: self.urls.clone(),
+            paths: self
+                .paths
+                .iter()
+                .map(|(name, base)| (name.clone(), LocalAlias::new(base)))
+                .collect(),
+            urls: self
+                .urls
+                .iter()
+                .map(|(name, base)| (name.clone(), UrlAlias::new(base)))
+                .collect(),
         }
     }
-}
-
-fn is_url_alias_base(base: &str) -> bool {
-    base.starts_with("http://") || base.starts_with("https://")
 }
 
 /// `[forms]` — wire `<form statica>` to a provider endpoint at build time.
@@ -1268,7 +1263,7 @@ fonts = "./assets/fonts"
             .parse("@Google/?family=Outfit&display=swap")
             .unwrap();
         assert_eq!(
-            statica::join_alias(resolved.base, resolved.tail),
+            statica::join_alias(resolved.base(), resolved.tail),
             "https://fonts.googleapis.com/css2?family=Outfit&display=swap"
         );
         let _ = fs::remove_dir_all(dir);

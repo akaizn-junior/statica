@@ -71,6 +71,7 @@ mod scope;
 
 pub use aliases::{
     join_alias, resolve_local_href, resolve_path, resolve_paths_in_document, AliasOptions,
+    AliasTarget, LocalAlias, ResolvedAlias, UrlAlias,
 };
 pub use assets::AssetProcessOptions;
 pub use build::{

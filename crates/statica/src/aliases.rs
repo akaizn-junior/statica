@@ -2,7 +2,7 @@
 //!
 //! Aliases are defined in `statica.toml` under `[aliases.paths]` (local) and
 //! `[aliases.urls]` (URLs). Use the configured symbol (default `@`) plus a
-//! `/`-separated tail — e.g. `@Google/?family=Outfit&display=swap`.
+//! `/`-separated tail — e.g. `@fonts/?family=Outfit&display=swap`.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -19,29 +19,75 @@ pub struct AliasOptions {
     /// Leading symbol for alias references (default `@`).
     pub symbol: String,
     /// Name → local path prefix (`[aliases.paths]`).
-    pub paths: HashMap<String, String>,
+    pub paths: HashMap<String, LocalAlias>,
     /// Name → URL prefix (`[aliases.urls]`).
-    pub urls: HashMap<String, String>,
+    pub urls: HashMap<String, UrlAlias>,
 }
 
 impl Default for AliasOptions {
     fn default() -> Self {
-        let mut urls = HashMap::new();
-        urls.insert("Google".into(), "https://fonts.googleapis.com/css2".into());
         Self {
             symbol: "@".into(),
             paths: HashMap::new(),
-            urls,
+            urls: HashMap::new(),
         }
     }
 }
 
 impl AliasOptions {
-    fn lookup(&self, name: &str) -> Option<&str> {
+    /// Validate alias shape once before build-time resolution begins.
+    ///
+    /// The CLI performs the same user-facing validation while loading
+    /// `statica.toml`; this keeps direct library use honest too.
+    pub fn validate(&self) -> Result<()> {
+        if self.symbol.trim().is_empty() {
+            return Err(Error::at_file(
+                "<config>",
+                "[aliases].symbol cannot be empty",
+            ));
+        }
+        for (name, alias) in &self.paths {
+            validate_alias_name(name)?;
+            if alias.base.trim().is_empty() {
+                return Err(Error::at_file(
+                    "<config>",
+                    format!("[aliases.paths].{name} cannot be empty"),
+                ));
+            }
+            if is_url_base(&alias.base) {
+                return Err(Error::at_file(
+                    "<config>",
+                    format!(
+                        "[aliases.paths].{name} must be a local path, not a URL (use [aliases.urls] for URLs)"
+                    ),
+                ));
+            }
+        }
+        for (name, alias) in &self.urls {
+            validate_alias_name(name)?;
+            if !is_url_base(&alias.base) {
+                return Err(Error::at_file(
+                    "<config>",
+                    format!("[aliases.urls].{name} must be a URL (http:// or https://)"),
+                ));
+            }
+        }
+        for name in self.paths.keys() {
+            if self.urls.contains_key(name) {
+                return Err(Error::at_file(
+                    "<config>",
+                    format!("alias `{name}` is defined in both [aliases.paths] and [aliases.urls]"),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn lookup(&self, name: &str) -> Option<AliasTarget<'_>> {
         self.paths
             .get(name)
-            .or_else(|| self.urls.get(name))
-            .map(String::as_str)
+            .map(AliasTarget::Path)
+            .or_else(|| self.urls.get(name).map(AliasTarget::Url))
     }
 
     fn knows(&self, name: &str) -> bool {
@@ -63,8 +109,8 @@ impl AliasOptions {
         if name.is_empty() {
             return None;
         }
-        let base = self.lookup(name)?;
-        Some(ResolvedAlias { base, tail })
+        let target = self.lookup(name)?;
+        Some(ResolvedAlias { target, tail })
     }
 
     /// True when `value` starts with the alias symbol (may still be invalid / unknown).
@@ -89,8 +135,60 @@ impl AliasOptions {
 /// An alias reference before joining base + tail.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResolvedAlias<'a> {
-    pub base: &'a str,
+    pub target: AliasTarget<'a>,
     pub tail: &'a str,
+}
+
+impl ResolvedAlias<'_> {
+    #[must_use]
+    pub fn base(&self) -> &str {
+        self.target.base()
+    }
+}
+
+/// Typed alias target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AliasTarget<'a> {
+    /// Local path alias from `[aliases.paths]`.
+    Path(&'a LocalAlias),
+    /// URL alias from `[aliases.urls]`.
+    Url(&'a UrlAlias),
+}
+
+impl AliasTarget<'_> {
+    #[must_use]
+    pub fn base(&self) -> &str {
+        match self {
+            Self::Path(alias) => &alias.base,
+            Self::Url(alias) => &alias.base,
+        }
+    }
+}
+
+/// Local alias base.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalAlias {
+    pub base: String,
+}
+
+impl LocalAlias {
+    #[must_use]
+    pub fn new(base: impl Into<String>) -> Self {
+        Self { base: base.into() }
+    }
+}
+
+/// URL alias base.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UrlAlias {
+    pub base: String,
+}
+
+impl UrlAlias {
+    #[must_use]
+    pub fn new(base: impl Into<String>) -> Self {
+        Self { base: base.into() }
+    }
 }
 
 /// Resolve alias paths in every [`PATH_ATTRS`] on all elements.
@@ -134,7 +232,7 @@ pub fn resolve_path(
         return Ok(value.to_string());
     }
     if let Some(r) = aliases.parse(value) {
-        return Ok(join_alias(r.base, r.tail));
+        return Ok(join_alias(r.base(), r.tail));
     }
     if let Some(name) = aliases.unknown_alias_name(value) {
         return Err(alias_err(
@@ -161,7 +259,7 @@ pub fn resolve_path(
 /// Join alias base and tail into a final URL or local path.
 #[must_use]
 pub fn join_alias(base: &str, tail: &str) -> String {
-    if base.starts_with("http://") || base.starts_with("https://") {
+    if is_url_base(base) {
         if tail.is_empty() {
             return base.to_string();
         }
@@ -182,6 +280,20 @@ pub fn join_alias(base: &str, tail: &str) -> String {
             format!("{base}/{tail}")
         }
     }
+}
+
+fn validate_alias_name(name: &str) -> Result<()> {
+    if name.trim().is_empty() || name.contains('/') || name.chars().any(char::is_whitespace) {
+        return Err(Error::at_file(
+            "<config>",
+            format!("alias name `{name}` must be non-empty and cannot contain whitespace or `/`"),
+        ));
+    }
+    Ok(())
+}
+
+fn is_url_base(base: &str) -> bool {
+    base.starts_with("http://") || base.starts_with("https://")
 }
 
 /// Resolve a local href/src after alias expansion.
@@ -206,13 +318,6 @@ pub fn resolve_local_href(site_root: &Path, page_dir: &Path, rel: &str) -> PathB
     }
 }
 
-/// Google Fonts css2 URLs benefit from preconnect hints (once per page).
-#[must_use]
-pub fn is_google_fonts_css(url: &str) -> bool {
-    url.starts_with("https://fonts.googleapis.com/")
-        || url.starts_with("http://fonts.googleapis.com/")
-}
-
 fn alias_err(
     site: Option<(&str, &str)>,
     value: &str,
@@ -233,15 +338,19 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     #[test]
-    fn resolves_google_alias_with_query_path() {
-        let aliases = AliasOptions::default();
+    fn resolves_url_alias_with_query_path() {
+        let mut aliases = AliasOptions::default();
+        aliases.urls.insert(
+            "fonts".into(),
+            UrlAlias::new("https://fonts.googleapis.com/css2"),
+        );
         let r = aliases
-            .parse("@Google/?family=Outfit:wght@100..900&display=swap")
+            .parse("@fonts/?family=Outfit:wght@100..900&display=swap")
             .unwrap();
-        assert_eq!(r.base, "https://fonts.googleapis.com/css2");
+        assert_eq!(r.base(), "https://fonts.googleapis.com/css2");
         assert_eq!(r.tail, "?family=Outfit:wght@100..900&display=swap");
         assert_eq!(
-            join_alias(r.base, r.tail),
+            join_alias(r.base(), r.tail),
             "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap"
         );
     }
@@ -258,11 +367,9 @@ mod tests {
             resolve_local_href(site, page, "./post-card.html"),
             PathBuf::from("/site/[locale]/post-card.html")
         );
-        let mut paths = std::collections::HashMap::new();
-        paths.insert("ui".into(), "ui".into());
         let aliases = AliasOptions {
             symbol: "@".into(),
-            paths,
+            paths: [("ui".into(), LocalAlias::new("ui"))].into(),
             urls: HashMap::new(),
         };
         let resolved = resolve_path("@ui/button.html", &aliases, None, "href").unwrap();
@@ -274,13 +381,17 @@ mod tests {
     }
 
     #[test]
-    fn resolves_google_alias_without_leading_question() {
-        let aliases = AliasOptions::default();
+    fn resolves_url_alias_without_leading_question() {
+        let mut aliases = AliasOptions::default();
+        aliases.urls.insert(
+            "fonts".into(),
+            UrlAlias::new("https://fonts.googleapis.com/css2"),
+        );
         let r = aliases
-            .parse("@Google/family=Outfit:wght@400&display=swap")
+            .parse("@fonts/family=Outfit:wght@400&display=swap")
             .unwrap();
         assert_eq!(
-            join_alias(r.base, r.tail),
+            join_alias(r.base(), r.tail),
             "https://fonts.googleapis.com/css2?family=Outfit:wght@400&display=swap"
         );
     }
@@ -290,9 +401,9 @@ mod tests {
         let mut aliases = AliasOptions::default();
         aliases
             .paths
-            .insert("fonts".into(), "./assets/fonts".into());
+            .insert("fonts".into(), LocalAlias::new("./assets/fonts"));
         let r = aliases.parse("@fonts/outfit.css").unwrap();
-        assert_eq!(join_alias(r.base, r.tail), "./assets/fonts/outfit.css");
+        assert_eq!(join_alias(r.base(), r.tail), "./assets/fonts/outfit.css");
     }
 
     #[test]
@@ -308,13 +419,19 @@ mod tests {
     fn resolve_paths_in_document_rewrites_src_and_href() {
         let mut doc = crate::parse::parse_document(
             r#"<!doctype html><html><body>
-<a href="@Google/?family=Outfit&display=swap">x</a>
+<a href="@fonts/?family=Outfit&display=swap">x</a>
 <script src="@assets/app.js"></script>
 </body></html>"#,
         )
         .unwrap();
         let mut aliases = AliasOptions::default();
-        aliases.paths.insert("assets".into(), "./static".into());
+        aliases.urls.insert(
+            "fonts".into(),
+            UrlAlias::new("https://fonts.googleapis.com/css2"),
+        );
+        aliases
+            .paths
+            .insert("assets".into(), LocalAlias::new("./static"));
 
         resolve_paths_in_document(&mut doc, &aliases, None).unwrap();
         let html = crate::parse::serialize_document(&doc);

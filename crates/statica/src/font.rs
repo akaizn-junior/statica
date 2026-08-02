@@ -4,28 +4,23 @@ use std::collections::HashSet;
 
 use indexmap::IndexMap;
 
-use crate::aliases::{self, AliasOptions};
 use crate::error::{Error, Result};
 use crate::parse::{Document, Element, Node, StaticaLinkRel};
 
-const GOOGLE_FONTS_ORIGIN: &str = "https://fonts.googleapis.com";
-const GOOGLE_FONTS_STATIC: &str = "https://fonts.gstatic.com";
+const GOOGLE_FONTS_STYLESHEET_ORIGIN: &str = "https://fonts.googleapis.com";
+const GOOGLE_FONTS_STATIC_ORIGIN: &str = "https://fonts.gstatic.com";
 
 /// Expand every `<link rel="statica/font">` in the document.
 ///
 /// Call after [`aliases::resolve_paths_in_document`] so `href` is already resolved.
-pub fn expand_font_links(
-    doc: &mut Document,
-    _aliases: &AliasOptions,
-    site: Option<(&str, &str)>,
-) -> Result<()> {
+pub fn expand_font_links(doc: &mut Document, site: Option<(&str, &str)>) -> Result<()> {
     let mut state = ExpandState::default();
     expand_font_links_in_nodes(&mut doc.children, &mut state, site)
 }
 
 #[derive(Default)]
 struct ExpandState {
-    preconnect_done: HashSet<&'static str>,
+    preconnect_done: HashSet<String>,
 }
 
 fn expand_font_links_in_nodes(
@@ -64,32 +59,69 @@ fn expand_font_link(
     }
 
     let mut out = Vec::new();
-
-    if aliases::is_google_fonts_css(href) {
-        push_preconnect(&mut out, GOOGLE_FONTS_ORIGIN, CrossOrigin::None, state);
-        push_preconnect(&mut out, GOOGLE_FONTS_STATIC, CrossOrigin::Anonymous, state);
+    for hint in FontRecipe::preconnects_for(href) {
+        push_preconnect(&mut out, hint, state);
     }
 
     out.push(stylesheet_link(href, el));
     Ok(out)
 }
 
-fn push_preconnect(
-    out: &mut Vec<Node>,
-    href: &'static str,
-    crossorigin: CrossOrigin,
-    state: &mut ExpandState,
-) {
-    if !state.preconnect_done.insert(href) {
+fn push_preconnect(out: &mut Vec<Node>, hint: PreconnectHint, state: &mut ExpandState) {
+    if !state.preconnect_done.insert(hint.href.to_string()) {
         return;
     }
-    match crossorigin {
-        CrossOrigin::None => out.push(link_node(&[("rel", "preconnect"), ("href", href)])),
+    match hint.crossorigin {
+        CrossOrigin::None => out.push(link_node(&[("rel", "preconnect"), ("href", hint.href)])),
         CrossOrigin::Anonymous => out.push(link_node(&[
             ("rel", "preconnect"),
-            ("href", href),
+            ("href", hint.href),
             ("crossorigin", ""),
         ])),
+    }
+}
+
+#[derive(Clone, Copy)]
+enum FontRecipe {
+    GoogleFonts,
+}
+
+impl FontRecipe {
+    const ALL: [Self; 1] = [Self::GoogleFonts];
+
+    fn preconnects_for(href: &str) -> impl Iterator<Item = PreconnectHint> + '_ {
+        Self::ALL
+            .into_iter()
+            .filter(move |recipe| recipe.matches_stylesheet(href))
+            .flat_map(Self::preconnects)
+    }
+
+    fn matches_stylesheet(self, href: &str) -> bool {
+        match self {
+            Self::GoogleFonts => href.starts_with("https://fonts.googleapis.com/"),
+        }
+    }
+
+    fn preconnects(self) -> impl Iterator<Item = PreconnectHint> {
+        match self {
+            Self::GoogleFonts => [
+                PreconnectHint::new(GOOGLE_FONTS_STYLESHEET_ORIGIN, CrossOrigin::None),
+                PreconnectHint::new(GOOGLE_FONTS_STATIC_ORIGIN, CrossOrigin::Anonymous),
+            ]
+            .into_iter(),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct PreconnectHint {
+    href: &'static str,
+    crossorigin: CrossOrigin,
+}
+
+impl PreconnectHint {
+    const fn new(href: &'static str, crossorigin: CrossOrigin) -> Self {
+        Self { href, crossorigin }
     }
 }
 
@@ -152,17 +184,22 @@ mod tests {
     fn expand_doc(html: &str, aliases: &AliasOptions) -> String {
         let mut doc = parse_document(html).unwrap();
         resolve_paths_in_document(&mut doc, aliases, None).unwrap();
-        expand_font_links(&mut doc, aliases, None).unwrap();
+        expand_font_links(&mut doc, None).unwrap();
         serialize_document(&doc)
     }
 
     #[test]
     fn google_alias_expands_to_preconnect_and_stylesheet() {
+        let mut aliases = AliasOptions::default();
+        aliases.urls.insert(
+            "Google".into(),
+            crate::aliases::UrlAlias::new("https://fonts.googleapis.com/css2"),
+        );
         let html = expand_doc(
             r#"<!doctype html><html><head>
 <link rel="statica/font" href="@Google/?family=Outfit:wght@100..900&display=swap" id="outfit-font" />
 </head><body></body></html>"#,
-            &AliasOptions::default(),
+            &aliases,
         );
 
         assert!(html.contains(r#"<link rel="preconnect" href="https://fonts.googleapis.com""#));
@@ -177,12 +214,17 @@ mod tests {
 
     #[test]
     fn preconnect_deduped_for_multiple_google_fonts() {
+        let mut aliases = AliasOptions::default();
+        aliases.urls.insert(
+            "Google".into(),
+            crate::aliases::UrlAlias::new("https://fonts.googleapis.com/css2"),
+        );
         let html = expand_doc(
             r#"<!doctype html><html><head>
 <link rel="statica/font" href="@Google/?family=Outfit:wght@400&display=swap" />
 <link rel="statica/font" href="@Google/?family=Open+Sans:wght@400;700&display=swap" />
 </head><body></body></html>"#,
-            &AliasOptions::default(),
+            &aliases,
         );
 
         assert_eq!(html.matches("rel=\"preconnect\"").count(), 2);
@@ -205,9 +247,10 @@ mod tests {
     #[test]
     fn local_alias_rewrites_to_stylesheet() {
         let mut aliases = AliasOptions::default();
-        aliases
-            .paths
-            .insert("fonts".into(), "./assets/fonts".into());
+        aliases.paths.insert(
+            "fonts".into(),
+            crate::aliases::LocalAlias::new("./assets/fonts"),
+        );
 
         let html = expand_doc(
             r#"<!doctype html><html><head>
