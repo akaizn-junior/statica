@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en" data-theme="business">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="statica is Just HTML. A blazingly fast static site generator that builds on just HTML." />
+  <meta name="theme-color" content="#0f1115" />
+  <meta property="og:title" content="statica — Just HTML." />
+  <meta property="og:description" content="A blazingly fast static site generator that builds on just HTML." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://akaizn-junior.github.io/statica/" />
+  <title>statica — Just HTML.</title>
+
+  <link rel="statica/data" href="./content/features.json" id="features" />
+  <link rel="statica/data" href="./content/installs.json" id="installs" />
+  <link rel="statica/fragment" type="text/html" href="./ui/feature-card.html" id="feature-card" />
+  <link rel="statica/fragment" type="text/html" href="./ui/install-card.html" id="install-card" />
+
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="navbar shell">
+      <div class="navbar-start">
+        <a class="brand" href="#top" aria-label="statica home">
+          <span class="brand-mark" aria-hidden="true">&lt;/&gt;</span>
+          <span>statica</span>
+        </a>
+      </div>
+      <nav class="navbar-center nav-links" aria-label="Primary navigation">
+        <a class="btn btn-ghost btn-sm" href="#why">Why</a>
+        <a class="btn btn-ghost btn-sm" href="#how">How it works</a>
+        <a class="btn btn-ghost btn-sm" href="#install">Install</a>
+      </nav>
+      <div class="navbar-end">
+        <a class="btn btn-sm btn-outline" href="https://github.com/akaizn-junior/statica">GitHub ↗</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero hero-launch">
+      <div class="hero-content shell hero-layout">
+        <div class="hero-copy">
+          <div class="hero-badges">
+            <span class="badge badge-primary badge-outline">Open source</span>
+            <span class="badge badge-outline">Rust</span>
+            <span class="badge badge-outline">MIT</span>
+          </div>
+          <h1>Just <span>HTML.</span><br />Nothing more.</h1>
+          <p>statica is a blazingly fast static site generator that builds on just HTML. Your source is HTML. Your output is HTML. Everything in between is build time.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary btn-lg" href="#install">Start building</a>
+            <a class="btn btn-ghost btn-lg" href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md">Read the guide →</a>
+          </div>
+        </div>
+
+        <div class="mockup-code hero-terminal" aria-label="statica quick start">
+          <pre data-prefix="$"><code>brew tap akaizn-junior/statica</code></pre>
+          <pre data-prefix="$"><code>brew install statica</code></pre>
+          <pre data-prefix="$"><code>statica new hello-web</code></pre>
+          <pre data-prefix="$"><code>cd hello-web &amp;&amp; statica watch</code></pre>
+          <pre data-prefix="✓" class="terminal-success"><code>Built with just HTML.</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="shell proof-wrap" aria-label="Core promise">
+      <div class="stats stats-grid border border-base-300">
+        <div class="stat">
+          <div class="stat-title">Template languages</div>
+          <div class="stat-value">0</div>
+          <div class="stat-desc">HTML is enough</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Framework runtime</div>
+          <div class="stat-value">0</div>
+          <div class="stat-desc">Ship the web platform</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Build tool</div>
+          <div class="stat-value">1</div>
+          <div class="stat-desc">statica</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Authoring language</div>
+          <div class="stat-value stat-html">HTML</div>
+          <div class="stat-desc">all the way down</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="why" class="section shell split-section">
+      <div>
+        <span class="badge badge-ghost">The idea</span>
+      </div>
+      <div class="section-copy">
+        <h2>The web already has a language.</h2>
+        <p class="section-lead">Static site generators keep inventing another one. statica doesn’t.</p>
+        <p>Use HTML for structure, CSS for style, JavaScript for behavior, and structured data when you need to generate content. statica handles the build, then gets out of the way.</p>
+      </div>
+    </section>
+
+    <section class="shell compare-grid" aria-label="Authoring comparison">
+      <article class="card compare-card bg-base-200 border border-base-300">
+        <div class="card-body">
+          <div class="compare-head">
+            <span class="badge badge-ghost">Another template language</span>
+            <span class="compare-note">Learn the abstraction first</span>
+          </div>
+          <div class="mockup-code compare-code muted-code">
+            <pre><code>---
+const posts = await getCollection("posts");
+---
+
+{posts.map(post =&gt; (
+  &lt;Card post={post} /&gt;
+))}</code></pre>
+          </div>
+        </div>
+      </article>
+
+      <article class="card compare-card statica-card bg-primary text-primary-content">
+        <div class="card-body">
+          <div class="compare-head">
+            <span class="badge badge-neutral">The statica way</span>
+            <span class="compare-note">Keep writing HTML</span>
+          </div>
+          <div class="mockup-code compare-code">
+            <pre><code>&lt;link
+  rel="statica/data"
+  href="./posts.json"
+  id="posts"
+/&gt;
+
+&lt;slot id="post-card" data-each="posts"&gt;&lt;/slot&gt;</code></pre>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section id="how" class="section shell">
+      <div class="section-heading">
+        <span class="badge badge-ghost">How it works</span>
+        <h2>HTML in. HTML out.</h2>
+      </div>
+
+      <ul class="steps steps-vertical lg-steps-horizontal process-steps">
+        <li class="step step-primary">
+          <div class="step-copy"><strong>Author</strong><span>Write valid HTML. Link data and fragments only where you need them.</span></div>
+        </li>
+        <li class="step step-primary">
+          <div class="step-copy"><strong>Build</strong><span>discover → pre → parse → funnel → expand → bind → scope → emit → minify.</span></div>
+        </li>
+        <li class="step step-primary">
+          <div class="step-copy"><strong>Ship</strong><span>Deploy plain HTML, CSS, and JavaScript anywhere static files can live.</span></div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="section shell">
+      <div class="section-heading narrow-heading">
+        <span class="badge badge-ghost">Batteries included</span>
+        <h2>Enough power to build real sites.</h2>
+        <p>These cards are not hard-coded. This very page funnels <code>content/features.json</code> into a reusable statica fragment.</p>
+      </div>
+      <div class="feature-grid">
+        <slot id="feature-card" data-each="features"></slot>
+      </div>
+    </section>
+
+    <section class="shell platform-callout">
+      <div class="card bg-neutral text-neutral-content platform-card">
+        <div class="card-body platform-body">
+          <div>
+            <span class="badge badge-primary">Not just blogs</span>
+            <h2>If the web can do it, your statica site can do it.</h2>
+            <p>statica does not impose a frontend runtime. Build an interactive API explorer from OpenAPI JSON, documentation, catalogs, dashboards, or a tiny five-page site. At runtime, it is simply the web platform.</p>
+          </div>
+          <div class="flow-diagram" aria-label="OpenAPI build example">
+            <div class="badge badge-outline flow-node">openapi.json</div>
+            <span>↓</span>
+            <div class="badge badge-primary flow-node">statica</div>
+            <span>↓</span>
+            <div class="badge badge-outline flow-node">HTML + CSS + JS</div>
+            <span>↓</span>
+            <div class="badge badge-neutral flow-node">Interactive API explorer</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="install" class="section shell install-section">
+      <div class="section-heading narrow-heading">
+        <span class="badge badge-ghost">Get started</span>
+        <h2>Your next site can just be a website.</h2>
+        <p>Choose your install path, create a site, then run <code>statica watch</code>.</p>
+      </div>
+      <div class="install-grid">
+        <slot id="install-card" data-each="installs"></slot>
+      </div>
+      <div class="launch-actions">
+        <a class="btn btn-primary btn-lg" href="https://github.com/akaizn-junior/statica">Star statica on GitHub ↗</a>
+        <a class="btn btn-ghost btn-lg" href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md">Read the full guide →</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer shell site-footer">
+    <aside>
+      <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">&lt;/&gt;</span><span>statica</span></a>
+      <p>Just HTML.</p>
+    </aside>
+    <nav>
+      <a class="link link-hover" href="https://github.com/akaizn-junior/statica">GitHub</a>
+      <a class="link link-hover" href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md">Guide</a>
+      <a class="link link-hover" href="https://github.com/akaizn-junior/statica/blob/main/LICENSE">MIT</a>
+    </nav>
+  </footer>
+</body>
+</html>

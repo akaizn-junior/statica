@@ -1,0 +1,187 @@
+:root {
+  --site-max: 1180px;
+  --site-gutter: clamp(1rem, 4vw, 2rem);
+}
+
+html { scroll-behavior: smooth; }
+body {
+  min-height: 100vh;
+  background-image:
+    linear-gradient(color-mix(in oklab, currentColor 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, currentColor 4%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.shell {
+  width: min(var(--site-max), calc(100% - (var(--site-gutter) * 2)));
+  margin-inline: auto;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid color-mix(in oklab, currentColor 14%, transparent);
+  background: color-mix(in oklab, var(--color-base-100) 88%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.navbar { padding-inline: 0; }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .75rem;
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: -.04em;
+  text-decoration: none;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  aspect-ratio: 1;
+  border-radius: .65rem;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font: 800 .75rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.hero-launch { min-height: 78vh; }
+.hero-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: center;
+  padding-block: clamp(5rem, 10vw, 9rem);
+}
+.hero-copy { max-width: 760px; }
+.hero-badges, .hero-actions, .launch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  align-items: center;
+}
+.hero-copy h1,
+.section-copy h2,
+.section-heading h2,
+.platform-card h2 {
+  margin: 1.35rem 0;
+  font-size: clamp(3.4rem, 8vw, 7.6rem);
+  line-height: .9;
+  letter-spacing: -.075em;
+  font-weight: 950;
+}
+.hero-copy h1 span { color: var(--color-primary); }
+.hero-copy > p {
+  max-width: 680px;
+  margin: 0 0 2rem;
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  line-height: 1.6;
+  color: color-mix(in oklab, currentColor 68%, transparent);
+}
+.hero-terminal { width: 100%; box-shadow: 0 28px 70px rgba(0,0,0,.28); }
+.terminal-success { color: var(--color-success); }
+
+.proof-wrap { margin-bottom: clamp(4rem, 9vw, 8rem); }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  overflow: hidden;
+}
+.stat { min-width: 0; }
+.stat-html { font-size: clamp(2rem, 4vw, 3rem); }
+
+.section { padding-block: clamp(4.5rem, 10vw, 9rem); }
+.split-section {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: clamp(2rem, 7vw, 6rem);
+}
+.section-copy h2,
+.section-heading h2,
+.platform-card h2 { font-size: clamp(2.8rem, 6.5vw, 6rem); }
+.section-copy p,
+.section-heading p,
+.platform-card p { max-width: 760px; font-size: 1.1rem; line-height: 1.75; color: color-mix(in oklab, currentColor 68%, transparent); }
+.section-lead { font-size: clamp(1.35rem, 2.5vw, 1.8rem) !important; color: currentColor !important; }
+.section-heading { margin-bottom: 2.5rem; }
+.narrow-heading { max-width: 850px; }
+
+.compare-grid,
+.feature-grid,
+.install-grid {
+  display: grid;
+  gap: 1rem;
+}
+.compare-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.compare-card .card-body { gap: 1.5rem; }
+.compare-head { display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.compare-note { font-size: .9rem; opacity: .65; }
+.compare-code { min-height: 330px; }
+.muted-code { opacity: .65; }
+.statica-card { box-shadow: 0 20px 55px color-mix(in oklab, var(--color-primary) 16%, transparent); }
+
+.process-steps { width: 100%; margin-top: 3rem; }
+.step-copy { display: grid; gap: .55rem; max-width: 260px; text-align: left; }
+.step-copy strong { font-size: 1.1rem; }
+.step-copy span { line-height: 1.55; opacity: .65; }
+
+.feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.feature-card { height: 100%; }
+.feature-card .card-body { min-height: 250px; }
+.feature-card .card-title { margin-top: auto; font-size: 1.3rem; }
+.feature-card p { color: color-mix(in oklab, currentColor 65%, transparent); line-height: 1.6; }
+
+.platform-callout { padding-block: clamp(2rem, 6vw, 5rem); }
+.platform-card { overflow: hidden; }
+.platform-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+  gap: clamp(2rem, 7vw, 6rem);
+  align-items: center;
+  padding: clamp(2rem, 6vw, 5rem);
+}
+.platform-card h2 { margin-top: 1.25rem; }
+.flow-diagram { display: grid; justify-items: center; gap: .75rem; }
+.flow-node { width: min(100%, 280px); height: auto; padding: .9rem 1rem; white-space: normal; text-align: center; }
+
+.install-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.install-card { height: 100%; }
+.install-code { margin-top: auto; min-height: 110px; }
+.install-code pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.copy-command { align-self: flex-start; }
+.launch-actions { margin-top: 2rem; }
+
+.site-footer {
+  border-top: 1px solid color-mix(in oklab, currentColor 14%, transparent);
+  padding-block: 3rem;
+}
+.site-footer aside { display: grid; gap: .6rem; }
+.site-footer nav { display: flex; flex-direction: row; gap: 1.5rem; align-items: center; }
+
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+@media (max-width: 900px) {
+  .nav-links { display: none; }
+  .hero-layout,
+  .platform-body,
+  .split-section { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .install-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .hero-layout { padding-block: 4rem; }
+  .hero-copy h1 { font-size: clamp(3.2rem, 17vw, 5rem); }
+  .hero-actions .btn, .launch-actions .btn { width: 100%; }
+  .stats-grid,
+  .compare-grid,
+  .feature-grid { grid-template-columns: 1fr; }
+  .compare-code { min-height: auto; }
+  .process-steps { align-items: flex-start; }
+  .site-footer { align-items: flex-start; gap: 2rem; }
+  .site-footer nav { flex-wrap: wrap; }
+}

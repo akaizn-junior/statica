@@ -1,0 +1,32 @@
+[
+  {
+    "eyebrow": "Funnel",
+    "title": "Data-driven HTML",
+    "body": "Link JSON, JSONL, CSV, Markdown, text, or globs as build-time data. No runtime content fetch required."
+  },
+  {
+    "eyebrow": "Routes",
+    "title": "Filesystem generation",
+    "body": "Turn folders like [slug], [page], and [locale] into generated routes while keeping every source page valid HTML."
+  },
+  {
+    "eyebrow": "Fragments",
+    "title": "Reusable HTML",
+    "body": "Compose build-time fragments with template and slot. Scope their CSS and JavaScript without adding a client component runtime."
+  },
+  {
+    "eyebrow": "Assets",
+    "title": "Built-in processing",
+    "body": "Process HTML, CSS, JavaScript, images, and fonts with statica's native pipeline instead of assembling another toolchain."
+  },
+  {
+    "eyebrow": "Content",
+    "title": "Site features included",
+    "body": "Pagination, i18n, RSS, sitemaps, static 404s, and forms are available when the site needs them."
+  },
+  {
+    "eyebrow": "Rust",
+    "title": "Fast builds",
+    "body": "Incremental watch mode, configurable parallel rendering, build reports, and a single native CLI keep the loop tight."
+  }
+]

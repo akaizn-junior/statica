@@ -1,0 +1,14 @@
+project = ""
+out_dir = ".dist"
+site_url = "https://akaizn-junior.github.io/statica/"
+
+[process]
+enabled = true
+css = true
+js = true
+images = true
+
+[minify]
+html = true
+css = true
+js = true
