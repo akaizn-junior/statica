@@ -1,6 +1,15 @@
 project = ""
 out_dir = ".dist"
 site_url = "https://akaizn-junior.github.io/statica/"
+clean = true
+copy_assets = true
+asset_dirs = ["public"]
+
+[i18n]
+enabled = true
+default = "en"
+locales = ["en", "pt"]
+dir = "content/i18n"
 
 [process]
 enabled = true
@@ -9,6 +18,7 @@ js = true
 images = true
 
 [minify]
+enabled = true
 html = true
 css = true
 js = true

@@ -1,0 +1,125 @@
+{
+  "locale_label": "EN",
+  "meta": {
+    "title": "statica — Just HTML.",
+    "description": "statica is Just HTML. A blazingly fast static site generator that builds on just HTML."
+  },
+  "nav": {
+    "why": "Why",
+    "how": "How it works",
+    "install": "Install"
+  },
+  "hero": {
+    "open_source": "Open source",
+    "just": "Just",
+    "nothing_more": "Nothing more.",
+    "body": "statica is a blazingly fast static site generator that builds on just HTML. Your source is HTML. Your output is HTML. Everything in between is build time.",
+    "start": "Start building",
+    "guide": "Read the guide →",
+    "built": "Built with just HTML."
+  },
+  "stats": {
+    "templates": "Template languages",
+    "templates_desc": "HTML is enough",
+    "runtime": "Framework runtime",
+    "runtime_desc": "Ship the web platform",
+    "build_tool": "Build tool",
+    "language": "Authoring language",
+    "language_desc": "all the way down"
+  },
+  "idea": {
+    "eyebrow": "The idea",
+    "title": "The web already has a language.",
+    "lead": "Static site generators keep inventing another one. statica doesn’t.",
+    "body": "Use HTML for structure, CSS for style, JavaScript for behavior, and structured data when you need to generate content. statica handles the build, then gets out of the way."
+  },
+  "compare": {
+    "other_badge": "Another template language",
+    "other_note": "Learn the abstraction first",
+    "statica_badge": "The statica way",
+    "statica_note": "Keep writing HTML"
+  },
+  "how": {
+    "eyebrow": "How it works",
+    "title": "HTML in. HTML out.",
+    "author_title": "Author",
+    "author_body": "Write valid HTML. Link data and fragments only where you need them.",
+    "build_title": "Build",
+    "ship_title": "Ship",
+    "ship_body": "Deploy plain HTML, CSS, and JavaScript anywhere static files can live."
+  },
+  "features": {
+    "eyebrow": "Batteries included",
+    "title": "Enough power to build real sites.",
+    "body": "These cards are generated from the active i18n catalog and rendered through one reusable statica fragment."
+  },
+  "platform": {
+    "badge": "Not just blogs",
+    "title": "If the web can do it, your statica site can do it.",
+    "body": "statica does not impose a frontend runtime. Build an interactive API explorer from OpenAPI JSON, documentation, catalogs, dashboards, or a tiny five-page site. At runtime, it is simply the web platform.",
+    "explorer": "Interactive API explorer"
+  },
+  "install": {
+    "eyebrow": "Get started",
+    "title": "Your next site can just be a website.",
+    "body": "Choose your install path, create a site, then run statica watch.",
+    "github": "Star statica on GitHub ↗",
+    "guide": "Read the full guide →"
+  },
+  "footer": {
+    "tagline": "Just HTML.",
+    "guide": "Guide"
+  },
+  "feature_items": [
+    {
+      "eyebrow": "Funnel",
+      "title": "Data-driven HTML",
+      "body": "Link JSON, JSONL, CSV, Markdown, text, or globs as build-time data. No runtime content fetch required."
+    },
+    {
+      "eyebrow": "Routes",
+      "title": "Filesystem generation",
+      "body": "Turn folders like [slug], [page], and [locale] into generated routes while keeping every source page valid HTML."
+    },
+    {
+      "eyebrow": "Fragments",
+      "title": "Reusable HTML",
+      "body": "Compose build-time fragments with template and slot. Scope their CSS and JavaScript without adding a client component runtime."
+    },
+    {
+      "eyebrow": "Assets",
+      "title": "Built-in processing",
+      "body": "Process HTML, CSS, JavaScript, images, and fonts with statica's native pipeline instead of assembling another toolchain."
+    },
+    {
+      "eyebrow": "Content",
+      "title": "Site features included",
+      "body": "Pagination, i18n, RSS, sitemaps, static 404s, and forms are available when the site needs them."
+    },
+    {
+      "eyebrow": "Rust",
+      "title": "Fast builds",
+      "body": "Incremental watch mode, configurable parallel rendering, build reports, and a single native CLI keep the loop tight."
+    }
+  ],
+  "install_items": [
+    {
+      "label": "Homebrew",
+      "command": "brew tap akaizn-junior/statica && brew install statica",
+      "copy": "Copy command",
+      "copied": "Copied"
+    },
+    {
+      "label": "Cargo",
+      "command": "cargo install statica-cli --locked",
+      "copy": "Copy command",
+      "copied": "Copied"
+    },
+    {
+      "label": "npm",
+      "command": "npm i -D @statica/cli",
+      "copy": "Copy command",
+      "copied": "Copied"
+    }
+  ]
+}

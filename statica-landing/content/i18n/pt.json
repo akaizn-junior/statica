@@ -1,0 +1,125 @@
+{
+  "locale_label": "PT",
+  "meta": {
+    "title": "statica — Só HTML.",
+    "description": "statica é Só HTML. Um gerador de sites estáticos extremamente rápido que constrói tudo a partir de HTML."
+  },
+  "nav": {
+    "why": "Porquê",
+    "how": "Como funciona",
+    "install": "Instalar"
+  },
+  "hero": {
+    "open_source": "Código aberto",
+    "just": "Só",
+    "nothing_more": "Nada mais.",
+    "body": "statica é um gerador de sites estáticos extremamente rápido que constrói tudo a partir de HTML. A fonte é HTML. O resultado é HTML. Tudo no meio acontece durante o build.",
+    "start": "Começar a construir",
+    "guide": "Ler o guia →",
+    "built": "Construído apenas com HTML."
+  },
+  "stats": {
+    "templates": "Linguagens de template",
+    "templates_desc": "HTML é suficiente",
+    "runtime": "Runtime de framework",
+    "runtime_desc": "Entrega a própria plataforma web",
+    "build_tool": "Ferramenta de build",
+    "language": "Linguagem de autoria",
+    "language_desc": "HTML do início ao fim"
+  },
+  "idea": {
+    "eyebrow": "A ideia",
+    "title": "A web já tem uma linguagem.",
+    "lead": "Os geradores de sites estáticos continuam a inventar outra. statica não.",
+    "body": "Usa HTML para estrutura, CSS para estilo, JavaScript para comportamento e dados estruturados quando precisares de gerar conteúdo. statica trata do build e depois sai do caminho."
+  },
+  "compare": {
+    "other_badge": "Outra linguagem de template",
+    "other_note": "Aprende primeiro a abstração",
+    "statica_badge": "A forma statica",
+    "statica_note": "Continua a escrever HTML"
+  },
+  "how": {
+    "eyebrow": "Como funciona",
+    "title": "HTML entra. HTML sai.",
+    "author_title": "Escreve",
+    "author_body": "Escreve HTML válido. Liga dados e fragmentos apenas onde precisares deles.",
+    "build_title": "Constrói",
+    "ship_title": "Publica",
+    "ship_body": "Publica HTML, CSS e JavaScript simples em qualquer lugar que sirva ficheiros estáticos."
+  },
+  "features": {
+    "eyebrow": "Tudo incluído",
+    "title": "Potência suficiente para sites a sério.",
+    "body": "Estes cartões são gerados a partir do catálogo i18n ativo e renderizados através de um único fragmento statica reutilizável."
+  },
+  "platform": {
+    "badge": "Não é só para blogs",
+    "title": "Se a web consegue fazer, o teu site statica também consegue.",
+    "body": "statica não impõe um runtime frontend. Constrói um explorador interativo de API a partir de OpenAPI JSON, documentação, catálogos, dashboards ou um pequeno site de cinco páginas. Em runtime, é simplesmente a plataforma web.",
+    "explorer": "Explorador interativo de API"
+  },
+  "install": {
+    "eyebrow": "Começar",
+    "title": "O teu próximo site pode ser apenas um site.",
+    "body": "Escolhe como instalar, cria um site e depois executa statica watch.",
+    "github": "Dá uma estrela ao statica no GitHub ↗",
+    "guide": "Ler o guia completo →"
+  },
+  "footer": {
+    "tagline": "Só HTML.",
+    "guide": "Guia"
+  },
+  "feature_items": [
+    {
+      "eyebrow": "Funnel",
+      "title": "HTML orientado por dados",
+      "body": "Liga JSON, JSONL, CSV, Markdown, texto ou globs como dados de build. Não é necessário buscar conteúdo em runtime."
+    },
+    {
+      "eyebrow": "Rotas",
+      "title": "Geração pelo sistema de ficheiros",
+      "body": "Transforma pastas como [slug], [page] e [locale] em rotas geradas mantendo cada página de origem como HTML válido."
+    },
+    {
+      "eyebrow": "Fragmentos",
+      "title": "HTML reutilizável",
+      "body": "Compõe fragmentos em build com template e slot. Isola o CSS e JavaScript sem adicionar um runtime de componentes no cliente."
+    },
+    {
+      "eyebrow": "Assets",
+      "title": "Processamento integrado",
+      "body": "Processa HTML, CSS, JavaScript, imagens e fontes com a pipeline nativa do statica em vez de montar outra toolchain."
+    },
+    {
+      "eyebrow": "Conteúdo",
+      "title": "Funcionalidades incluídas",
+      "body": "Paginação, i18n, RSS, sitemaps, páginas 404 estáticas e formulários estão disponíveis quando o site precisar."
+    },
+    {
+      "eyebrow": "Rust",
+      "title": "Builds rápidos",
+      "body": "Watch incremental, renderização paralela configurável, relatórios de build e uma única CLI nativa mantêm o ciclo rápido."
+    }
+  ],
+  "install_items": [
+    {
+      "label": "Homebrew",
+      "command": "brew tap akaizn-junior/statica && brew install statica",
+      "copy": "Copiar comando",
+      "copied": "Copiado"
+    },
+    {
+      "label": "Cargo",
+      "command": "cargo install statica-cli --locked",
+      "copy": "Copiar comando",
+      "copied": "Copiado"
+    },
+    {
+      "label": "npm",
+      "command": "npm i -D @statica/cli",
+      "copy": "Copiar comando",
+      "copied": "Copiado"
+    }
+  ]
+}

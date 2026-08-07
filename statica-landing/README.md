@@ -1,55 +1,55 @@
 # statica landing page
 
-Product Hunt launch landing page for statica, built with statica itself.
+Product Hunt launch landing page for statica, built with statica itself and styled with daisyUI.
 
-The site follows statica's authoring model:
-
-- `index.html` is valid HTML and the root route.
-- `content/` contains build-time data funnels.
-- `ui/` contains reusable build-time fragments.
-- daisyUI v5 provides the component styling layer through plain CSS classes.
-- `styles.css` only adds layout and launch-specific polish around daisyUI components.
-
-## Project layout
-
-```text
-statica-landing/
-├── statica.toml
-├── index.html
-├── styles.css
-├── content/
-│   ├── features.json
-│   └── installs.json
-├── ui/
-│   ├── feature-card.html
-│   └── install-card.html
-└── .github/workflows/pages.yml
-```
-
-## Run locally
-
-Install statica using one of the supported methods, then from this directory:
+## Development
 
 ```bash
-statica watch
+statica watch .
 ```
 
-For a production build:
+`watch` builds, rebuilds on changes, and serves `.dist`. `statica serve .` only previews an already-built `.dist` directory.
+
+## i18n
+
+The site uses statica's native `[locale]` routing and canonical `i18n` binding:
+
+```text
+[locale]/index.html
+content/i18n/en.json
+content/i18n/pt.json
+ui/feature-card.html
+ui/install-card.html
+```
+
+The localized page binds only `{i18n}`. It has no `statica/data` funnels, so `[locale]` cannot be confused with a collection route when multiple page data sources are present.
+
+Translated feature and install-card records live directly in each locale catalog under `feature_items` and `install_items`. The page passes each record to its reusable fragment with:
+
+```html
+<slot id="feature-card" data-each="i18n.feature_items"></slot>
+<slot id="install-card" data-each="i18n.install_items"></slot>
+```
+
+Fragments therefore receive only their explicit item context; they do not depend on inheriting the page's canonical `i18n` root.
+
+The root `index.html` redirects to `./en/`. Locale-switch links are relative siblings (`../en/`, `../pt/`), so the site works locally and under GitHub Pages' `/statica/` project subpath.
+
+## Build
 
 ```bash
 statica .
 ```
 
-The generated site is emitted to `.dist/`.
+Expected output includes:
 
-## GitHub Pages
+```text
+.dist/index.html
+.dist/en/index.html
+.dist/pt/index.html
+.dist/styles.css
+```
 
-Deploy the contents of `.dist/` with GitHub Pages. If this is hosted somewhere other than `https://akaizn-junior.github.io/statica/`, update `site_url` in `statica.toml` and the `og:url` value in `index.html`.
+## Deployment
 
-## Before Product Hunt launch
-
-Add the final Product Hunt launch URL and a 1200×630 `og:image` once those assets exist. Do not add a placeholder Product Hunt badge that points nowhere.
-
-## Automatic deployment
-
-The included GitHub Pages workflow installs statica, runs `statica .`, uploads `.dist/`, and deploys that generated output through GitHub Pages. In the repository Settings → Pages, set the source to **GitHub Actions**.
+The included GitHub Actions workflow builds with statica and publishes `.dist` to GitHub Pages.
