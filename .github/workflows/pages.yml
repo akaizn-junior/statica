@@ -28,7 +28,7 @@ jobs:
         run: cargo install statica-cli --locked
 
       - name: Build with statica
-        run: statica .
+        run: statica ./statica-landing
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
