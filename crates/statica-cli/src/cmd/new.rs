@@ -8,6 +8,19 @@ use crate::style;
 
 pub fn run(name: &str) -> Result<()> {
     let root = PathBuf::from(name);
+    scaffold(&root, name)?;
+
+    eprintln!(
+        "{} {}",
+        style::success("created"),
+        style::bold(root.display().to_string())
+    );
+    eprintln!("  {}", style::dim(format!("cd {name} && statica")));
+    eprintln!("  {}", style::dim(format!("statica watch {name}")));
+    Ok(())
+}
+
+fn scaffold(root: &Path, name: &str) -> Result<()> {
     if root.exists() {
         bail!("path already exists: {}", root.display());
     }
@@ -145,16 +158,42 @@ Settings live in `statica.toml` (optional; defaults apply if missing).
         ),
     )?;
 
-    eprintln!(
-        "{} {}",
-        style::success("created"),
-        style::bold(root.display().to_string())
-    );
-    eprintln!("  {}", style::dim(format!("cd {name} && statica")));
-    eprintln!("  {}", style::dim(format!("statica watch {name}")));
     Ok(())
 }
 
 fn write(path: &Path, contents: &str) -> Result<()> {
     fs::write(path, contents).with_context(|| format!("write {}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use statica::{build, BuildOptions};
+
+    fn temp_dir() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "statica-new-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
+    #[test]
+    fn scaffold_builds_without_authoring_errors() {
+        let root = temp_dir();
+        scaffold(&root, "starter").unwrap();
+
+        let mut opts = BuildOptions::new(&root);
+        opts.out_dir = root.join(".dist");
+        build(&opts).unwrap();
+
+        let blog = fs::read_to_string(root.join(".dist/blog/index.html")).unwrap();
+        assert!(blog.contains("Hello world"));
+        assert!(blog.contains("Funnel to pages"));
+
+        let _ = fs::remove_dir_all(root);
+    }
 }
