@@ -355,10 +355,16 @@ Catalogs live at `content/i18n/{locale}.json`.
 
 i18n catalog values live under `i18n.*`, and pages must bind `{i18n}` before using them. The same binding rules apply here: `${...}` works in attributes and `data-t`, not text nodes, and placeholders must be dotted identifier paths. Fragments do not receive `i18n` automatically; pass translated values into the fragment or link fragment-local data.
 
-Locale-specific data can use `${locale}` in funnel `href`.
+Locale-specific data can use canonical `i18n.locale` in funnel `href`.
 
 ```html
-<link rel="statica/data" href="../../../content/posts.${locale}.json" id="posts" />
+<link rel="statica/data" href="../../../content/posts.${i18n.locale}.json" id="posts" />
+```
+
+statica expands dynamic attribute placeholders before loading the data source, so locale-specific globs work too:
+
+```html
+<link rel="statica/data" href="../../../content/posts.${i18n.locale}/*.md" id="posts" />
 ```
 
 ## Aliases

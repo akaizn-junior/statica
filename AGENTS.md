@@ -114,7 +114,7 @@ Rules:
 - Plain text becomes an array of non-empty strings. JSONL/NDJSON becomes an array of parsed line values. CSV becomes an array of objects keyed by header.
 - Data link `id` names are available by id in that page/fragment scope.
 - Data link `id` names cannot be `data`, `item`, `page`, or `i18n`; those are canonical page roots.
-- Locale-specific data uses `${locale}` in `href`, e.g. `href="../../content/posts.${locale}.json"`.
+- Locale-specific data uses canonical `i18n.locale` in `href`, e.g. `href="../../content/posts.${i18n.locale}.json"`.
 
 ### Page context
 
