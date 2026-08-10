@@ -117,12 +117,10 @@ pub fn validate_page_binds(
 }
 
 /// Collection / pagination templates may use `<html data-bind>` to select a source id.
-///
-/// Locale-only routes (`[locale]/` with no other params) may bind `{locale}` without a data link.
 pub fn validate_collection_page_binds(
     doc: &Document,
     kind: PageKind,
-    locale_only: bool,
+    has_collection_param: bool,
     source: BindSource<'_>,
     extra_roots: &[String],
 ) -> Result<()> {
@@ -132,9 +130,10 @@ pub fn validate_collection_page_binds(
     if html_bind_raw(doc).is_none() {
         return Ok(());
     }
-    if !(locale_only && funnel::data_link_ids(doc).is_empty()) {
-        require_collection_id(doc, source)?;
+    if !has_collection_param {
+        return validate_page_binds(doc, source, extra_roots);
     }
+    require_collection_id(doc, source)?;
     validate_page_binds(doc, source, extra_roots)
 }
 
@@ -420,7 +419,8 @@ fn render_plan_fragment(
             None => Error::at_file("<page>", msg),
         }
     })?;
-    let frag_data = registry.resolve_fragment_data(frag, locale, data_cache, aliases)?;
+    let frag_data =
+        registry.resolve_fragment_data(frag, Some(prop_value), locale, data_cache, aliases)?;
     let local = ContextData::new(parent_data.clone()).with_links(&frag_data);
     let bind_ctx = funnel::bind_context(&frag.bind, prop_value);
     let context_tree = ContextTree::new(ContextScope::Fragment, bind_ctx, local.clone());
@@ -706,7 +706,8 @@ fn render_fragment_nodes(
         }
     })?;
 
-    let frag_data = registry.resolve_fragment_data(frag, locale, data_cache, aliases)?;
+    let frag_data =
+        registry.resolve_fragment_data(frag, Some(prop_value), locale, data_cache, aliases)?;
     let local = ContextData::new(parent_data.clone()).with_links(&frag_data);
 
     // `data-bind="button"` → `button`; `data-bind="{a,b}"` → those fields.

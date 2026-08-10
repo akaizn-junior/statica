@@ -10,7 +10,6 @@ use crate::aliases::{self, AliasOptions};
 use crate::content;
 use crate::context::CanonicalRoot;
 use crate::error::{Error, Result};
-use crate::i18n;
 use crate::parse::escape_text;
 use crate::parse::{Document, Element, Node, StaticaLinkRel};
 
@@ -37,24 +36,24 @@ impl DataSource {
     }
 }
 
-pub fn document_has_locale_data(doc: &Document) -> bool {
+pub fn document_has_dynamic_data(doc: &Document) -> bool {
     doc.find(is_data_link).into_iter().any(|el| {
         el.attr("href")
             .map(str::trim)
             .filter(|s| !s.is_empty())
-            .is_some_and(i18n::src_has_locale_token)
+            .is_some_and(super::template::has_template_tokens)
     })
 }
 
-/// Whether a specific funnel `<link rel="statica/data" id="…">` uses `${locale}` in `href`.
-pub fn data_link_has_locale_token(doc: &Document, id: &str) -> bool {
+/// Whether a specific funnel `<link rel="statica/data" id="…">` has a dynamic `href`.
+pub fn data_link_has_dynamic_href(doc: &Document, id: &str) -> bool {
     doc.find(is_data_link).into_iter().any(|el| {
         el.attr("id") == Some(id)
             && el
                 .attr("href")
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
-                .is_some_and(i18n::src_has_locale_token)
+                .is_some_and(super::template::has_template_tokens)
     })
 }
 
@@ -73,18 +72,18 @@ pub fn load_data_from_document(
         cache,
         aliases,
         site,
-        DataLinkFilter::WithoutLocaleToken,
+        DataLinkFilter::StaticOnly,
     )
 }
 
-/// Load funnel sources whose `href` contains `${locale}` for the active locale.
-pub fn load_locale_data_from_document(
+/// Load funnel sources whose `href` contains dynamic attribute placeholders.
+pub fn load_dynamic_data_from_document(
     doc: &Document,
     site_root: &Path,
     page_dir: &Path,
     cache: &mut HashMap<PathBuf, Arc<content::DataSet>>,
     aliases: &AliasOptions,
-    locale: &str,
+    context: &Value,
     site: Option<(&str, &str)>,
 ) -> Result<HashMap<String, DataSource>> {
     load_data_links(
@@ -94,14 +93,52 @@ pub fn load_locale_data_from_document(
         cache,
         aliases,
         site,
-        DataLinkFilter::WithLocaleTokenOnly { locale },
+        DataLinkFilter::DynamicOnly { context },
+    )
+}
+
+pub fn load_dynamic_data_from_fragment_template(
+    doc: &Document,
+    template_id: &str,
+    site_root: &Path,
+    page_dir: &Path,
+    cache: &mut HashMap<PathBuf, Arc<content::DataSet>>,
+    aliases: &AliasOptions,
+    document_context: &Value,
+    template_context: &Value,
+    site: Option<(&str, &str)>,
+) -> Result<HashMap<String, DataSource>> {
+    load_data_links(
+        doc,
+        site_root,
+        page_dir,
+        cache,
+        aliases,
+        site,
+        DataLinkFilter::FragmentDynamic {
+            template_id,
+            document_context,
+            template_context,
+        },
     )
 }
 
 #[derive(Clone, Copy)]
 enum DataLinkFilter<'a> {
-    WithoutLocaleToken,
-    WithLocaleTokenOnly { locale: &'a str },
+    StaticOnly,
+    DynamicOnly {
+        context: &'a Value,
+    },
+    FragmentDynamic {
+        template_id: &'a str,
+        document_context: &'a Value,
+        template_context: &'a Value,
+    },
+}
+
+struct DataLinkRef<'a> {
+    el: &'a Element,
+    in_template: bool,
 }
 
 fn load_data_links(
@@ -114,7 +151,9 @@ fn load_data_links(
     filter: DataLinkFilter<'_>,
 ) -> Result<HashMap<String, DataSource>> {
     let mut out = HashMap::new();
-    for el in doc.find(is_data_link) {
+    let links = data_links_for_filter(doc, filter);
+    for link in links {
+        let el = link.el;
         let id = match el.attr("id").map(str::trim).filter(|s| !s.is_empty()) {
             Some(id) => id.to_string(),
             None => {
@@ -145,18 +184,17 @@ fn load_data_links(
             ));
         };
         let href = aliases::resolve_path(href, aliases, site, "href")?;
-        let has_locale_token = i18n::src_has_locale_token(&href);
+        let has_dynamic_tokens = super::template::has_template_tokens(&href);
         match filter {
-            DataLinkFilter::WithoutLocaleToken if has_locale_token => continue,
-            DataLinkFilter::WithLocaleTokenOnly { .. } if !has_locale_token => continue,
+            DataLinkFilter::StaticOnly if has_dynamic_tokens => continue,
+            DataLinkFilter::DynamicOnly { .. } | DataLinkFilter::FragmentDynamic { .. }
+                if !has_dynamic_tokens =>
+            {
+                continue;
+            }
             _ => {}
         }
-        let href = match filter {
-            DataLinkFilter::WithLocaleTokenOnly { locale } => {
-                i18n::interpolate_locale(&href, locale)
-            }
-            DataLinkFilter::WithoutLocaleToken => href,
-        };
+        let href = materialize_dynamic_href(href, filter, link.in_template, site)?;
         let explicit_kind = match el
             .attr("type")
             .map(str::trim)
@@ -199,6 +237,77 @@ fn load_data_links(
         );
     }
     Ok(out)
+}
+
+fn data_links_for_filter<'a>(
+    doc: &'a Document,
+    filter: DataLinkFilter<'_>,
+) -> Vec<DataLinkRef<'a>> {
+    match filter {
+        DataLinkFilter::StaticOnly | DataLinkFilter::DynamicOnly { .. } => doc
+            .find(is_data_link)
+            .into_iter()
+            .map(|el| DataLinkRef {
+                el,
+                in_template: false,
+            })
+            .collect(),
+        DataLinkFilter::FragmentDynamic { template_id, .. } => {
+            let mut out = Vec::new();
+            for node in &doc.children {
+                collect_fragment_data_links(node, template_id, false, &mut out);
+            }
+            out
+        }
+    }
+}
+
+fn collect_fragment_data_links<'a>(
+    node: &'a Node,
+    template_id: &str,
+    in_template: bool,
+    out: &mut Vec<DataLinkRef<'a>>,
+) {
+    let Node::Element(el) = node else {
+        return;
+    };
+    if is_data_link(el) {
+        out.push(DataLinkRef { el, in_template });
+    }
+    let child_in_template = in_template || (el.is_template() && el.attr("id") == Some(template_id));
+    for child in &el.children {
+        collect_fragment_data_links(child, template_id, child_in_template, out);
+    }
+}
+
+fn materialize_dynamic_href(
+    href: String,
+    filter: DataLinkFilter<'_>,
+    in_template: bool,
+    site: Option<(&str, &str)>,
+) -> Result<String> {
+    let context = match filter {
+        DataLinkFilter::DynamicOnly { context } => Some(context),
+        DataLinkFilter::FragmentDynamic {
+            document_context,
+            template_context,
+            ..
+        } => Some(if in_template {
+            template_context
+        } else {
+            document_context
+        }),
+        DataLinkFilter::StaticOnly => None,
+    };
+    match context {
+        Some(context) => {
+            super::template::expand_dynamic_attribute(&href, &context).map_err(|err| {
+                let authored = err.authored();
+                site_err(site, &[&authored, &href], err.message())
+            })
+        }
+        None => Ok(href),
+    }
 }
 
 fn load_link_content(

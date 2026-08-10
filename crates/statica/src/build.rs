@@ -394,26 +394,24 @@ impl PreparedPage {
         i18n: &I18nOptions,
     ) -> Result<std::collections::HashMap<String, DataSource>> {
         let active_locale = Self::active_locale(locale, i18n);
-        if funnel::document_has_locale_data(&self.doc) && active_locale.is_none() {
+        if funnel::document_has_dynamic_data(&self.doc) && active_locale.is_none() {
             return Err(self.at(
-                &["rel=\"statica/data\"", "href=", i18n::LOCALE_SRC_TOKEN],
-                format!(
-                    "funnel src contains `{}` but i18n is disabled — enable [i18n] or remove the locale token",
-                    i18n::LOCALE_SRC_TOKEN
-                ),
+                &["rel=\"statica/data\"", "href=", "${"],
+                "funnel href contains dynamic placeholders but no dynamic data context is available",
             ));
         }
 
         let mut data = self.data.clone();
-        if let Some(loc) = active_locale.filter(|_| funnel::document_has_locale_data(&self.doc)) {
+        if let Some(loc) = active_locale.filter(|_| funnel::document_has_dynamic_data(&self.doc)) {
             let file = self.file();
-            let locale_data = funnel::load_locale_data_from_document(
+            let dynamic_context = serde_json::json!({ "i18n": { "locale": loc } });
+            let locale_data = funnel::load_dynamic_data_from_document(
                 &self.doc,
                 site_root,
                 self.base_dir(),
                 data_cache,
                 aliases,
-                loc,
+                &dynamic_context,
                 Some((file.as_str(), self.html.as_str())),
             )
             .map_err(|e| e.in_file(&file, &self.html))?;
@@ -500,7 +498,7 @@ impl PreparedPage {
         i18n_catalogs: &I18nCatalogs,
         i18n: &I18nOptions,
     ) -> bool {
-        if funnel::data_link_has_locale_token(&self.doc, collection_id) {
+        if funnel::data_link_has_dynamic_href(&self.doc, collection_id) {
             return true;
         }
         if !i18n.enabled {
@@ -871,7 +869,9 @@ fn prepare_pages(
         bind::validate_collection_page_binds(
             &doc,
             page.kind(),
-            page.params.len() == 1 && page.params[0].as_str() == i18n::LOCALE_PARAM,
+            page.params
+                .iter()
+                .any(|param| param.as_str() != i18n::LOCALE_PARAM),
             funnel::BindSource {
                 file: &file,
                 source: &html,
@@ -985,11 +985,10 @@ fn emit_locales(
     let mut outs = Vec::with_capacity(locales.len());
     let mut data_cache = std::collections::HashMap::new();
     for loc in locales {
-        let ctx = i18n::locale_bind_context(loc);
         let rendered = page.render(
             registry,
             &opts.root,
-            Some(&ctx),
+            None,
             &opts.aliases,
             &opts.forms,
             manifest,
@@ -1264,12 +1263,11 @@ fn emit_pagination_chunks(
 
     if rule.index && item_param.is_none() {
         if let Some(first) = chunks.first() {
-            let ctx = locale.map(|loc| i18n::merge_locale_into(&first.value, loc));
             let index_route = paginate::index_route(page.source.route.as_str(), param);
             let rendered = page.render(
                 registry,
                 &opts.root,
-                ctx.as_ref().or(Some(&first.value)),
+                Some(&first.value),
                 &opts.aliases,
                 &opts.forms,
                 manifest,
@@ -1341,7 +1339,6 @@ fn emit_paginated_item_chunk(
         );
         ctx.insert(page_param.into(), Value::String(chunk.page.clone()));
         let ctx = Value::Object(ctx);
-        let ctx = locale.map_or(ctx.clone(), |loc| i18n::merge_locale_into(&ctx, loc));
         let rendered = page.render(
             registry,
             &opts.root,
@@ -1401,11 +1398,10 @@ fn emit_paginated_listing_chunks(
 ) -> Result<()> {
     let render = |chunk: &paginate::PageChunk| {
         let mut data_cache = std::collections::HashMap::new();
-        let ctx = locale.map(|loc| i18n::merge_locale_into(&chunk.value, loc));
         let rendered = page.render(
             registry,
             &opts.root,
-            ctx.as_ref().or(Some(&chunk.value)),
+            Some(&chunk.value),
             &opts.aliases,
             &opts.forms,
             manifest,
@@ -1527,11 +1523,10 @@ fn emit_locale_collection_items_parallel(
         .collect::<Result<Vec<_>>>()?;
     let render = |(item, folder): &(Value, String)| {
         let mut data_cache = std::collections::HashMap::new();
-        let ctx = i18n::merge_locale_into(item, loc);
         let rendered = page.render(
             registry,
             &opts.root,
-            Some(&ctx),
+            Some(item),
             &opts.aliases,
             &opts.forms,
             manifest,

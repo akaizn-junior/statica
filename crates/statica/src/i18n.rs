@@ -15,9 +15,6 @@ use crate::parse::{Document, Node};
 /// Route param name for locale expansion (`[locale]/…`).
 pub const LOCALE_PARAM: &str = "locale";
 
-/// Token in funnel `src` paths resolved to the active locale at build time.
-pub const LOCALE_SRC_TOKEN: &str = "${locale}";
-
 /// Translate element text content from the catalog.
 pub const DATA_T: &str = "data-t";
 
@@ -51,18 +48,6 @@ pub fn is_data_t_attr(name: &str) -> bool {
 pub fn target_attr_from_data_t_key(name: &str) -> Option<&str> {
     name.strip_prefix(DATA_T_ATTR_PREFIX)
         .filter(|target| !target.is_empty())
-}
-
-/// Whether a funnel `src` path contains a locale token.
-#[must_use]
-pub fn src_has_locale_token(src: &str) -> bool {
-    src.contains(LOCALE_SRC_TOKEN)
-}
-
-/// Replace `${locale}` in a funnel `src` path with the active locale code.
-#[must_use]
-pub fn interpolate_locale(src: &str, locale: &str) -> String {
-    src.replace(LOCALE_SRC_TOKEN, locale)
 }
 
 /// i18n settings mapped from `[i18n]` in `statica.toml`.
@@ -226,28 +211,6 @@ impl I18nCatalogs {
     }
 }
 
-/// Bind context with `locale` for `${locale}` in attributes.
-#[must_use]
-pub fn locale_bind_context(locale: &str) -> Value {
-    let mut map = Map::new();
-    map.insert(LOCALE_PARAM.into(), Value::String(locale.to_string()));
-    Value::Object(map)
-}
-
-/// Merge `locale` into a collection item for attribute templates.
-#[must_use]
-pub fn merge_locale_into(item: &Value, locale: &str) -> Value {
-    match item {
-        Value::Object(map) => Value::Object(
-            map.clone()
-                .into_iter()
-                .chain([(LOCALE_PARAM.into(), Value::String(locale.to_string()))])
-                .collect(),
-        ),
-        _ => locale_bind_context(locale),
-    }
-}
-
 fn catalog_dir(root: &Path, opts: &I18nOptions) -> PathBuf {
     if Path::new(&opts.dir).is_absolute() {
         PathBuf::from(&opts.dir)
@@ -390,16 +353,6 @@ mod tests {
     use crate::parse::{Element, Node};
     use indexmap::IndexMap;
     use serde_json::json;
-
-    #[test]
-    fn interpolate_locale_in_src() {
-        assert!(!src_has_locale_token("posts.json"));
-        assert!(src_has_locale_token("../content/posts.${locale}.json"));
-        assert_eq!(
-            interpolate_locale("../content/posts.${locale}.json", "pt"),
-            "../content/posts.pt.json"
-        );
-    }
 
     #[test]
     fn route_has_locale_param() {

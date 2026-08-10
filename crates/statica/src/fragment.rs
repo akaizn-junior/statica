@@ -40,15 +40,16 @@ impl FragmentFile {
 
 #[derive(Debug, Clone)]
 pub struct Fragment {
+    pub id: String,
     pub path: FragmentFile,
     pub template: Element,
     pub render_plan: RenderPlan,
     /// Bind scope from `<template data-bind="name">` or `data-bind="{a, b}"`.
     pub bind: BindDecl,
-    /// Non-locale funnel sources loaded at registry time.
+    /// Static funnel sources loaded at registry time.
     pub data: HashMap<String, DataSource>,
-    /// Whether the fragment declares funnel sources with `${locale}` in `src`.
-    pub has_locale_data: bool,
+    /// Whether the fragment declares dynamic funnel sources.
+    pub has_dynamic_data: bool,
 }
 
 pub struct FragmentRegistry {
@@ -183,19 +184,20 @@ impl FragmentRegistry {
         )?;
         let hash = short_hash(&raw);
         let scope_id = format!("{id}-{hash}");
-        let has_locale_data = funnel::document_has_locale_data(&file_doc);
+        let has_dynamic_data = funnel::document_has_dynamic_data(&file_doc);
 
         let mut template = template_el.clone();
         scope::apply_scope_to_nodes(&mut template.children, &scope_id);
         scope::rewrite_scripts_in_nodes(&mut template.children, &scope_id);
 
         let frag = Fragment {
+            id: id.to_string(),
             path: FragmentFile::new(path),
             render_plan: RenderPlan::compile_fragment(&template.children),
             template,
             bind,
             data,
-            has_locale_data,
+            has_dynamic_data,
         };
         self.fragments.insert(fragment_id.clone(), frag);
         self.fragments
@@ -203,21 +205,19 @@ impl FragmentRegistry {
             .ok_or_else(|| Error::at_file("<registry>", format!("missing fragment id `{id}`")))
     }
 
-    /// Merge static fragment funnel data with locale-specific sources when the parent page locale is known.
+    /// Merge static fragment funnel data with dynamic sources when the parent page locale is known.
     pub fn resolve_fragment_data(
         &self,
         frag: &Fragment,
+        current: Option<&serde_json::Value>,
         locale: Option<&str>,
         data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
         aliases: &AliasOptions,
     ) -> Result<HashMap<String, DataSource>> {
         let mut data = frag.data.clone();
-        if !frag.has_locale_data {
+        if !frag.has_dynamic_data {
             return Ok(data);
         }
-        let Some(loc) = locale else {
-            return Ok(data);
-        };
         let raw = fs::read_to_string(frag.path.as_path())
             .map_err(|e| Error::read(frag.path.as_path().display().to_string(), e))?;
         let file = frag.path.as_path().display().to_string();
@@ -227,13 +227,26 @@ impl FragmentRegistry {
             .as_path()
             .parent()
             .unwrap_or_else(|| Path::new("."));
-        let locale_data = funnel::load_locale_data_from_document(
+        let mut template_context =
+            match funnel::bind_context(&frag.bind, current.unwrap_or(&serde_json::Value::Null)) {
+                serde_json::Value::Object(map) => map,
+                _ => serde_json::Map::new(),
+            };
+        let mut document_context = serde_json::Map::new();
+        if let Some(loc) = locale {
+            let i18n = serde_json::json!({ "locale": loc });
+            document_context.insert("i18n".into(), i18n.clone());
+            template_context.insert("i18n".into(), i18n);
+        }
+        let locale_data = funnel::load_dynamic_data_from_fragment_template(
             &file_doc,
+            &frag.id,
             &self.site_root,
             base_dir,
             data_cache,
             aliases,
-            loc,
+            &serde_json::Value::Object(document_context),
+            &serde_json::Value::Object(template_context),
             Some((&file, &raw)),
         )?;
         for (id, source) in locale_data {
