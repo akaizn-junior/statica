@@ -316,6 +316,7 @@ fn page_data_bind_can_narrow_to_item_context() {
 fn fragment_mount_receives_current_item_without_data_bind() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
+    std::fs::create_dir_all(dir.join("content")).unwrap();
     std::fs::create_dir_all(dir.join("ui")).unwrap();
     std::fs::write(
         dir.join("content.json"),
@@ -1077,7 +1078,7 @@ fn i18n_loads_locale_specific_funnel_data() {
         r#"<!doctype html>
 <html lang="en" data-bind="{item, i18n}">
   <head>
-    <link rel="statica/data" href="../../../content/posts.${locale}.json" id="posts" />
+    <link rel="statica/data" href="../../../content/posts.${i18n.locale}.json" id="posts" />
     <title data-t="${i18n.title}">Posts</title>
   </head>
   <body>
@@ -1108,6 +1109,246 @@ fn i18n_loads_locale_specific_funnel_data() {
     assert!(pt.contains("<title>Artigos</title>"));
     assert!(pt.contains("<h1>Olá mundo</h1>"));
     assert!(pt.contains("lang=\"pt\""));
+}
+
+#[test]
+fn i18n_locale_data_expands_token_before_glob_loading() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("[locale]")).unwrap();
+    std::fs::create_dir_all(dir.join("content/i18n")).unwrap();
+    std::fs::create_dir_all(dir.join("content/features.en")).unwrap();
+    std::fs::create_dir_all(dir.join("content/features.pt")).unwrap();
+    std::fs::create_dir_all(dir.join("content/installs.en")).unwrap();
+    std::fs::create_dir_all(dir.join("content/installs.pt")).unwrap();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(dir.join("content/i18n/en.json"), r#"{"title": "Home"}"#).unwrap();
+    std::fs::write(dir.join("content/i18n/pt.json"), r#"{"title": "Início"}"#).unwrap();
+    std::fs::write(
+        dir.join("content/features.en/fast.json"),
+        r#"{"label":"Fast"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/features.pt/rapido.json"),
+        r#"{"label":"Rápido"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/installs.en/npm.json"),
+        r#"{"label":"npm install statica"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/installs.pt/install.json"),
+        r#"{"label":"instalar statica"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("ui/item.html"),
+        r#"<template id="item" data-bind="{label}">
+  <li data-t="${label}">Item</li>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("[locale]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{i18n}">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="../ui/item.html" id="item" />
+    <link rel="statica/data" href="../content/features.${i18n.locale}/*.json" id="features" />
+    <link rel="statica/data" href="../content/installs.${i18n.locale}/*.json" id="installs" />
+    <title data-t="${i18n.title}">Home</title>
+  </head>
+  <body>
+    <h1 data-t="${i18n.title}">Home</h1>
+    <a href="/${i18n.locale}/">Locale</a>
+    <ul><slot id="item" data-each="features"></slot></ul>
+    <ol><slot id="item" data-each="installs"></slot></ol>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.i18n = statica::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into(), "pt".into()],
+        ..Default::default()
+    };
+
+    build(&opts).expect("build");
+
+    let en = std::fs::read_to_string(dir.join("dist/en/index.html")).unwrap();
+    assert!(en.contains("<title>Home</title>"));
+    assert!(en.contains("href=\"/en/\""));
+    assert!(en.contains("Fast"));
+    assert!(en.contains("npm install statica"));
+
+    let pt = std::fs::read_to_string(dir.join("dist/pt/index.html")).unwrap();
+    assert!(pt.contains("<title>Início</title>"));
+    assert!(pt.contains("href=\"/pt/\""));
+    assert!(pt.contains("Rápido"));
+    assert!(pt.contains("instalar statica"));
+}
+
+#[test]
+fn page_dynamic_data_href_requires_defined_context_path() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("[locale]")).unwrap();
+    std::fs::create_dir_all(dir.join("content/i18n")).unwrap();
+    std::fs::write(dir.join("content/i18n/en.json"), "{}").unwrap();
+    std::fs::write(dir.join("content/posts.en.json"), "[]").unwrap();
+    std::fs::write(
+        dir.join("[locale]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{i18n}">
+  <head>
+    <link rel="statica/data" href="../content/posts.${locale}.json" id="posts" />
+    <title>Home</title>
+  </head>
+  <body></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+    opts.i18n = statica::I18nOptions {
+        enabled: true,
+        default_locale: "en".into(),
+        locales: vec!["en".into()],
+        ..Default::default()
+    };
+
+    let err = build(&opts).unwrap_err().to_string();
+    assert!(err.contains("`${locale}` is not defined"), "{err}");
+}
+
+#[test]
+fn fragment_dynamic_data_href_can_use_bound_locale() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
+    std::fs::create_dir_all(dir.join("content")).unwrap();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("posts.json"),
+        r#"[{"slug":"hello","locale":"en"},{"slug":"ola","locale":"pt"}]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/messages.en.json"),
+        r#"[{"label":"Hello"}]"#,
+    )
+    .unwrap();
+    std::fs::write(dir.join("content/messages.pt.json"), r#"[{"label":"Olá"}]"#).unwrap();
+    std::fs::write(
+        dir.join("ui/message-list.html"),
+        r#"<template id="message-list" data-bind="{locale}">
+  <link rel="statica/data" href="../content/messages.${locale}.json" id="messages" />
+  <ul>
+    <slot id="message-item" data-each="messages"></slot>
+  </ul>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("ui/message-item.html"),
+        r#"<template id="message-item" data-bind="{label}">
+  <li data-t="${label}">Message</li>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("posts/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{item}">
+  <head>
+    <link rel="statica/data" href="../../posts.json" id="posts" />
+    <link rel="statica/fragment" type="text/html" href="../../ui/message-list.html" id="message-list" />
+    <link rel="statica/fragment" type="text/html" href="../../ui/message-item.html" id="message-item" />
+    <title>Home</title>
+  </head>
+  <body>
+    <slot id="message-list"></slot>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+
+    build(&opts).expect("build");
+
+    let en = std::fs::read_to_string(dir.join("dist/posts/hello/index.html")).unwrap();
+    assert!(en.contains("Hello"), "{en}");
+
+    let pt = std::fs::read_to_string(dir.join("dist/posts/ola/index.html")).unwrap();
+    assert!(pt.contains("Olá"), "{pt}");
+}
+
+#[test]
+fn fragment_sibling_dynamic_data_href_cannot_use_template_bind() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
+    std::fs::create_dir_all(dir.join("content")).unwrap();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("posts.json"),
+        r#"[{"slug":"hello","locale":"en"}]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/messages.en.json"),
+        r#"[{"label":"Hello"}]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("ui/message-list.html"),
+        r#"<link rel="statica/data" href="../content/messages.${locale}.json" id="messages" />
+<template id="message-list" data-bind="{locale}">
+  <ul>
+    <slot id="message-item" data-each="messages"></slot>
+  </ul>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("ui/message-item.html"),
+        r#"<template id="message-item" data-bind="{label}">
+  <li data-t="${label}">Message</li>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("posts/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{item}">
+  <head>
+    <link rel="statica/data" href="../../posts.json" id="posts" />
+    <link rel="statica/fragment" type="text/html" href="../../ui/message-list.html" id="message-list" />
+    <link rel="statica/fragment" type="text/html" href="../../ui/message-item.html" id="message-item" />
+    <title>Home</title>
+  </head>
+  <body>
+    <slot id="message-list"></slot>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.clean = true;
+
+    let err = build(&opts).unwrap_err().to_string();
+    assert!(err.contains("`${locale}` is not defined"), "{err}");
 }
 
 #[test]
