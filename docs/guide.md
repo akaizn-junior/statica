@@ -54,6 +54,16 @@ Load build-time data with `statica/data`.
 
 Sources can be JSON, JSONL/NDJSON, CSV, plain text, Markdown, or globs. Data `href` must point to a file or explicit glob, not a directory. Data is loaded at build time. Output is static HTML.
 
+Data `href` is a normal dynamic attribute: `${...}` placeholders are expanded before the source is loaded or globbed. Placeholders must be dotted paths that exist in the link's own scope. On pages, canonical roots such as `i18n` must be declared on `<html data-bind>`. In fragments, a data link can use the fragment template's bound values only when the link is inside that `<template>`.
+
+```html
+<html data-bind="{i18n}">
+  <head>
+    <link rel="statica/data" href="../content/posts.${i18n.locale}.json" id="posts" />
+  </head>
+</html>
+```
+
 The data type is inferred from the file extension. You can also declare it with `type`:
 
 ```html
@@ -77,16 +87,22 @@ statica source is valid HTML. It uses normal `<template>`, `<slot>`, and `<link>
 Use `data-t` for scalar text content.
 
 ```html
-<h1 data-t="${headline}">Fallback heading</h1>
+<html data-bind="{item}">
+  <h1 data-t="${item.headline}">Fallback heading</h1>
+</html>
 ```
 
 Use `${...}` only in attributes.
 
 ```html
-<a href="/posts/${slug}/" data-t="${headline}">Fallback link</a>
+<html data-bind="{item}">
+  <a href="/posts/${item.slug}/" data-t="${item.headline}">Fallback link</a>
+</html>
 ```
 
 Every `${...}` placeholder in `data-t` and attributes must be a dotted identifier path available in the current binding scope. For pages, that scope is declared on `<html data-bind>` plus data link ids. For fragments, it is declared on `<template data-bind>` plus fragment-local data link ids. Literal `data-t` text renders as written. statica does not evaluate JS expressions such as `${a + b}`, and there is no magic flattening.
+
+This rule applies to every attribute, including `href`, `src`, `class`, metadata attributes, and funnel `href` values. `data-t` is the special text-binding attribute; it replaces element text rather than emitting a literal attribute.
 
 ```html
 <!-- direct fields -->

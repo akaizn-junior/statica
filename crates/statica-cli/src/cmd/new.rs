@@ -49,7 +49,7 @@ Two posts in → two folders out.
     )?;
     write(
         &root.join("ui/post-card.html"),
-        r#"<template id="post-card" data-bind="{slug, headline, summary}">
+        r#"<template id="post-card" data-bind="post">
   <style>
     .card { border-top: 1px solid #e2e8f0; padding: 1rem 0; }
     .card__title { font-weight: 600; }
@@ -57,20 +57,10 @@ Two posts in → two folders out.
   </style>
   <li class="card">
     <h2 class="card__title">
-      <a href="/posts/${slug}/" data-t="${headline}">Post</a>
+      <a href="/posts/${post.slug}/" data-t="${post.headline}">Post</a>
     </h2>
-    <p data-t="${summary}"></p>
+    <p data-t="${post.summary}"></p>
   </li>
-</template>
-"#,
-    )?;
-    write(
-        &root.join("ui/post-list.html"),
-        r#"<link rel="statica/fragment" type="text/html" href="./post-card.html" id="post-card" />
-<template id="post-list" data-bind="posts">
-  <ul class="posts">
-    <slot id="post-card" data-each="."></slot>
-  </ul>
 </template>
 "#,
     )?;
@@ -97,13 +87,14 @@ Two posts in → two folders out.
   <head>
     <meta charset="utf-8" />
     <title>Blog</title>
-    <link rel="statica/fragment" type="text/html" href="../ui/post-list.html" id="post-list" />
     <link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
     <link rel="statica/data" href="../content/posts/*.md" id="posts" />
   </head>
   <body>
     <h1>All posts</h1>
-    <slot id="post-list" data-bind="posts"></slot>
+    <ul class="posts">
+      <slot id="post-card" data-each="posts"></slot>
+    </ul>
   </body>
 </html>
 "#,
@@ -111,18 +102,18 @@ Two posts in → two folders out.
     write(
         &root.join("posts/[slug]/index.html"),
         r#"<!doctype html>
-<html lang="en" data-bind="{headline, published_at, summary, html}">
+<html lang="en" data-bind="{item}">
   <head>
     <meta charset="utf-8" />
-    <title data-t="${headline}">Post</title>
+    <title data-t="${item.headline}">Post</title>
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
   </head>
   <body>
     <article>
-      <h1 data-t="${headline}">Post</h1>
-      <time data-t="${published_at}"></time>
-      <p data-t="${summary}"></p>
-      <div><slot name="html"></slot></div>
+      <h1 data-t="${item.headline}">Post</h1>
+      <time data-t="${item.published_at}"></time>
+      <p data-t="${item.summary}"></p>
+      <div><slot name="item.html"></slot></div>
     </article>
     <p><a href="/blog/">← All posts</a></p>
   </body>
@@ -148,7 +139,8 @@ Settings live in `statica.toml` (optional; defaults apply if missing).
 - Pages are every `**/index.html` (folder = route).
 - Data via `<link rel="statica/data" href id>`.
 - Fragments via `<link rel="statica/fragment" href id>` + `<template id>` + `<slot id>`.
-- Attributes and scalar text use `${{field}}` declared via `data-bind`; scalar text goes in `data-t="${{field}}"`.
+- Pages bind canonical roots such as `{{item}}`, `{{data}}`, `{{page}}`, or `{{i18n}}` before use.
+- Attributes and scalar text use dotted paths like `${{item.slug}}`; scalar text goes in `data-t="${{item.headline}}"`.
 "#
         ),
     )?;

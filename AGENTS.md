@@ -114,7 +114,7 @@ Rules:
 - Plain text becomes an array of non-empty strings. JSONL/NDJSON becomes an array of parsed line values. CSV becomes an array of objects keyed by header.
 - Data link `id` names are available by id in that page/fragment scope.
 - Data link `id` names cannot be `data`, `item`, `page`, or `i18n`; those are canonical page roots.
-- Locale-specific data uses canonical `i18n.locale` in `href`, e.g. `href="../../content/posts.${i18n.locale}.json"`.
+- Dynamic data `href` values use the same scoped attribute rules as other `${...}` attributes and expand before file/glob loading. Locale-specific data uses canonical `i18n.locale`, e.g. `href="../../content/posts.${i18n.locale}.json"`.
 
 ### Page context
 
@@ -190,6 +190,7 @@ Rules:
 - `data-t="${path.to.value}"` replaces element text.
 - Literal `data-t="Plain text"` renders that literal text.
 - `${path.to.value}` works in attributes.
+- Dynamic placeholders in attributes are generic; validate them by scope, not by special-casing variable names such as `locale`.
 - `${...}` is never valid directly in text nodes.
 - Placeholders must be dotted identifier paths, not JavaScript expressions.
 - statica does not evaluate `${a + b}`, function calls, filters, optional chaining, array indexing, or arbitrary JS.

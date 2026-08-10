@@ -175,6 +175,7 @@ If the site does not define `404.html` or `404/index.html`, statica writes a def
 
 - Scalar page text → `data-t="${item.field}"`, or literal text with `data-t="Plain text"`
 - Attributes → `${item.slug}` / `${page.pagination.next_href}` / `${i18n.locale}`
+- Dynamic data `href` values use the same scoped attribute rules, so locale data uses paths like `href="../content/posts.${i18n.locale}.json"` after binding `{i18n}`
 - Fragment mount: `<slot id="fragment-id"></slot>` passes the current item/context
 - Fragment loop: `<slot id="fragment-id" data-each="items"></slot>` passes each item
 - Page `data-bind` declares canonical roots such as `{item}`, `{page}`, `{data}`, or `{i18n}` before use
