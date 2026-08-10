@@ -1,12 +1,13 @@
 <!doctype html>
 <html lang="${i18n.locale}" data-theme="business" data-bind="{i18n}">
 <head>
+  <link rel="statica/data" href="../content/i18n/${i18n.locale}.json" id="catalog" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="${i18n.meta.description}" />
+  <meta name="description" content="${catalog.meta.description}" />
   <meta name="theme-color" content="#0f1115" />
-  <meta property="og:title" content="${i18n.meta.title}" />
-  <meta property="og:description" content="${i18n.meta.description}" />
+  <meta property="og:title" content="${catalog.meta.title}" />
+  <meta property="og:description" content="${catalog.meta.description}" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://akaizn-junior.github.io/statica/${i18n.locale}/" />
   <link rel="alternate" hreflang="en" href="../en/" />
@@ -20,7 +21,7 @@
 
   <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
   <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
-  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="../public/styles.css" />
 </head>
 <body>
   <header class="site-header">
@@ -137,7 +138,7 @@
 <span class="syn-punc">---</span>
 
 <span class="syn-punc">{</span>posts.map(post =&gt; (
-  <span class="syn-tag">&lt;Card</span> <span class="syn-attr">post</span>=<span class="syn-punc">{</span>post<span class="syn-punc">}</span> <span class="syn-tag">/&gt;</span>
+  <span class="syn-tag">&amp;lt;Card</span> <span class="syn-attr">post</span>=<span class="syn-punc">{</span>post<span class="syn-punc">}</span> <span class="syn-tag">/&amp;gt;</span>
 ))<span class="syn-punc">}</span></code></pre>
           </div>
         </div>
@@ -155,13 +156,13 @@
               <span class="code-window-title">index.html</span>
               <span class="badge badge-primary badge-sm">HTML</span>
             </div>
-            <pre><code><span class="syn-tag">&lt;link</span>
+            <pre><code><span class="syn-tag">&amp;lt;link</span>
   <span class="syn-attr">rel</span>=<span class="syn-string">"statica/data"</span>
   <span class="syn-attr">href</span>=<span class="syn-string">"./posts.json"</span>
   <span class="syn-attr">id</span>=<span class="syn-string">"posts"</span>
-<span class="syn-tag">/&gt;</span>
+<span class="syn-tag">/&amp;gt;</span>
 
-<span class="syn-tag">&lt;slot</span> <span class="syn-attr">id</span>=<span class="syn-string">"post-card"</span> <span class="syn-attr">data-each</span>=<span class="syn-string">"posts"</span><span class="syn-tag">&gt;&lt;/slot&gt;</span></code></pre>
+<span class="syn-tag">&amp;lt;slot</span> <span class="syn-attr">id</span>=<span class="syn-string">"post-card"</span> <span class="syn-attr">data-each</span>=<span class="syn-string">"posts"</span><span class="syn-tag">&amp;gt;&amp;lt;/slot&amp;gt;</span></code></pre>
           </div>
         </div>
       </article>
@@ -185,7 +186,7 @@
         <h2 data-t="${i18n.features.title}">Enough power to build real sites.</h2>
         <p data-t="${i18n.features.body}">These cards are not hard-coded. This very page funnels locale-specific JSON into a reusable statica fragment.</p>
       </div>
-      <div class="feature-grid"><slot id="feature-card" data-each="i18n.feature_items"></slot></div>
+      <div class="feature-grid"><slot id="feature-card" data-each="catalog.feature_items"></slot></div>
     </section>
 
     <section class="shell platform-callout">
@@ -212,7 +213,7 @@
         <h2 data-t="${i18n.install.title}">Your next site can just be a website.</h2>
         <p data-t="${i18n.install.body}">Choose your install path, create a site, then run statica watch.</p>
       </div>
-      <div class="install-grid"><slot id="install-card" data-each="i18n.install_items"></slot></div>
+      <div class="install-grid"><slot id="install-card" data-each="catalog.install_items"></slot></div>
       <div class="launch-actions">
         <a class="btn btn-primary btn-lg" href="https://github.com/akaizn-junior/statica" data-t="${i18n.install.github}">Star statica on GitHub ↗</a>
         <a class="btn btn-ghost btn-lg" href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md" data-t="${i18n.install.guide}">Read the full guide →</a>

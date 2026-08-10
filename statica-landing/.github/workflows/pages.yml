@@ -25,10 +25,19 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install statica
-        run: cargo install statica-cli --locked
+        run: cargo install --path ../crates/statica-cli --locked
 
       - name: Build with statica
         run: statica .
+
+      - name: Validate landing artifact
+        run: |
+          test -f .dist/index.html
+          test -f .dist/en/index.html
+          test -f .dist/pt/index.html
+          test -f .dist/public/styles.css
+          grep -q 'href=../public/styles.css' .dist/en/index.html
+          grep -q 'href=../public/styles.css' .dist/pt/index.html
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

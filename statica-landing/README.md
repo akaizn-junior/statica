@@ -47,9 +47,9 @@ Expected output includes:
 .dist/index.html
 .dist/en/index.html
 .dist/pt/index.html
-.dist/styles.css
+.dist/public/styles.css
 ```
 
 ## Deployment
 
-The included GitHub Actions workflow builds with statica and publishes `.dist` to GitHub Pages.
+The repository GitHub Actions workflow builds with statica and publishes `statica-landing/.dist` to GitHub Pages. The landing source links CSS relatively as `../public/styles.css`, so styles work both locally and under the `/statica/` GitHub Pages project path.
