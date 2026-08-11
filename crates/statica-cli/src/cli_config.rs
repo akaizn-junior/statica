@@ -261,11 +261,11 @@ Examples:\n\
         conflicts_with = "silent",
         help = "Show build logs and summary",
         long_help = "Print pipeline step timings during the build and a Next.js-style route table at the end.\n\
-`statica build` is silent by default; `statica watch` shows logs by default."
+`statica build` is silent by default; `statica` and `statica watch` show logs by default."
     )]
     pub verbose: bool,
 
-    /// Suppress build logs (overrides watch default verbosity).
+    /// Suppress build logs (overrides the default dev/watch verbosity).
     #[arg(
         long = "silent",
         action = ArgAction::SetTrue,
@@ -273,7 +273,7 @@ Examples:\n\
         conflicts_with = "verbose",
         help = "Suppress build logs",
         long_help = "Hide build step logs and the route summary.\n\
-`statica watch` shows logs by default; pass `--silent` to turn them off."
+`statica` and `statica watch` show logs by default; pass `--silent` to turn them off."
     )]
     pub silent: bool,
 

@@ -43,13 +43,13 @@ cargo install --path crates/statica-cli --force
 ```bash
 statica new my-site
 cd my-site
-statica                 # build cwd (finds statica.toml walking up)
-statica watch           # watch + serve
+statica                 # build, watch, and serve cwd
+statica build           # one-off build
 ```
 
 ```bash
 statica examples/blog
-cd examples/blog/content && statica   # still finds ../statica.toml
+cd examples/blog/content && statica   # watches the project found via ../statica.toml
 statica -h
 statica -v
 ```
@@ -57,8 +57,8 @@ statica -v
 ## CLI
 
 ```text
-statica [PATH]              build (default)
-statica build [PATH]        build
+statica [PATH]              build + watch + serve (default)
+statica build [PATH]        one-off build
 statica serve [PATH]        preview out_dir with 404 fallback
 statica watch [PATH]        watch + rebuild + serve
 statica new <NAME>          scaffold

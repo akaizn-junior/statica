@@ -11,9 +11,9 @@ When unsure how to author something, **copy from here** before inventing pattern
 ## Build
 
 ```bash
-statica examples/blog
+statica build examples/blog
 # or from this directory:
-statica
+statica build
 ```
 
 Output: `.website/` (gitignored). Tests use `dist-test/`.

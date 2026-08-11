@@ -9,8 +9,8 @@ statica source files are valid HTML. Data, fragments, translations, forms, and p
 ## Commands
 
 ```bash
-statica [PATH]              # build (default)
-statica build [PATH]        # build (explicit)
+statica [PATH]              # build + watch + serve (default)
+statica build [PATH]        # one-off build
 statica watch [PATH]        # watch + rebuild + serve
 statica serve [PATH]        # serve out_dir with 404 fallback
 statica new <NAME>          # scaffold

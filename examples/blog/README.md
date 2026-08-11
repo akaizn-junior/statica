@@ -5,9 +5,9 @@ Dogfood fixture for **statica**. **Just HTML.** A blazingly fast static site gen
 ```bash
 # from repo root
 statica build examples/blog
-statica watch examples/blog
+statica examples/blog
 
-# or from inside the project (walks up for statica.toml)
+# or from inside the project (builds, watches, and serves)
 cd examples/blog && statica
 ```
 

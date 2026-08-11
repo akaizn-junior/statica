@@ -132,7 +132,7 @@
     },
     {
       "label": "servir",
-      "command": "cd hello-statica && statica watch",
+      "command": "cd hello-statica && statica",
       "copy": "Copiar comando",
       "copied": "Copiado"
     }

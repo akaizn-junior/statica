@@ -36,14 +36,15 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
 
-    /// Project directory to build when no subcommand is given
+    /// Project directory to build, watch, and serve when no subcommand is given
     #[arg(
         value_name = "PATH",
         default_value = ".",
-        help = "Project directory (default command: build)",
+        help = "Project directory (default command: watch)",
         long_help = "Project root to start from (default: current working directory).\n\
 statica resolves this path against cwd, then walks up looking for `statica.toml`.\n\
-The site root is that config directory, or `project` / `--project` under it."
+The site root is that config directory, or `project` / `--project` under it.\n\
+With no subcommand, statica performs an initial build, then watches and serves the output."
     )]
     pub path: PathBuf,
 }
@@ -116,7 +117,8 @@ Transforms modern CSS to browser-ready output.
 
 Flow: discover → funnel → bind → scope → emit (default out_dir: .website)
 
-With no subcommand, statica builds PATH (default: `.`):
+With no subcommand, statica builds PATH, then watches and serves out_dir
+(default PATH: `.`):
   statica
   statica examples/blog
   statica serve examples/blog
@@ -132,7 +134,7 @@ Project location:
 
 const AFTER_LONG_HELP: &str = "\
 Examples:
-  statica                         Build cwd (find statica.toml walking up)
+  statica                         Build, watch, and serve cwd
   statica examples/blog
   statica build --project site    Use project=site under found statica.toml
   statica build --process         Optimize public/ CSS, JS, images
@@ -173,7 +175,7 @@ site has no 404.html or 404/index.html, statica writes a default
 const BUILD_AFTER: &str = "\
 Examples:
   statica build
-  statica examples/blog
+  statica build examples/blog
   statica build --process --no-sitemap --rss-limit 20
   statica build --verbose             Step logs + route summary
 
@@ -189,7 +191,7 @@ Serve a previously built out_dir over HTTP.
 Uses axum + tower-http ServeDir: directory indexes, precompressed gzip,
 and 404 fallback. Missing paths return HTTP 404 using 404.html or
 404/index.html from out_dir. Does not rebuild — run `statica build` first
-(or use `statica watch` to build continuously).";
+(or use `statica` / `statica watch` to build continuously).";
 
 const SERVE_AFTER: &str = "\
 Examples:
@@ -234,6 +236,6 @@ Examples:
   statica new my-site
   cd my-site && statica
   statica serve my-site
-  statica watch my-site
+  statica build my-site
 
 Fails if NAME already exists.";

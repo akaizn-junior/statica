@@ -5,10 +5,10 @@ Product Hunt launch landing page for statica, built with statica itself and styl
 ## Development
 
 ```bash
-statica watch .
+statica .
 ```
 
-`watch` builds, rebuilds on changes, and serves `.website`. `statica serve .` only previews an already-built `.website` directory.
+`statica` builds, rebuilds on changes, and serves `.website`. `statica build .` performs a one-off build; `statica serve .` only previews an already-built `.website` directory.
 
 ## i18n
 

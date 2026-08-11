@@ -10,7 +10,7 @@ The `statica-cli` crate is the user-facing CLI:
 - Load config from TOML, `.env`, `.dev.vars`, and CLI SPEC flags
 - Map everything to `statica::BuildOptions`
 - Watch, serve, scaffold (`new`), man page generation
-- Treat `statica [PATH]` as the default build command; `statica build [PATH]` is the explicit form
+- Treat `statica [PATH]` as the default build + watch + serve command; `statica build [PATH]` is the explicit one-off build form
 
 Core pipeline code belongs in `statica`, not here.
 
@@ -65,4 +65,4 @@ Unit tests co-located in `config.rs`, `env.rs`, `cmd/util.rs`. Test SPEC parsing
 
 ### Changing command behavior
 
-Keep path semantics cwd-based and keep the default command equivalent to `build`. If the change affects user-visible output, update clap help first so the man pages regenerate from the same source.
+Keep path semantics cwd-based. If the change affects user-visible output, update clap help first so the man pages regenerate from the same source.

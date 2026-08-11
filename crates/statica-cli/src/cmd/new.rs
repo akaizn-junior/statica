@@ -16,7 +16,7 @@ pub fn run(name: &str) -> Result<()> {
         style::bold(root.display().to_string())
     );
     eprintln!("  {}", style::dim(format!("cd {name} && statica")));
-    eprintln!("  {}", style::dim(format!("statica watch {name}")));
+    eprintln!("  {}", style::dim(format!("statica build {name}")));
     Ok(())
 }
 
@@ -214,7 +214,7 @@ Two posts in → two folders out.
           </div>
         </div>
         <pre class="terminal"><code>statica
-statica watch
+statica build
 open .website/index.html</code></pre>
       </section>
 
@@ -288,7 +288,7 @@ Install the CLI with Rust (`cargo install statica-cli --locked`) or npm (`npm i 
 
 ```bash
 statica
-statica watch
+statica build
 ```
 
 Settings live in `statica.toml` (optional; defaults apply if missing).

@@ -143,11 +143,11 @@ Disable web manifest scaffold and head tags
 .TP
 \fB\-V\fR, \fB\-\-verbose\fR
 Print pipeline step timings during the build and a Next.js\-style route table at the end.
-`statica build` is silent by default; `statica watch` shows logs by default.
+`statica build` is silent by default; `statica` and `statica watch` show logs by default.
 .TP
 \fB\-\-silent\fR
 Hide build step logs and the route summary.
-`statica watch` shows logs by default; pass `\-\-silent` to turn them off.
+`statica` and `statica watch` show logs by default; pass `\-\-silent` to turn them off.
 .TP
 \fB\-\-report\-json\fR [\fI<PATH>\fR]
 Write the build report as JSON for CI, benchmarks, and integrations. With no PATH, writes to stdout. Use `\-\-report\-json report.json` to write a file.
@@ -161,7 +161,7 @@ Walks up for `statica.toml`. Use `\-\-project` (or `project` in the toml) for a 
 .SH EXTRA
 Examples:
   statica build
-  statica examples/blog
+  statica build examples/blog
   statica build \-\-process \-\-no\-sitemap \-\-rss\-limit 20
   statica build \-\-verbose             Step logs + route summary
 

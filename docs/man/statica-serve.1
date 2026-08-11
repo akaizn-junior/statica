@@ -11,7 +11,7 @@ Serve a previously built out_dir over HTTP.
 Uses axum + tower\-http ServeDir: directory indexes, precompressed gzip,
 and 404 fallback. Missing paths return HTTP 404 using 404.html or
 404/index.html from out_dir. Does not rebuild — run `statica build` first
-(or use `statica watch` to build continuously).
+(or use `statica` / `statica watch` to build continuously).
 .SH OPTIONS
 .TP
 \fB\-v\fR, \fB\-\-version\fR
@@ -142,11 +142,11 @@ Disable web manifest scaffold and head tags
 .TP
 \fB\-V\fR, \fB\-\-verbose\fR
 Print pipeline step timings during the build and a Next.js\-style route table at the end.
-`statica build` is silent by default; `statica watch` shows logs by default.
+`statica build` is silent by default; `statica` and `statica watch` show logs by default.
 .TP
 \fB\-\-silent\fR
 Hide build step logs and the route summary.
-`statica watch` shows logs by default; pass `\-\-silent` to turn them off.
+`statica` and `statica watch` show logs by default; pass `\-\-silent` to turn them off.
 .TP
 \fB\-\-report\-json\fR [\fI<PATH>\fR]
 Write the build report as JSON for CI, benchmarks, and integrations. With no PATH, writes to stdout. Use `\-\-report\-json report.json` to write a file.

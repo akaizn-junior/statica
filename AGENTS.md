@@ -35,13 +35,14 @@ cargo build -p statica-cli --release
 cargo test -p statica
 cargo test -p statica-cli
 
-# Build the dogfood site (default command is build)
-statica examples/blog
+# Build the dogfood site once
+statica build examples/blog
 
-# Dev loop (watch + serve)
+# Dev loop (default: build + watch + serve)
+statica examples/blog
 statica watch
 
-# Prefer installed binary over cargo run; `statica` builds cwd
+# Prefer installed binary over cargo run; `statica` builds, watches, and serves cwd
 statica
 ```
 
@@ -72,8 +73,8 @@ CI runs `cargo build -p statica-cli --release` and `cargo test` on push/PR. Push
 
 ## CLI flow
 
-- `statica [PATH]` is the default build command; `statica build [PATH]` is equivalent.
-- `statica watch [PATH]` rebuilds and serves; `statica serve [PATH]` previews `out_dir`; `statica new <NAME>` scaffolds.
+- `statica [PATH]` is the default dev command: initial build, then watch + serve.
+- `statica build [PATH]` is the explicit one-off build; `statica watch [PATH]` rebuilds and serves; `statica serve [PATH]` previews `out_dir`; `statica new <NAME>` scaffolds.
 - Resolve `PATH` against the process **cwd**, then walk up for `statica.toml`.
 - The site root is the config directory, or `project` / `--project` under it.
 - CLI SPEC strings override TOML for nested config (`--rss`, `--sitemap`, `--process`, `--minify`, `--pagination`, `--i18n`, `--preview`); scalar flags like `--render-mode` and `--render-threads` override their matching TOML keys.
@@ -92,7 +93,7 @@ When creating or editing HTML sites that statica builds — whether in `examples
 - **Data is build-time only.** Production output is static HTML/CSS/JS. Do not add runtime fetches for content that statica should funnel.
 - **Fragments are build-time components.** A fragment is a `<template id="...">` imported and mounted by matching `id`. Fragment CSS/JS is scoped at build time.
 - **Context is explicit.** Pages may use canonical roots only after `<html data-bind="...">` asks for them. Fragments never receive canonical page context.
-- **Default build command is short.** Prefer examples like `statica .` or `statica examples/blog`; use `statica build …` when documenting the explicit subcommand.
+- **Default dev command is short.** Prefer examples like `statica .` or `statica examples/blog` for the build + watch + serve loop; use `statica build …` when documenting the explicit one-off build subcommand.
 - **Page rendering mode is configurable.** `[performance].render_mode` / `--render-mode` controls page rendering (`auto`, `serial`, `parallel`); `[performance].render_threads` / `--render-threads` caps parallel page-render workers (`0` means auto).
 - **Verification follows the layer changed.** Core changes need core tests; CLI changes need CLI tests and regenerated man pages; authoring changes should build the fixture.
 
@@ -353,7 +354,7 @@ Do:
 - Copy patterns from [examples/blog/](examples/blog/) before inventing new structure
 - Prefer daisyUI HTML classes for beautiful, polished statica sites when no existing design system says otherwise
 - Keep fragments in `ui/`, content in `content/`, routes as `**/index.html`
-- Run `statica build` (or `statica watch`) to verify changes
+- Run `statica build` for one-off verification, or `statica` / `statica watch` for the local dev loop
 - Use `<form statica>` + `[forms]` config for forms, and prefer Formspree as the form backend
 
 ---
