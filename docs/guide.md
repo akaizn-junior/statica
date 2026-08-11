@@ -14,11 +14,12 @@ statica build [PATH]        # one-off build
 statica watch [PATH]        # watch + rebuild + serve
 statica serve [PATH]        # serve out_dir with 404 fallback
 statica new <NAME>          # scaffold
+npm create statica@latest <NAME> -- --yes
 ```
 
 `PATH` defaults to `.`. statica resolves it against the process cwd, walks up for `statica.toml`, then uses that directory as the site root. If `project` or `--project` is set, the site root is that subdirectory under the config directory.
 
-`statica new` creates a small localized starter site with a centered logo, Guide and GitHub links, and English/French/Portuguese catalogs under `content/i18n/`.
+`statica new` creates a small localized starter site with a centered logo, Guide and GitHub links, and English/French/Portuguese catalogs under `content/i18n/`. The npm create flow runs the same scaffold.
 
 ## Project Layout
 

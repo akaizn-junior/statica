@@ -47,6 +47,7 @@ function main() {
   const npmRoot = path.join(workspace, "npm", "@statica");
   const cliPkg = path.join(npmRoot, "cli");
   const platformPkg = path.join(npmRoot, platformDir);
+  const createPkg = path.join(workspace, "npm", "create-statica");
   const binaryName = process.platform === "win32" ? "statica.exe" : "statica";
   const binaryPath = path.join(platformPkg, "bin", binaryName);
 
@@ -72,7 +73,7 @@ function main() {
   execFileSync(process.execPath, ["--version"], { cwd: smokeDir, stdio: "ignore" });
 
   // file: installs — same layout npm users get from optionalDependencies
-  execFileSync("npm", ["install", platformPkg, cliPkg], {
+  execFileSync("npm", ["install", platformPkg, cliPkg, createPkg], {
     cwd: smokeDir,
     stdio: "inherit",
   });
@@ -90,6 +91,21 @@ function main() {
 
   if (!out.startsWith("statica ")) {
     console.error(`unexpected -v output: ${out}`);
+    process.exit(1);
+  }
+
+  const createShim = path.join(
+    smokeDir,
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "create-statica.cmd" : "create-statica",
+  );
+  execFileSync(createShim, ["demo", "--yes"], {
+    cwd: smokeDir,
+    stdio: "inherit",
+  });
+  if (!fs.existsSync(path.join(smokeDir, "demo", "statica.toml"))) {
+    console.error("create-statica did not scaffold demo/statica.toml");
     process.exit(1);
   }
 

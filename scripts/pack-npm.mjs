@@ -28,6 +28,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const NPM_ROOT = path.join(ROOT, "npm", "@statica");
+const CREATE_ROOT = path.join(ROOT, "npm", "create-statica");
 
 const TARGETS = [
   {
@@ -124,20 +125,35 @@ function syncPackageVersion(pkgDir, version, optionalDeps) {
   writeJson(pkgPath, pkg);
 }
 
+function syncCreatePackageVersion(version) {
+  const pkgPath = path.join(CREATE_ROOT, "package.json");
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+  pkg.version = version;
+  pkg.dependencies = pkg.dependencies ?? {};
+  pkg.dependencies["@statica/cli"] = version;
+  writeJson(pkgPath, pkg);
+}
+
 function pack({ version, artifactsDir, skipBinaries, allowMissing }) {
   const ver = version ?? readWorkspaceVersion();
   console.log(`Packing npm packages at version ${ver}`);
 
   // Sync main + platform package.json versions
   syncPackageVersion(path.join(NPM_ROOT, "cli"), ver, true);
+  syncCreatePackageVersion(ver);
   for (const t of TARGETS) {
     syncPackageVersion(path.join(NPM_ROOT, t.pkg), ver, false);
   }
 
   // Ensure LICENSE is present
   const licenseSrc = path.join(ROOT, "LICENSE");
-  for (const name of ["cli", ...TARGETS.map((t) => t.pkg)]) {
-    const dest = path.join(NPM_ROOT, name, "LICENSE");
+  const packageDirs = [
+    path.join(NPM_ROOT, "cli"),
+    CREATE_ROOT,
+    ...TARGETS.map((t) => path.join(NPM_ROOT, t.pkg)),
+  ];
+  for (const pkgDir of packageDirs) {
+    const dest = path.join(pkgDir, "LICENSE");
     fs.copyFileSync(licenseSrc, dest);
   }
 

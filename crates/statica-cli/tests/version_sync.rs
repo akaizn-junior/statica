@@ -13,6 +13,7 @@ fn npm_packages_match_cli_version() {
         "npm/@statica/cli-linux-arm64-gnu/package.json",
         "npm/@statica/cli-linux-x64-gnu/package.json",
         "npm/@statica/cli-win32-x64/package.json",
+        "npm/create-statica/package.json",
     ];
 
     for package in packages {
@@ -34,6 +35,18 @@ fn npm_packages_match_cli_version() {
                     Some(version),
                     "{package} optional dependency {name} must match statica-cli"
                 );
+            }
+        }
+
+        if let Some(dependencies) = manifest["dependencies"].as_object() {
+            for (name, pinned_version) in dependencies {
+                if name.starts_with("@statica/") {
+                    assert_eq!(
+                        pinned_version.as_str(),
+                        Some(version),
+                        "{package} dependency {name} must match statica-cli"
+                    );
+                }
             }
         }
     }

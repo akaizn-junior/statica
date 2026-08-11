@@ -18,6 +18,14 @@ cargo install statica-cli --locked
 npm i -D @statica/cli
 ```
 
+Create a new site directly from npm:
+
+```bash
+npm create statica@latest my-site -- --yes
+cd my-site
+statica
+```
+
 **Homebrew:**
 
 ```bash
@@ -39,6 +47,14 @@ cargo install --path crates/statica-cli --force
 ```
 
 ## Quick start
+
+```bash
+npm create statica@latest my-site -- --yes
+cd my-site
+statica                 # build, watch, and serve cwd
+```
+
+Or use the installed CLI:
 
 ```bash
 statica new my-site
