@@ -2,24 +2,33 @@
 <html lang="en" data-bind="{item, page}">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title data-t="${item.headline}">Post</title>
     <link rel="statica/data" href="../../../content/posts.json" id="posts" />
     <style>
-      body { font-family: system-ui, sans-serif; max-width: 44rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
-      a { color: #0f766e; }
+      body { margin: 0; background: #f8fafc; color: #0f172a; font-family: system-ui, sans-serif; line-height: 1.6; }
+      main { width: min(100% - 2rem, 44rem); margin: 0 auto; padding: 2rem 0 4rem; }
+      nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 3rem; }
+      img { width: 2.5rem; height: 2.5rem; object-fit: contain; }
+      a { color: #089868; font-weight: 800; }
       .meta { color: #64748b; font-size: 0.875rem; }
       article { margin-top: 2rem; }
     </style>
   </head>
   <body>
-    <p class="meta"><a href="../">Back to page <span data-t="${page.pagination.page}"></span></a></p>
-    <article>
-      <h1 data-t="${item.headline}">Post</h1>
-      <p class="meta">
-        <span data-t="${item.published_at}"></span> · <span data-t="${item.author}"></span> · <span data-t="${item.category}"></span> · <code data-t="${item.slug}"></code>
-      </p>
-      <p data-t="${item.summary}"></p>
-      <slot name="item.html"></slot>
-    </article>
+    <main>
+      <nav>
+        <a href="/"><img src="/public/statica-logo.png" alt="statica logo" /></a>
+        <a href="../">Page <span data-t="${page.pagination.page}"></span></a>
+      </nav>
+      <article>
+        <h1 data-t="${item.headline}">Post</h1>
+        <p class="meta">
+          <span data-t="${item.published_at}"></span> · <span data-t="${item.author}"></span> · <span data-t="${item.category}"></span> · <code data-t="${item.slug}"></code>
+        </p>
+        <p data-t="${item.summary}"></p>
+        <slot name="item.html"></slot>
+      </article>
+    </main>
   </body>
 </html>

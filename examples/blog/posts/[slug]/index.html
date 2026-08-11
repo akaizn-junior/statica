@@ -2,8 +2,15 @@
 <html lang="en" data-bind="{item}">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Post</title>
-    <link rel="stylesheet" href="/site.css" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/public/site.css" />
     <link
       rel="statica/font"
       href="@Google/?family=Outfit:wght@400;600&display=swap"
@@ -22,22 +29,35 @@
     />
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
   </head>
-  <body>
-    <article>
-      <header>
+  <body data-theme="light">
+    <main class="site-shell">
+      <nav class="site-nav" aria-label="Primary">
+        <a class="brand" href="/">
+          <img src="/public/statica-logo.png" alt="statica logo" />
+          <span>statica</span>
+        </a>
+        <div class="link-row">
+          <a href="/blog/">Posts</a>
+          <a href="/en/about/">About</a>
+        </div>
+      </nav>
+
+      <article class="content-panel">
+        <header>
         <h1 data-t="${item.headline}">Post</h1>
         <time data-t="${item.published_at}"></time>
-      </header>
-      <p data-t="${item.summary}"></p>
-      <div><slot name="item.html"></slot></div>
-      <slot id="post-card"></slot>
-      <aside class="related">
-        <h2 class="related__title">More from the archive</h2>
-        <ul class="related__list">
-          <slot id="related-posts" data-each="item.related"></slot>
-        </ul>
-      </aside>
-    </article>
-    <p><a href="/blog/">← All posts</a></p>
+        </header>
+        <p class="lede" data-t="${item.summary}"></p>
+        <div class="article-body"><slot name="item.html"></slot></div>
+        <slot id="post-card"></slot>
+        <aside class="related">
+          <h2 class="related__title">More from the archive</h2>
+          <ul class="related__list">
+            <slot id="related-posts" data-each="item.related"></slot>
+          </ul>
+        </aside>
+      </article>
+      <p><a href="/blog/">All posts</a></p>
+    </main>
   </body>
 </html>

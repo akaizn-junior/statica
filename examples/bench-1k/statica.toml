@@ -1,6 +1,6 @@
 out_dir = ".website"
 clean = true
-copy_assets = false
+copy_assets = true
 ignore_dirs = [".website", "dist", "target", ".git"]
 
 [preview]

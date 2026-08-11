@@ -2,16 +2,31 @@
 <html lang="en" data-bind="{item}">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title data-t="${item.headline}">Post</title>
     <link rel="statica/data" href="../../content/posts.json" id="posts" />
+    <style>
+      body { margin: 0; background: #f8fafc; color: #0f172a; font-family: system-ui, sans-serif; line-height: 1.6; }
+      main { width: min(100% - 2rem, 44rem); margin: 0 auto; padding: 2rem 0 4rem; }
+      nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 3rem; }
+      img { width: 2.5rem; height: 2.5rem; object-fit: contain; }
+      h1 { margin: 0; font-size: clamp(2rem, 7vw, 4rem); line-height: 1; }
+      a { color: #089868; font-weight: 800; }
+      time { color: #64748b; }
+    </style>
   </head>
   <body>
-    <article>
-      <h1 data-t="${item.headline}">Post</h1>
-      <time data-t="${item.published_at}"></time>
-      <p data-t="${item.summary}"></p>
-      <div><slot name="item.html"></slot></div>
-    </article>
-    <p><a href="/blog/">← All posts</a></p>
+    <main>
+      <nav>
+        <a href="/"><img src="/public/statica-logo.png" alt="statica logo" /></a>
+        <a href="/blog/">All posts</a>
+      </nav>
+      <article>
+        <h1 data-t="${item.headline}">Post</h1>
+        <time data-t="${item.published_at}"></time>
+        <p data-t="${item.summary}"></p>
+        <div><slot name="item.html"></slot></div>
+      </article>
+    </main>
   </body>
 </html>

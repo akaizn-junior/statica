@@ -2,8 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>statica blog</title>
-    <link rel="stylesheet" href="/site.css" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/public/site.css" />
     <link
       rel="statica/font"
       href="@Google/?family=Outfit:wght@400;600&display=swap"
@@ -15,15 +22,30 @@
       id="button"
     />
   </head>
-  <body>
-    <h1>statica</h1>
-    <p>Funnel → pages.</p>
-    <p><a href="/blog/">Browse posts</a></p>
-    <p>
-      <a href="/en/about/">About</a>
-      ·
-      <a href="/pt/about/">Sobre</a>
-    </p>
-    <p><slot id="button">Read the blog</slot></p>
+  <body data-theme="light">
+    <main class="site-shell">
+      <nav class="site-nav" aria-label="Primary">
+        <a class="brand" href="/">
+          <img src="/public/statica-logo.png" alt="statica logo" />
+          <span>statica</span>
+        </a>
+        <div class="link-row">
+          <a href="/blog/">Posts</a>
+          <a href="/en/about/">About</a>
+          <a href="/pt/about/">Sobre</a>
+        </div>
+      </nav>
+
+      <section class="hero">
+        <h1>statica blog</h1>
+        <p class="lede">Funnel markdown into pages, pagination, fragments, i18n, RSS, sitemap, and forms.</p>
+        <p><slot id="button">Read the blog</slot></p>
+      </section>
+
+      <footer class="site-footer">
+        <span class="muted">© 2026 statica. Just HTML.</span>
+        <a href="https://github.com/akaizn-junior/statica">GitHub</a>
+      </footer>
+    </main>
   </body>
 </html>

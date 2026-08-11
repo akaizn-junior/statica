@@ -19,8 +19,8 @@
     <main class="site-shell dashboard-page">
       <nav class="topbar">
         <div class="brand">
-          <span class="brand-mark">A</span>
-          <a href="/">Apex Motors</a>
+          <img class="brand-logo" src="/public/statica-logo.png" alt="statica logo" />
+          <a href="/">statica dealer</a>
         </div>
         <div class="topbar-links">
           <a class="is-active" href="/">Dashboard</a>
@@ -36,7 +36,7 @@
       </nav>
       <header class="hero-panel">
         <div>
-          <p class="eyebrow">Dealership operations</p>
+          <img class="hero-logo" src="/public/statica-logo.png" alt="statica logo" />
           <h1>Inventory dashboard</h1>
           <p class="timestamp">Executive view of inventory health, demand mix, and gross margin.</p>
         </div>
@@ -98,8 +98,8 @@
       </div>
       <footer class="site-footer">
         <div class="brand">
-          <span class="brand-mark">A</span>
-          <a href="/">Apex Motors</a>
+          <img class="brand-logo" src="/public/statica-logo.png" alt="statica logo" />
+          <a href="/">statica dealer</a>
         </div>
         <nav>
           <a href="/inventory/">Inventory</a>
@@ -119,7 +119,7 @@
             }),
           );
 
-        const palette = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2"];
+        const palette = ["#089868", "#057451", "#14b8a6", "#84cc16", "#0f172a", "#64748b"];
         const gridColor = "#e2e8f0";
 
         const chartDefaults = {
@@ -155,7 +155,7 @@
               {
                 label: "Vehicles",
                 data: makes.map((point) => point.value),
-                backgroundColor: "#2563eb",
+                backgroundColor: "#089868",
                 borderRadius: 4,
               },
             ],
@@ -178,7 +178,7 @@
               {
                 label: "Average gross",
                 data: gross.map((point) => point.value),
-                backgroundColor: "#16a34a",
+                backgroundColor: "#057451",
                 borderRadius: 4,
               },
             ],

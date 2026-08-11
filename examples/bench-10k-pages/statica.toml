@@ -1,7 +1,7 @@
 site_url = "http://127.0.0.1:4350"
 out_dir = ".website"
 clean = true
-copy_assets = false
+copy_assets = true
 ignore_dirs = [".website", "dist", "target", ".git"]
 
 [sitemap]

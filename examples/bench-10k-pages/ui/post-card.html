@@ -1,4 +1,10 @@
 <template id="post-card" data-bind="{slug, headline, published_at, summary, author, category}">
+  <style>
+    article { border: 1px solid #dbe3df; border-radius: 8px; margin-top: 1rem; padding: 1rem; background: #fff; }
+    h2 { margin: 0; }
+    a { color: #089868; font-weight: 800; }
+    .meta { color: #64748b; font-size: 0.875rem; }
+  </style>
   <article>
     <h2><a href="./${slug}/" data-t="${headline}">Post</a></h2>
     <p class="meta">

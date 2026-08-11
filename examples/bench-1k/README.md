@@ -2,6 +2,8 @@
 
 Stress fixture: **1000** collection posts + home + blog index → **1002** pages.
 
+The pages use the shared scaffold-style statica logo from `public/statica-logo.png`; `copy_assets = true` keeps the visual fixture self-contained.
+
 ```bash
 # from repo root (release binary recommended)
 statica build examples/bench-1k

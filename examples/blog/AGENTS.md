@@ -8,6 +8,8 @@ This directory demonstrates every major statica feature: Markdown funnel, collec
 
 When unsure how to author something, **copy from here** before inventing patterns.
 
+The visual baseline follows the scaffold site: the real statica badge from `public/statica-logo.png`, green statica accents, daisyUI-friendly controls, and small custom CSS in `public/site.css`.
+
 ## Build
 
 ```bash
@@ -101,6 +103,7 @@ index = true
 ## When editing this fixture
 
 - Keep it minimal — one clear example per feature
+- Keep the scaffold-style statica logo/green visual language unless the example specifically demonstrates another brand
 - Run `cargo test -p statica builds_blog_fixture` after changes
 - Update `docs/guide.md` if you introduce a new authoring pattern
 - Keep funnel data in `content/`, fragments in `ui/`, and route pages as `**/index.html`

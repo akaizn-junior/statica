@@ -21,6 +21,8 @@ npm create statica@latest <NAME>
 
 `statica new` creates a small localized starter site with a centered logo, Guide and GitHub links, and English/French/Portuguese catalogs under `content/i18n/`. The npm create flow runs the same scaffold.
 
+Repository examples use the same visual baseline as the scaffold: real statica logo assets in `public/`, statica green accents, daisyUI-friendly controls, and valid HTML fragments/data links. Copy from `examples/blog` when you need a complete authoring reference.
+
 ## Project Layout
 
 ```text

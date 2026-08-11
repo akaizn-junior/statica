@@ -10,4 +10,6 @@ statica serve examples/bench-10k-pages
 
 Approx (release, Apple Silicon): run locally; `.website` generated under the example.
 
+The pages use the shared scaffold-style statica logo from `public/statica-logo.png`; `copy_assets = true` keeps the visual fixture self-contained.
+
 Nav uses first / prev / next / last only (full page-number lists are omitted when `total_pages > 200` to keep memory O(pages)).

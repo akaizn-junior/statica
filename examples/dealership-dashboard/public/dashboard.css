@@ -1,12 +1,13 @@
 :root {
   color-scheme: light;
   --ink: #050505;
-  --muted: #737373;
-  --line: #e5e5e5;
+  --muted: #64748b;
+  --line: #dbe3df;
   --paper: #ffffff;
-  --soft: #f7f7f4;
-  --wash: #eeeeea;
-  --lime: #d9ff00;
+  --soft: #f8fafc;
+  --wash: #eef7f2;
+  --green: #089868;
+  --green-dark: #057451;
   --dark: #050505;
 }
 
@@ -60,16 +61,10 @@ a {
   font-weight: 700;
 }
 
-.brand-mark {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border-radius: 9px;
-  background: var(--dark);
-  color: #fff;
-  font-size: 0.84rem;
-  font-weight: 900;
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
 }
 
 .brand a,
@@ -151,9 +146,21 @@ a {
 .hero-panel {
   display: grid;
   justify-items: center;
-  gap: 28px;
+  gap: 22px;
   margin: 64px auto 52px;
   text-align: center;
+}
+
+.hero-logo {
+  width: clamp(6rem, 16vw, 9rem);
+  height: clamp(6rem, 16vw, 9rem);
+  object-fit: contain;
+  filter: drop-shadow(0 1rem 1.8rem color-mix(in oklab, var(--green) 22%, transparent));
+}
+
+.compact-logo {
+  width: clamp(4.5rem, 12vw, 6.5rem);
+  height: clamp(4.5rem, 12vw, 6.5rem);
 }
 
 .hero-panel.compact {
@@ -199,7 +206,7 @@ h1 {
   min-height: 44px;
   border-radius: 999px;
   padding: 0 18px;
-  background: var(--dark);
+  background: var(--green);
   color: #fff;
   font-size: 0.9rem;
   font-weight: 750;
@@ -272,7 +279,7 @@ h1 {
   min-height: 0;
   padding: 26px;
   background:
-    radial-gradient(circle at 85% 18%, rgb(217 255 0 / 0.55), transparent 13rem),
+    radial-gradient(circle at 85% 18%, rgb(8 152 104 / 0.18), transparent 13rem),
     var(--wash);
 }
 
@@ -313,7 +320,7 @@ canvas {
   gap: 20px;
   padding: clamp(22px, 3vw, 38px);
   background:
-    radial-gradient(circle at 88% 18%, rgb(217 255 0 / 0.48), transparent 10rem),
+    radial-gradient(circle at 88% 18%, rgb(8 152 104 / 0.16), transparent 10rem),
     var(--soft);
 }
 
@@ -394,7 +401,7 @@ dd {
   min-height: 42px;
   border-radius: 999px;
   padding: 0 16px;
-  background: var(--dark);
+  background: var(--green);
   color: #fff;
   font-size: 0.9rem;
   font-weight: 750;
@@ -422,8 +429,8 @@ dd {
 
 .pagination a:hover,
 .pagination a[data-current="true"] {
-  border-color: var(--dark);
-  background: var(--dark);
+  border-color: var(--green-dark);
+  background: var(--green-dark);
   color: #fff;
 }
 

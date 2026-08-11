@@ -13,6 +13,8 @@ cd examples/blog && statica
 
 Demonstrates:
 
+- Scaffold-style statica branding with the real logo asset copied from `public/statica-logo.png`
+- daisyUI-friendly page structure and form controls, with small custom CSS in `public/site.css`
 - Markdown funnel content (`content/posts/*.md` via `<link rel="statica/data" href="…/posts/*.md">`)
 - Home page with a default-scoped button fragment script
 - Paginated listing (`blog/[page]/` → `blog/1/`, `blog/2/`, … via `[[pagination]]`)
@@ -22,4 +24,4 @@ Demonstrates:
 - Static forms (`<form statica>` + `[forms]` in `statica.toml`)
 - i18n (`[locale]/about/` + `data-t` catalogs in `content/i18n/`)
 - Sitemap + RSS (`site_url` + `[sitemap]` / `[rss]` in `statica.toml`)
-- Public assets copied from `public/` (e.g. `site.css`)
+- Public assets copied from `public/` (e.g. `site.css`, `statica-logo.png`)

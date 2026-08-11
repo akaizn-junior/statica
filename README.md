@@ -72,6 +72,8 @@ statica -h
 statica -v
 ```
 
+The example sites follow the scaffold style guide: logo-led statica branding, the two green brand colors, daisyUI-friendly HTML classes for interactive surfaces, and public assets copied from `public/`.
+
 ## CLI
 
 ```text
@@ -209,7 +211,9 @@ Keep content funnels build-time. Production output should not fetch site data at
 
 - `crates/statica-cli` — CLI (cwd/project resolve, config, SPECs, watch/serve, man pages)
 - `crates/statica` — discover → funnel → bind → scope → emit
-- `examples/blog` — dogfood fixture
+- `examples/blog` — dogfood fixture and canonical styled example
+- `examples/dealership-dashboard` — CSV/dashboard example using daisyUI and statica branding
+- `examples/bench-*` — stress fixtures with lightweight scaffold-style pages
 - `docs/` — guide + man pages
 
 ## License
