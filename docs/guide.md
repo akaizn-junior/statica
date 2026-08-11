@@ -18,6 +18,8 @@ statica new <NAME>          # scaffold
 
 `PATH` defaults to `.`. statica resolves it against the process cwd, walks up for `statica.toml`, then uses that directory as the site root. If `project` or `--project` is set, the site root is that subdirectory under the config directory.
 
+`statica new` creates a small localized starter site with a centered logo, Guide and GitHub links, and English/French/Portuguese catalogs under `content/i18n/`.
+
 ## Project Layout
 
 ```text

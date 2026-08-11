@@ -104,7 +104,7 @@ pub struct NewArgs {
         value_name = "NAME",
         help = "Directory / project name to create",
         long_help = "Name of the directory to create. Must not already exist.\n\
-Writes a starter site (pages, fragments, sample funnel JSON) and a documented `statica.toml`."
+Writes a localized starter page, i18n catalogs, and a documented `statica.toml`."
     )]
     pub name: String,
 }
@@ -228,8 +228,8 @@ Notes:
 const NEW_ABOUT: &str = "\
 Create a new project directory with a starter site and statica.toml.
 
-Scaffolds content/, ui/ fragments, listing and collection pages, and a
-documented config file with defaults.";
+Scaffolds a centered starter page with Guide and GitHub links, English,
+French, and Portuguese catalogs, and a documented config file with defaults.";
 
 const NEW_AFTER: &str = "\
 Examples:

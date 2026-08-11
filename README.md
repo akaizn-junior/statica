@@ -47,6 +47,8 @@ statica                 # build, watch, and serve cwd
 statica build           # one-off build
 ```
 
+`statica new` creates a small localized starter with a centered logo, Guide and GitHub links, and English/French/Portuguese catalogs.
+
 ```bash
 statica examples/blog
 cd examples/blog/content && statica   # watches the project found via ../statica.toml
