@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en" data-bind="{item}">
+  <head>
+    <meta charset="utf-8" />
+    <title data-t="${item.headline}">Post</title>
+    <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
+  </head>
+  <body>
+    <article>
+      <h1 data-t="${item.headline}">Post</h1>
+      <time data-t="${item.published_at}"></time>
+      <p data-t="${item.summary}"></p>
+      <div><slot name="item.html"></slot></div>
+    </article>
+    <p><a href="/blog/">← All posts</a></p>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Blog</title>
+    <link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
+    <link rel="statica/data" href="../content/posts/*.md" id="posts" />
+  </head>
+  <body>
+    <h1>All posts</h1>
+    <ul class="posts">
+      <slot id="post-card" data-each="posts"></slot>
+    </ul>
+  </body>
+</html>
