@@ -108,14 +108,131 @@ Two posts in → two folders out.
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>statica site</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>statica starter</title>
     <link rel="statica/fragment" type="text/html" href="./ui/button.html" id="button" />
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+      }
+      main {
+        width: min(100% - 2rem, 960px);
+        padding: 4rem 0;
+      }
+      .hero {
+        display: grid;
+        gap: 2rem;
+      }
+      .eyebrow {
+        color: #047857;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0.5rem 0 0;
+        max-width: 720px;
+        font-size: clamp(2.5rem, 8vw, 5.5rem);
+        line-height: 0.95;
+      }
+      .lead {
+        max-width: 620px;
+        color: #475569;
+        font-size: 1.125rem;
+        line-height: 1.7;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+      .link-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 1rem;
+        color: inherit;
+        text-decoration: none;
+        background: #fff;
+      }
+      .link-card strong {
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .link-card span {
+        color: #64748b;
+      }
+      .grid {
+        display: grid;
+        gap: 1rem;
+      }
+      .terminal {
+        border-radius: 0.75rem;
+        background: #0f172a;
+        color: #d1fae5;
+        padding: 1rem;
+        overflow-x: auto;
+      }
+      code {
+        font-family: "SFMono-Regular", Consolas, monospace;
+      }
+      @media (width >= 760px) {
+        .hero {
+          grid-template-columns: 1.1fr 0.9fr;
+          align-items: center;
+        }
+        .grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+    </style>
   </head>
   <body>
-    <h1>statica</h1>
-    <p>Funnel → pages.</p>
-    <p><a href="/blog/">Browse posts</a></p>
-    <p><slot id="button">Try scoped JS</slot></p>
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">statica starter</p>
+          <h1>Build your site with just HTML.</h1>
+          <p class="lead">
+            Edit <code>index.html</code>, add content in <code>content/</code>,
+            compose fragments from <code>ui/</code>, and ship plain static files.
+          </p>
+          <div class="actions">
+            <slot id="button">Try scoped JS</slot>
+            <a href="/blog/">Browse posts</a>
+          </div>
+        </div>
+        <pre class="terminal"><code>statica
+statica watch
+open .website/index.html</code></pre>
+      </section>
+
+      <section class="grid" aria-label="Next steps">
+        <a class="link-card" href="https://github.com/statica/statica/blob/main/docs/guide.md">
+          <strong>Read the guide</strong>
+          <span>Learn pages, fragments, data funnels, i18n, and deployable output.</span>
+        </a>
+        <a class="link-card" href="https://github.com/statica/statica">
+          <strong>Open the docs</strong>
+          <span>Find install notes, examples, and release details for statica.</span>
+        </a>
+        <a class="link-card" href="/blog/">
+          <strong>See generated content</strong>
+          <span>Two Markdown posts are already wired through a reusable fragment.</span>
+        </a>
+      </section>
+    </main>
   </body>
 </html>
 "#,
@@ -221,6 +338,9 @@ mod tests {
         let blog = fs::read_to_string(root.join(".website/blog/index.html")).unwrap();
         assert!(blog.contains("Hello world"));
         assert!(blog.contains("Funnel to pages"));
+        let home = fs::read_to_string(root.join(".website/index.html")).unwrap();
+        assert!(home.contains("Read the guide"));
+        assert!(home.contains("https://github.com/statica/statica/blob/main/docs/guide.md"));
 
         let _ = fs::remove_dir_all(root);
     }
