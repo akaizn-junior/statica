@@ -413,6 +413,15 @@ fn looped_fragments_keep_css_and_script_scoped_per_instance() {
         2,
         "{html}"
     );
+    assert_eq!(
+        html.matches("</article><script data-s-scope=").count(),
+        2,
+        "{html}"
+    );
+    assert!(
+        !html.contains("<script>const button=document.querySelector"),
+        "{html}"
+    );
     assert!(
         html.contains(".card[data-s=\"card-") || html.contains(".card[data-s=card-"),
         "{html}"
