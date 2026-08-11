@@ -16,7 +16,7 @@ statica examples/blog
 statica
 ```
 
-Output: `.dist/` (gitignored). Tests use `dist-test/`.
+Output: `.website/` (gitignored). Tests use `dist-test/`.
 
 ## Layout
 

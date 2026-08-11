@@ -99,7 +99,7 @@ Optional. Missing file → defaults. See [docs/guide.md](docs/guide.md) for the 
 
 ```toml
 project = ""                 # relative to this file; empty = here
-out_dir = ".dist"
+out_dir = ".website"
 site_url = ""                # needed for sitemap / RSS
 
 [process]
@@ -156,13 +156,13 @@ Use `--report-json [PATH]` to write the build report as JSON for benchmarks, CI,
 statica source is valid HTML. It uses normal `<template>`, `<slot>`, and `<link>` elements as build-time authoring primitives, so keep them where HTML allows them.
 
 ```text
-index.html                 → .dist/index.html
-404/index.html             → .dist/404/index.html
-posts/[slug]/index.html    → .dist/posts/{item.slug}/index.html
-blog/[page]/index.html     → .dist/blog/1/, blog/2/, …  ([[pagination]])
+index.html                 → .website/index.html
+404/index.html             → .website/404/index.html
+posts/[slug]/index.html    → .website/posts/{item.slug}/index.html
+blog/[page]/index.html     → .website/blog/1/, blog/2/, …  ([[pagination]])
 ```
 
-If the site does not define `404.html` or `404/index.html`, statica writes a default `.dist/404/index.html`. Custom 404 pages are normal source pages and always win. `statica serve` returns the 404 page with HTTP status `404` for missing paths.
+If the site does not define `404.html` or `404/index.html`, statica writes a default `.website/404/index.html`. Custom 404 pages are normal source pages and always win. `statica serve` returns the 404 page with HTTP status `404` for missing paths.
 
 ```html
 <link rel="statica/data" href="../content/posts.json" id="posts" />

@@ -272,7 +272,7 @@ mod tests {
         ));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("nested/deep")).unwrap();
-        fs::write(dir.join("statica.toml"), "out_dir = \".dist\"\n").unwrap();
+        fs::write(dir.join("statica.toml"), "out_dir = \".website\"\n").unwrap();
         dir
     }
 
@@ -293,7 +293,7 @@ mod tests {
         fs::write(site.join("index.html"), "<!doctype html><html></html>").unwrap();
         fs::write(
             root.join("statica.toml"),
-            "project = \"site\"\nout_dir = \".dist\"\n",
+            "project = \"site\"\nout_dir = \".website\"\n",
         )
         .unwrap();
         let cli = ConfigCli::default();
@@ -310,7 +310,7 @@ mod tests {
         fs::create_dir_all(&site).unwrap();
         fs::write(
             root.join("statica.toml"),
-            "project = \"missing\"\nout_dir = \".dist\"\n",
+            "project = \"missing\"\nout_dir = \".website\"\n",
         )
         .unwrap();
         let cli = ConfigCli {

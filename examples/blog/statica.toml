@@ -1,5 +1,5 @@
 site_url = "https://example.com"
-out_dir = ".dist"
+out_dir = ".website"
 clean = true
 copy_assets = true
 

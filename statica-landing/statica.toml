@@ -1,5 +1,5 @@
 project = ""
-out_dir = ".dist"
+out_dir = ".website"
 site_url = "https://akaizn-junior.github.io/statica/"
 clean = true
 copy_assets = true

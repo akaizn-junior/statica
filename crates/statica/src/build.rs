@@ -75,7 +75,7 @@ impl BuildOptions {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         let root = root.into();
         Self {
-            out_dir: root.join(".dist"),
+            out_dir: root.join(".website"),
             copy_assets: true,
             site_url: String::new(),
             sitemap: SitemapOptions::default(),
@@ -90,7 +90,7 @@ impl BuildOptions {
             clean: true,
             asset_dirs: vec!["public".into(), "assets".into(), "static".into()],
             ignore_dirs: vec![
-                ".dist".into(),
+                ".website".into(),
                 "dist".into(),
                 "target".into(),
                 ".git".into(),

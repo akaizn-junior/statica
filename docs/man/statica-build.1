@@ -1,6 +1,6 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH statica-build 1  "build 0.47.4" 
+.TH statica-build 1  "build 0.47.5" 
 .SH NAME
 statica\-build \- Build pages into the output directory
 .SH SYNOPSIS
@@ -10,7 +10,7 @@ Build pages into the output directory.
 .PP
 Discovers every **/index.html under PATH, loads funnels and fragments,
 renders pages (including [slug] collections and [[pagination]]), and writes
-HTML to out_dir (from statica.toml / flags, default .dist). If the built
+HTML to out_dir (from statica.toml / flags, default .website). If the built
 site has no 404.html or 404/index.html, statica writes a default
 404/index.html fallback.
 .SH OPTIONS
@@ -171,4 +171,4 @@ Notes:
   Pass \-\-process to enable [process] (kinds: css, js, images, fonts).
   Pass \-\-minify to enable [minify] (kinds: html, css, js).
 .SH VERSION
-v0.47.4
+v0.47.5

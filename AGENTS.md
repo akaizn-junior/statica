@@ -16,7 +16,7 @@ Instructions for AI coding agents working in this repository.
 | **Fragments** | Build-time HTML components imported with `<link rel="statica/fragment" ...>` |
 | **Binding** | Static replacement through `data-bind`, `data-t`, attributes, slots, and `data-each` |
 
-Pipeline: **discover → pre → parse → funnel → expand → bind → scope → emit → minify** (default output: `.dist/`)
+Pipeline: **discover → pre → parse → funnel → expand → bind → scope → emit → minify** (default output: `.website/`)
 
 This repo contains two things:
 

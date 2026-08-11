@@ -8,7 +8,7 @@ Product Hunt launch landing page for statica, built with statica itself and styl
 statica watch .
 ```
 
-`watch` builds, rebuilds on changes, and serves `.dist`. `statica serve .` only previews an already-built `.dist` directory.
+`watch` builds, rebuilds on changes, and serves `.website`. `statica serve .` only previews an already-built `.website` directory.
 
 ## i18n
 
@@ -44,12 +44,12 @@ statica .
 Expected output includes:
 
 ```text
-.dist/index.html
-.dist/en/index.html
-.dist/pt/index.html
-.dist/public/styles.css
+.website/index.html
+.website/en/index.html
+.website/pt/index.html
+.website/public/styles.css
 ```
 
 ## Deployment
 
-The repository GitHub Actions workflow builds with statica and publishes `statica-landing/.dist` to GitHub Pages. The landing source links CSS relatively as `../public/styles.css`, so styles work both locally and under the `/statica/` GitHub Pages project path.
+The repository GitHub Actions workflow builds with statica and publishes `statica-landing/.website` to GitHub Pages. The landing source links CSS relatively as `../public/styles.css`, so styles work both locally and under the `/statica/` GitHub Pages project path.

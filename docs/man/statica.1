@@ -1,6 +1,6 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH statica 1  "statica 0.47.4" 
+.TH statica 1  "statica 0.47.5" 
 .SH NAME
 statica \- statica \- Just HTML.
 .SH SYNOPSIS
@@ -11,7 +11,7 @@ statica \- Just HTML.
 A blazingly fast static site generator that builds on just HTML
 Transforms modern CSS to browser\-ready output.
 .PP
-Flow: discover → funnel → bind → scope → emit (default out_dir: .dist)
+Flow: discover → funnel → bind → scope → emit (default out_dir: .website)
 .PP
 With no subcommand, statica builds PATH (default: `.`):
   statica
@@ -194,7 +194,7 @@ Examples:
   statica build \-\-minify          Shrink HTML, CSS, JS in out_dir
   statica build \-\-render\-mode serial
   statica \-\-site\-url https://x.com \-\-rss
-  statica serve ./site            Preview .dist over HTTP
+  statica serve ./site            Preview .website over HTTP
   statica watch . \-\-port 8080     Watch, rebuild, serve on :8080
   statica new my\-site             Scaffold my\-site/ with statica.toml
 
@@ -216,4 +216,4 @@ Exit status:
 See also:
   docs/guide.md, man statica(1)
 .SH VERSION
-v0.47.4
+v0.47.5

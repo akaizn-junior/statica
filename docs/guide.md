@@ -37,11 +37,11 @@ my-site/
 Every `index.html` is a page. Folder path is the route.
 
 ```text
-index.html                 -> .dist/index.html
-about/index.html           -> .dist/about/index.html
-404/index.html             -> .dist/404/index.html
-posts/[slug]/index.html    -> .dist/posts/{slug}/index.html
-blog/[page]/index.html     -> .dist/blog/1/, .dist/blog/2/, ...
+index.html                 -> .website/index.html
+about/index.html           -> .website/about/index.html
+404/index.html             -> .website/404/index.html
+posts/[slug]/index.html    -> .website/posts/{slug}/index.html
+blog/[page]/index.html     -> .website/blog/1/, .website/blog/2/, ...
 ```
 
 ## Data
@@ -154,7 +154,7 @@ Page lookup order is: bound page data, declared data link ids, then no fallback.
 No route params. One input page writes one output page.
 
 ```text
-about/index.html -> .dist/about/index.html
+about/index.html -> .website/about/index.html
 ```
 
 ### 404 Pages
@@ -162,7 +162,7 @@ about/index.html -> .dist/about/index.html
 Missing-page output has two layers:
 
 - Author-defined 404: add `404/index.html` or `404.html` to the site. It is built like any other static page, so it can use fragments, data links, styles, assets, and minification.
-- Default 404: if neither `404/index.html` nor `404.html` exists in the built output, statica writes `.dist/404/index.html` with a small default page.
+- Default 404: if neither `404/index.html` nor `404.html` exists in the built output, statica writes `.website/404/index.html` with a small default page.
 
 The generated default 404 is a fallback artifact. It is not counted as an authored page in the build report and is not added to sitemap/RSS outputs. A custom 404 page is an authored page and takes precedence over the default.
 
@@ -349,7 +349,7 @@ statica writes `action` and `method="POST"`. It does not inject client JavaScrip
 Use `[locale]` in the route and enable `[i18n]`.
 
 ```text
-[locale]/about/index.html -> .dist/en/about/, .dist/pt/about/, ...
+[locale]/about/index.html -> .website/en/about/, .website/pt/about/, ...
 ```
 
 ```toml
@@ -435,7 +435,7 @@ js = true
 
 ## 404 Flow
 
-Builds always leave the output directory with a 404 target. Define `404/index.html` when the project needs a custom missing-page experience; otherwise statica writes a default `.dist/404/index.html`.
+Builds always leave the output directory with a 404 target. Define `404/index.html` when the project needs a custom missing-page experience; otherwise statica writes a default `.website/404/index.html`.
 
 For local preview, `statica serve` and `statica watch` use that built 404 target as the missing-path fallback and set the response status to `404`. Static hosts may have their own 404 discovery rules, but the generated files are plain HTML and can be deployed as-is.
 
@@ -455,11 +455,11 @@ statica scaffolds `public/manifest.webmanifest` if missing, copies it, and injec
 
 ```toml
 project = ""
-out_dir = ".dist"
+out_dir = ".website"
 clean = true
 copy_assets = true
 asset_dirs = ["public", "assets", "static"]
-ignore_dirs = [".dist", "dist", "target", ".git"]
+ignore_dirs = [".website", "dist", "target", ".git"]
 site_url = ""
 
 [preview]

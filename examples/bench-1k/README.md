@@ -35,9 +35,9 @@ PY
 | ------ | ----- |
 | Pages | 1002 (1000 posts + home + blog) |
 | Funnel JSON | ~244 KiB |
-| Output `.dist` | ~3.9 MiB |
+| Output `.website` | ~3.9 MiB |
 | Binary startup (`statica -v`) | ~0 ms wall |
-| Cold build (empty `.dist`, `clean=true`) | ~180–210 ms wall / ~160–200 ms reported |
+| Cold build (empty `.website`, `clean=true`) | ~180–210 ms wall / ~160–200 ms reported |
 | Warm full rebuild | ~160–250 ms |
 | Hot rebuild (`clean=false`) | ~90 ms wall / ~86 ms reported |
 | Per page (cold, wall) | ~0.17–0.21 ms |

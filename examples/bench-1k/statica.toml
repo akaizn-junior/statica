@@ -1,7 +1,7 @@
-out_dir = ".dist"
+out_dir = ".website"
 clean = true
 copy_assets = false
-ignore_dirs = [".dist", "dist", "target", ".git"]
+ignore_dirs = [".website", "dist", "target", ".git"]
 
 [preview]
 host = "127.0.0.1"

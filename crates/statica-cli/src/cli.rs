@@ -114,7 +114,7 @@ statica - Just HTML.
 A blazingly fast static site generator that builds on just HTML
 Transforms modern CSS to browser-ready output.
 
-Flow: discover → funnel → bind → scope → emit (default out_dir: .dist)
+Flow: discover → funnel → bind → scope → emit (default out_dir: .website)
 
 With no subcommand, statica builds PATH (default: `.`):
   statica
@@ -139,7 +139,7 @@ Examples:
   statica build --minify          Shrink HTML, CSS, JS in out_dir
   statica build --render-mode serial
   statica --site-url https://x.com --rss
-  statica serve ./site            Preview .dist over HTTP
+  statica serve ./site            Preview .website over HTTP
   statica watch . --port 8080     Watch, rebuild, serve on :8080
   statica new my-site             Scaffold my-site/ with statica.toml
 
@@ -166,7 +166,7 @@ Build pages into the output directory.
 
 Discovers every **/index.html under PATH, loads funnels and fragments,
 renders pages (including [slug] collections and [[pagination]]), and writes
-HTML to out_dir (from statica.toml / flags, default .dist). If the built
+HTML to out_dir (from statica.toml / flags, default .website). If the built
 site has no 404.html or 404/index.html, statica writes a default
 404/index.html fallback.";
 

@@ -410,12 +410,12 @@ impl Default for StaticaConfig {
     fn default() -> Self {
         Self {
             project: String::new(),
-            out_dir: ".dist".into(),
+            out_dir: ".website".into(),
             clean: true,
             copy_assets: true,
             asset_dirs: vec!["public".into(), "assets".into(), "static".into()],
             ignore_dirs: vec![
-                ".dist".into(),
+                ".website".into(),
                 "dist".into(),
                 "target".into(),
                 ".git".into(),
@@ -803,11 +803,11 @@ impl StaticaConfig {
 # project = "apps/docs"
 project = ""
 
-out_dir = ".dist"
+out_dir = ".website"
 clean = true
 copy_assets = true
 asset_dirs = ["public", "assets", "static"]
-ignore_dirs = [".dist", "dist", "target", ".git"]
+ignore_dirs = [".website", "dist", "target", ".git"]
 site_url = ""                  # e.g. "https://example.com" — needed for sitemap/RSS
 # 404/index.html or 404.html overrides the default generated 404 page.
 

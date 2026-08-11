@@ -187,10 +187,10 @@ mod tests {
         scaffold(&root, "starter").unwrap();
 
         let mut opts = BuildOptions::new(&root);
-        opts.out_dir = root.join(".dist");
+        opts.out_dir = root.join(".website");
         build(&opts).unwrap();
 
-        let blog = fs::read_to_string(root.join(".dist/blog/index.html")).unwrap();
+        let blog = fs::read_to_string(root.join(".website/blog/index.html")).unwrap();
         assert!(blog.contains("Hello world"));
         assert!(blog.contains("Funnel to pages"));
 
