@@ -1,6 +1,6 @@
 {
   "name": "@statica/cli-win32-x64",
-  "version": "0.47.5",
+  "version": "0.48.0",
   "description": "Prebuilt statica CLI binary for win32-x64",
   "license": "MIT",
   "type": "commonjs",
