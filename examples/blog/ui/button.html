@@ -14,8 +14,8 @@
   </style>
   <button class="btn" type="button"><slot>Click me</slot></button>
   <script type="module">
-    $.querySelector(".btn")?.addEventListener("click", () => {
-      $.host.dataset.pressed = "true";
+    document.querySelector(".btn")?.addEventListener("click", () => {
+      document.querySelector(".btn").dataset.pressed = "true";
     });
   </script>
 </template>

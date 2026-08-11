@@ -374,8 +374,8 @@ fn looped_fragments_keep_css_and_script_scoped_per_instance() {
     <strong id="title" data-t="${label}">Label</strong>
   </article>
   <script type="module">
-    $.querySelector(".card").setAttribute("data-ready", "true");
-    $.getElementById("title").setAttribute("data-title-ready", "true");
+    document.querySelector(".card").setAttribute("data-ready", "true");
+    document.getElementById("title").setAttribute("data-title-ready", "true");
   </script>
 </template>"#,
     )
@@ -402,9 +402,9 @@ fn looped_fragments_keep_css_and_script_scoped_per_instance() {
     assert_eq!(html.matches("<article").count(), 2, "{html}");
     assert_eq!(html.matches("<style>").count(), 1, "{html}");
     assert_eq!(html.matches("data-s-scope=\"card-").count(), 2, "{html}");
-    assert_eq!(html.matches("function __staticaScope").count(), 1, "{html}");
+    assert_eq!(html.matches("run: runScoped").count(), 1, "{html}");
     assert_eq!(
-        html.matches("const $ = __statica.scope").count(),
+        html.matches("function (document)").count(),
         2,
         "{html}"
     );

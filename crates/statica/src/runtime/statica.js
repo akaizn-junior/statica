@@ -1,8 +1,9 @@
 /**
  * statica.js — scoped DOM helpers for fragment actions.
  *
- * `$` scopes selectors to the fragment instance (`data-s="id-hash"`), then selects.
- * Not jQuery. Authors write `$.querySelector(".btn")`; build inlines this helper.
+ * Fragment scripts receive a scoped `document` object for the current
+ * fragment instance (`data-s="id-hash"`). Authors write normal DOM calls like
+ * `document.querySelector(".btn")`; build inlines this helper.
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -54,11 +55,19 @@
     }
 
     return {
+      body: document.body,
+      currentScript: scriptEl,
       host: host,
       querySelector: qs,
       querySelectorAll: qsa,
       addEventListener: function () {
         return host && host.addEventListener.apply(host, arguments);
+      },
+      createElement: function () {
+        return document.createElement.apply(document, arguments);
+      },
+      execCommand: function () {
+        return document.execCommand.apply(document, arguments);
       },
       getElementById: function (id) {
         return qs("#" + id);
@@ -66,9 +75,11 @@
     };
   }
 
+  function runScoped(scriptEl, scopeId, action) {
+    return action(createScope(scriptEl, scopeId));
+  }
+
   return {
-    scope: createScope,
-    /** @deprecated use scope() — kept for inlined build output */
-    __staticaScope: createScope,
+    run: runScoped,
   };
 });

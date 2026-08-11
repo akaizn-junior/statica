@@ -1,4 +1,4 @@
-//! CSS / JS fragment scoping (`data-s`) + `$` injection from `runtime/statica.js`.
+//! CSS / JS fragment scoping (`data-s`) + scoped fragment script runtime.
 
 mod css;
 mod js;
@@ -34,7 +34,7 @@ pub fn apply_scope_to_nodes(nodes: &mut [Node], scope_id: &str) {
     }
 }
 
-/// Rewrite fragment scripts that reference `$` to bind the inlined scope helper.
+/// Rewrite fragment scripts so `document` is scoped to the fragment instance.
 pub fn rewrite_scripts_in_nodes(nodes: &mut [Node], scope_id: &str) {
     for node in nodes {
         if let Node::Element(el) = node {
@@ -47,8 +47,8 @@ pub fn rewrite_scripts_in_nodes(nodes: &mut [Node], scope_id: &str) {
                         _ => None,
                     })
                     .collect::<String>();
-                if body.contains("$.") || body.contains("$(") || body.contains("__staticaScope") {
-                    if body.contains("__staticaScope") || body.contains("__statica.scope") {
+                if !body.trim().is_empty() {
+                    if body.contains("__statica.run") {
                         continue;
                     }
                     el.attrs.shift_remove("type"); // classic script so currentScript works
@@ -66,17 +66,11 @@ pub fn rewrite_scripts_in_nodes(nodes: &mut [Node], scope_id: &str) {
 pub fn dedupe_helpers_in_document(doc: &mut Document) {
     let mut seen = false;
     walk_scripts(&mut doc.children, &mut |el: &mut Element| {
-        let scope = el.attr("data-s-scope").unwrap_or("").to_string();
         if let Some(Node::Text(body)) = el.children.first_mut() {
-            if body.contains("function __staticaScope") || body.contains("__statica.scope") {
+            if body.contains("__statica.run") {
                 if seen {
-                    if let Some(idx) = body.find("(function (scriptEl)") {
+                    if let Some(idx) = body.find("__statica.run") {
                         *body = body[idx..].to_string();
-                    } else if let Some(idx) = body.find("const $ =") {
-                        *body = format!(
-                            "const $ = __statica.scope(document.currentScript, \"{scope}\");\n{}",
-                            &body[idx..]
-                        );
                     }
                 } else {
                     seen = true;

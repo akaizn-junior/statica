@@ -178,6 +178,7 @@ If the site does not define `404.html` or `404/index.html`, statica writes a def
 - Dynamic data `href` values use the same scoped attribute rules, so locale data uses paths like `href="../content/posts.${i18n.locale}.json"` after binding `{i18n}`
 - Fragment mount: `<slot id="fragment-id"></slot>` passes the current item/context
 - Fragment loop: `<slot id="fragment-id" data-each="items"></slot>` passes each item
+- Fragment scripts are scoped by default; inside a fragment `<script>`, `document.querySelector`, `document.querySelectorAll`, and `document.getElementById` search only that fragment instance
 - Page `data-bind` declares canonical roots such as `{item}`, `{page}`, `{data}`, or `{i18n}` before use
 - Data link IDs are directly available by `id`; they cannot be named `data`, `item`, `page`, or `i18n`
 - Collection: linked data + `[slug]`; current record is `item`

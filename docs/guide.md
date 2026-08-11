@@ -293,14 +293,15 @@ Inline `<style>` in pages and fragments is always transformed with lightningcss.
 
 Fragment CSS is scoped with a generated `data-s` attribute.
 
-Fragment scripts use `$` for the fragment instance.
+Fragment scripts are scoped to the fragment instance by default. Selector methods
+on `document` only search inside the current fragment instance.
 
 ```html
 <template id="button">
   <button class="btn"><slot>Go</slot></button>
   <script type="module">
-    $.querySelector(".btn")?.addEventListener("click", () => {
-      $.host.dataset.pressed = "true";
+    document.querySelector(".btn")?.addEventListener("click", () => {
+      document.querySelector(".btn").dataset.pressed = "true";
     });
   </script>
 </template>

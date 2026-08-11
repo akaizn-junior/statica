@@ -22,7 +22,7 @@
   </article>
 
   <script type="module">
-    const button = $('.copy-command');
+    const button = document.querySelector('.copy-command');
     const copyText = async (value) => {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(value);
