@@ -4,10 +4,10 @@
   "description": "Prebuilt statica CLI binary for darwin-x64",
   "license": "MIT",
   "type": "commonjs",
-  "homepage": "https://github.com/statica/statica",
+  "homepage": "https://github.com/akaizn-junior/statica",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/statica/statica.git",
+    "url": "git+https://github.com/akaizn-junior/statica.git",
     "directory": "npm/@statica/cli-darwin-x64"
   },
   "os": [

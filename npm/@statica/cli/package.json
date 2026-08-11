@@ -4,14 +4,14 @@
   "description": "statica — Powered HTML (CLI launcher for npm)",
   "license": "MIT",
   "type": "commonjs",
-  "homepage": "https://github.com/statica/statica",
+  "homepage": "https://github.com/akaizn-junior/statica",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/statica/statica.git",
+    "url": "git+https://github.com/akaizn-junior/statica.git",
     "directory": "npm/@statica/cli"
   },
   "bugs": {
-    "url": "https://github.com/statica/statica/issues"
+    "url": "https://github.com/akaizn-junior/statica/issues"
   },
   "keywords": [
     "ssg",

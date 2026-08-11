@@ -166,8 +166,8 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
       </div>
 
       <nav aria-label="Project links">
-        <a href="https://github.com/statica/statica/blob/main/docs/guide.md" data-t="${i18n.home.guide}">Guide</a>
-        <a href="https://github.com/statica/statica" data-t="${i18n.home.github}">Star on GitHub</a>
+        <a href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md" data-t="${i18n.home.guide}">Guide</a>
+        <a href="https://github.com/akaizn-junior/statica" data-t="${i18n.home.github}">Star on GitHub</a>
       </nav>
 
       <nav class="locales" aria-label="Languages">
@@ -249,7 +249,7 @@ mod tests {
         let home = fs::read_to_string(root.join(".website/en/index.html")).unwrap();
         assert!(home.contains("statica starter"));
         assert!(home.contains("../public/statica-logo.png"));
-        assert!(home.contains("https://github.com/statica/statica/blob/main/docs/guide.md"));
+        assert!(home.contains("https://github.com/akaizn-junior/statica/blob/main/docs/guide.md"));
         assert!(home.contains("Star on GitHub"));
         assert!(root.join(".website/public/statica-logo.png").exists());
         let fr = fs::read_to_string(root.join(".website/fr/index.html")).unwrap();
