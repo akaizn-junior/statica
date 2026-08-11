@@ -61,6 +61,31 @@ Two posts in → two folders out.
 "#,
     )?;
     write(
+        &root.join("ui/button.html"),
+        r#"<template id="button">
+  <style>
+    .btn {
+      background: #0f172a;
+      color: #fff;
+      border: 0;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+    .btn[data-pressed="true"] {
+      background: #0369a1;
+    }
+  </style>
+  <button class="btn" type="button"><slot>Click me</slot></button>
+  <script type="module">
+    document.querySelector(".btn")?.addEventListener("click", () => {
+      document.querySelector(".btn").dataset.pressed = "true";
+    });
+  </script>
+</template>
+"#,
+    )?;
+    write(
         &root.join("ui/post-card.html"),
         r#"<template id="post-card" data-bind="post">
   <style>
@@ -84,11 +109,13 @@ Two posts in → two folders out.
   <head>
     <meta charset="utf-8" />
     <title>statica site</title>
+    <link rel="statica/fragment" type="text/html" href="./ui/button.html" id="button" />
   </head>
   <body>
     <h1>statica</h1>
     <p>Funnel → pages.</p>
     <p><a href="/blog/">Browse posts</a></p>
+    <p><slot id="button">Try scoped JS</slot></p>
   </body>
 </html>
 "#,
@@ -152,6 +179,7 @@ Settings live in `statica.toml` (optional; defaults apply if missing).
 - Pages are every `**/index.html` (folder = route).
 - Data via `<link rel="statica/data" href id>`.
 - Fragments via `<link rel="statica/fragment" href id>` + `<template id>` + `<slot id>`.
+- Fragment scripts are scoped by default; `document.querySelector(...)` searches the mounted fragment instance.
 - Pages bind canonical roots such as `{{item}}`, `{{data}}`, `{{page}}`, or `{{i18n}}` before use.
 - Attributes and scalar text use dotted paths like `${{item.slug}}`; scalar text goes in `data-t="${{item.headline}}"`.
 "#

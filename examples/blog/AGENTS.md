@@ -77,13 +77,18 @@ sort_desc = true
 index = true
 ```
 
-### Fragment with scoped CSS
+### Fragment with scoped CSS and JS
 
 [`ui/post-card.html`](ui/post-card.html):
 
 - `<template id="post-card" data-bind="{slug, headline, …}">`
 - Modern nested CSS in `<style>`
 - `${slug}` in attributes, `data-t="${headline}"` for scalar text
+
+[`ui/button.html`](ui/button.html):
+
+- Fragment `<script type="module">` is scoped by default
+- `document.querySelector(".btn")` searches only inside the mounted button fragment instance
 
 ### i18n
 

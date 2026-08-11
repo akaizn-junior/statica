@@ -33,6 +33,8 @@ Translated feature and install-card records live directly in each locale catalog
 
 Fragments therefore receive only their explicit item context; they do not depend on inheriting the page's canonical `i18n` root.
 
+The install cards use default-scoped fragment scripts. Their copy buttons call `document.querySelector(".copy-command")`, and statica scopes that lookup to the mounted `install-card` instance during the build.
+
 The root `index.html` redirects to `./en/`. Locale-switch links are relative siblings (`../en/`, `../pt/`), so the site works locally and under GitHub Pages' `/statica/` project subpath.
 
 ## Build

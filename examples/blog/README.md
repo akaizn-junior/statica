@@ -14,7 +14,7 @@ cd examples/blog && statica
 Demonstrates:
 
 - Markdown funnel content (`content/posts/*.md` via `<link rel="statica/data" href="…/posts/*.md">`)
-- Home page with `$`-scoped button fragment
+- Home page with a default-scoped button fragment script
 - Paginated listing (`blog/[page]/` → `blog/1/`, `blog/2/`, … via `[[pagination]]`)
 - Collection pages (`posts/[slug]/`) from the posts Markdown glob
 - Related posts composed in Markdown data and rendered with `data-each="item.related"`

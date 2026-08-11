@@ -403,11 +403,7 @@ fn looped_fragments_keep_css_and_script_scoped_per_instance() {
     assert_eq!(html.matches("<style>").count(), 1, "{html}");
     assert_eq!(html.matches("data-s-scope=\"card-").count(), 2, "{html}");
     assert_eq!(html.matches("run: runScoped").count(), 1, "{html}");
-    assert_eq!(
-        html.matches("function (document)").count(),
-        2,
-        "{html}"
-    );
+    assert_eq!(html.matches("function (document)").count(), 2, "{html}");
     assert!(
         html.contains(".card[data-s=\"card-") || html.contains(".card[data-s=card-"),
         "{html}"
