@@ -40,6 +40,13 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
             StaticaConfig::default_toml()
         ),
     )?;
+    fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("logo/statica-badge-green.png"),
+        root.join("public/statica-logo.png"),
+    )
+    .with_context(|| format!("write {}", root.join("public/statica-logo.png").display()))?;
 
     write(
         &root.join("content/i18n/en.json"),
@@ -89,7 +96,7 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
       :root {
         color-scheme: light;
         font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          Karla, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
           "Segoe UI", sans-serif;
         background: #f8fafc;
         color: #0f172a;
@@ -99,6 +106,10 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
         min-height: 100vh;
         display: grid;
         place-items: center;
+        background-image:
+          linear-gradient(color-mix(in oklab, currentColor 4%, transparent) 1px, transparent 1px),
+          linear-gradient(90deg, color-mix(in oklab, currentColor 4%, transparent) 1px, transparent 1px);
+        background-size: 28px 28px;
       }
       main {
         display: grid;
@@ -113,13 +124,17 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
         gap: 1rem;
       }
       .logo-mark {
-        width: 5.5rem;
-        height: 5.5rem;
+        width: clamp(6rem, 18vw, 9rem);
+        height: clamp(6rem, 18vw, 9rem);
+        object-fit: contain;
+        filter: drop-shadow(0 1rem 1.8rem color-mix(in oklab, #089868 22%, transparent));
       }
       h1 {
         margin: 0;
         font-size: clamp(2rem, 8vw, 4.5rem);
         line-height: 1;
+        letter-spacing: -0.06em;
+        font-weight: 950;
       }
       nav {
         display: flex;
@@ -128,7 +143,7 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
         gap: 0.75rem;
       }
       a {
-        color: #047857;
+        color: #089868;
         font-weight: 700;
         text-decoration-thickness: 0.08em;
         text-underline-offset: 0.25em;
@@ -146,11 +161,7 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
   <body>
     <main>
       <div class="logo" aria-label="statica">
-        <svg class="logo-mark" viewBox="0 0 96 96" role="img" aria-label="statica logo">
-          <rect width="96" height="96" rx="24" fill="#0f172a"></rect>
-          <path d="M25 32h46M25 48h32M25 64h46" stroke="#f8fafc" stroke-linecap="round" stroke-width="8"></path>
-          <path d="M68 28l10 10-10 10M58 58l10 10-10 10" fill="none" stroke="#10b981" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"></path>
-        </svg>
+        <img class="logo-mark" src="../public/statica-logo.png" alt="statica logo" />
         <h1 data-t="${i18n.home.title}">statica starter</h1>
       </div>
 
@@ -237,8 +248,10 @@ mod tests {
 
         let home = fs::read_to_string(root.join(".website/en/index.html")).unwrap();
         assert!(home.contains("statica starter"));
+        assert!(home.contains("../public/statica-logo.png"));
         assert!(home.contains("https://github.com/statica/statica/blob/main/docs/guide.md"));
         assert!(home.contains("Star on GitHub"));
+        assert!(root.join(".website/public/statica-logo.png").exists());
         let fr = fs::read_to_string(root.join(".website/fr/index.html")).unwrap();
         assert!(fr.contains("starter statica"));
         let pt = fs::read_to_string(root.join(".website/pt/index.html")).unwrap();
