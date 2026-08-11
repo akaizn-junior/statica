@@ -143,7 +143,7 @@ locales = ["en"]
 | Images | oxipng + image |
 | Fonts | copied as-is |
 
-Inline `<style>` (pages + fragments) is always transformed. Linked `.css` under `asset_dirs` is transformed when `[process].css` is on. Enable `[minify]` / `--minify` for a final pass on emitted HTML, CSS, and JS (including inline `<style>` / `<script>`).
+Inline `<style>` (pages + fragments) is always transformed. Linked `.css` under `asset_dirs` is transformed when `[process].css` is on. Enable `[minify]` / `--minify` for a final pass on emitted HTML, CSS, and linked JS; inline scripts are preserved so scoped fragment behavior stays exact.
 
 Set `[performance].render_mode` to `auto`, `serial`, or `parallel`. `serial` avoids rayon for page rendering; `parallel` always uses rayon; `auto` uses statica's default page-render profile. Use `render_threads = 0` for the default worker count, or set `--render-threads N` to cap parallel page rendering.
 

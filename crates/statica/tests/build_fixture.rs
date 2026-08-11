@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use statica::{build, rebuild_paths, BuildOptions};
+use statica::{build, rebuild_paths, BuildOptions, MinifyOptions};
 
 fn add_google_font_alias(opts: &mut BuildOptions) {
     opts.aliases.urls.insert(
@@ -396,14 +396,23 @@ fn looped_fragments_keep_css_and_script_scoped_per_instance() {
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
     opts.clean = true;
+    opts.minify = MinifyOptions {
+        enabled: true,
+        ..MinifyOptions::default()
+    };
     build(&opts).expect("build");
 
     let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
     assert_eq!(html.matches("<article").count(), 2, "{html}");
     assert_eq!(html.matches("<style>").count(), 1, "{html}");
-    assert_eq!(html.matches("data-s-scope=\"card-").count(), 2, "{html}");
+    assert_eq!(html.matches("data-s-scope=").count(), 2, "{html}");
     assert_eq!(html.matches("run: runScoped").count(), 1, "{html}");
     assert_eq!(html.matches("function (document)").count(), 2, "{html}");
+    assert_eq!(
+        html.matches("__statica.run(document.currentScript").count(),
+        2,
+        "{html}"
+    );
     assert!(
         html.contains(".card[data-s=\"card-") || html.contains(".card[data-s=card-"),
         "{html}"

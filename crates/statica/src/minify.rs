@@ -170,7 +170,11 @@ fn minify_file(
 pub fn minify_html(source: &str, opts: &MinifyOptions) -> String {
     let cfg = minify_html::Cfg {
         minify_css: opts.css,
-        minify_js: opts.js,
+        // Inline fragment scripts may contain statica's scoped runtime wrapper.
+        // minify-html's JavaScript pass can inline that wrapper and turn scoped
+        // `document.querySelector(...)` calls back into global document lookups.
+        // Linked JavaScript files still go through `minify_js`.
+        minify_js: false,
         ..minify_html::Cfg::default()
     };
     let bytes = minify_html::minify(source.as_bytes(), &cfg);

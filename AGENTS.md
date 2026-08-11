@@ -282,7 +282,7 @@ Nested item pages bind `{page, item}`. The `[page]` segment comes from paginatio
 - Fragment `<script>` runs with scoped `document` selector methods by default. Inside a fragment script, `document.querySelector`, `document.querySelectorAll`, and `document.getElementById` search only the current fragment instance. Production builds inline the helper.
 - Inline `<style>` in pages and fragments is always transformed.
 - Linked `.css` under asset dirs is transformed only when `[process].css` / `--process css=true` is enabled.
-- Final output minification is controlled by `[minify]` / `--minify` for emitted HTML, CSS, and JS, including inline `<style>` / `<script>`.
+- Final output minification is controlled by `[minify]` / `--minify` for emitted HTML, CSS, and linked JS. Inline scripts are preserved so scoped fragment behavior stays exact.
 
 ### Styling statica sites with daisyUI
 
