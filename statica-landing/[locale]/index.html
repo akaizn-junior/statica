@@ -14,6 +14,8 @@
   <link rel="alternate" hreflang="pt" href="../pt/" />
   <link rel="alternate" hreflang="x-default" href="../en/" />
   <link rel="canonical" href="https://akaizn-junior.github.io/statica/${i18n.locale}/" />
+  <link rel="icon" type="image/png" href="../public/statica-logo.png" />
+  <link rel="apple-touch-icon" href="../public/statica-logo.png" />
   <title data-t="${i18n.meta.title}">statica — Just HTML.</title>
 
   <link rel="statica/fragment" type="text/html" href="../ui/feature-card.html" id="feature-card" />
@@ -21,6 +23,9 @@
 
   <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
   <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../public/styles.css" />
 </head>
 <body>
@@ -28,7 +33,7 @@
     <div class="navbar shell">
       <div class="navbar-start">
         <a class="brand" href="#top" aria-label="statica home">
-          <span class="brand-mark" aria-hidden="true">&lt;/&gt;</span>
+          <img class="brand-mark" src="../public/statica-logo.png" alt="" aria-hidden="true" />
           <span>statica</span>
         </a>
       </div>
@@ -223,7 +228,7 @@
 
   <footer class="footer shell site-footer">
     <aside>
-      <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">&lt;/&gt;</span><span>statica</span></a>
+      <a class="brand" href="#top"><img class="brand-mark" src="../public/statica-logo.png" alt="" aria-hidden="true" /><span>statica</span></a>
       <p data-t="${i18n.footer.tagline}">Just HTML.</p>
     </aside>
     <nav>

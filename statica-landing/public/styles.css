@@ -1,11 +1,13 @@
 :root {
   --site-max: 1180px;
   --site-gutter: clamp(1rem, 4vw, 2rem);
+  font-family: "Karla", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 html { scroll-behavior: smooth; }
 body {
   min-height: 100vh;
+  font-family: "Karla", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background-image:
     linear-gradient(color-mix(in oklab, currentColor 4%, transparent) 1px, transparent 1px),
     linear-gradient(90deg, color-mix(in oklab, currentColor 4%, transparent) 1px, transparent 1px);
@@ -37,14 +39,11 @@ body {
   text-decoration: none;
 }
 .brand-mark {
-  display: grid;
-  place-items: center;
   width: 2.25rem;
+  height: 2.25rem;
   aspect-ratio: 1;
-  border-radius: .65rem;
-  background: var(--color-primary);
-  color: var(--color-primary-content);
-  font: 800 .75rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  object-fit: contain;
+  filter: drop-shadow(0 .35rem .8rem color-mix(in oklab, var(--color-primary) 28%, transparent));
 }
 
 .hero-launch { min-height: 78vh; }
