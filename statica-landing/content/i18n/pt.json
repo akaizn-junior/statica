@@ -56,13 +56,16 @@
   "platform": {
     "badge": "Não é só para blogs",
     "title": "Se a web consegue fazer, o teu site statica também consegue.",
-    "body": "statica não impõe um runtime frontend. Constrói um explorador interativo de API a partir de OpenAPI JSON, documentação, catálogos, dashboards ou um pequeno site de cinco páginas. Em runtime, é simplesmente a plataforma web.",
-    "explorer": "Explorador interativo de API"
+    "body": "statica não impõe um runtime frontend. Transforma ficheiros estruturados em experiências web reais: blogs, exploradores de API, dashboards de folhas de cálculo, catálogos de produtos ou um pequeno site de cinco páginas. Em runtime, é simplesmente a plataforma web.",
+    "explorer": "Explorador interativo de API",
+    "dashboard": "Dashboard estilo Excel",
+    "catalog": "Catálogo de produtos",
+    "blog": "Blog"
   },
   "install": {
-    "eyebrow": "Começar",
-    "title": "O teu próximo site pode ser apenas um site.",
-    "body": "Escolhe como instalar, cria um site e depois executa statica watch.",
+    "eyebrow": "Instalar",
+    "title": "Instala statica na tua plataforma.",
+    "body": "Usa npm, Homebrew ou Cargo para obter a mesma CLI nativa do statica, depois cria e executa um site a partir de qualquer shell.",
     "github": "Dá uma estrela ao statica no GitHub ↗",
     "guide": "Ler o guia completo →"
   },
@@ -74,7 +77,7 @@
     {
       "eyebrow": "Funnel",
       "title": "HTML orientado por dados",
-      "body": "Liga JSON, JSONL, CSV, Markdown, texto ou globs como dados de build. Não é necessário buscar conteúdo em runtime."
+      "body": "Liga JSON, JSONL, CSV, Markdown ou texto como dados de build. Não é necessário buscar conteúdo em runtime."
     },
     {
       "eyebrow": "Rotas",
@@ -104,20 +107,32 @@
   ],
   "install_items": [
     {
-      "label": "Homebrew",
+      "label": "npm",
+      "command": "npm i -g @statica/cli",
+      "copy": "Copiar comando",
+      "copied": "Copiado"
+    },
+    {
+      "label": "homebrew",
       "command": "brew tap akaizn-junior/statica && brew install statica",
       "copy": "Copiar comando",
       "copied": "Copiado"
     },
     {
-      "label": "Cargo",
+      "label": "cargo",
       "command": "cargo install statica-cli --locked",
       "copy": "Copiar comando",
       "copied": "Copiado"
     },
     {
-      "label": "npm",
-      "command": "npm i -D @statica/cli",
+      "label": "novo site",
+      "command": "statica new hello-statica",
+      "copy": "Copiar comando",
+      "copied": "Copiado"
+    },
+    {
+      "label": "servir",
+      "command": "cd hello-statica && statica watch",
       "copy": "Copiar comando",
       "copied": "Copiado"
     }

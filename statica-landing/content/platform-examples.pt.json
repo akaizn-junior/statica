@@ -1,0 +1,18 @@
+[
+  {
+    "in": "posts/*.md",
+    "out": "Blog"
+  },
+  {
+    "in": "openapi.json",
+    "out": "Explorador interativo de API"
+  },
+  {
+    "in": "spreadsheet.csv",
+    "out": "Dashboard estilo Excel"
+  },
+  {
+    "in": "products.json",
+    "out": "Catálogo de produtos"
+  }
+]

@@ -1,0 +1,29 @@
+<template id="hero-section" data-bind="{i18n}">
+  <section class="hero hero-launch">
+    <div class="hero-content shell hero-layout">
+      <div class="hero-copy">
+        <h1><span data-t="${i18n.hero.just}">Just</span> <em>HTML.</em><br /><span data-t="${i18n.hero.nothing_more}">Nothing more.</span></h1>
+        <p data-t="${i18n.hero.body}">statica is a blazingly fast static site generator that builds on just HTML. Your source is HTML. Your output is HTML. Everything in between is build time.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="#install" data-t="${i18n.hero.start}">Start building</a>
+          <a class="btn btn-ghost btn-lg" href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md" data-t="${i18n.hero.guide}">Read the guide →</a>
+        </div>
+      </div>
+
+      <div class="code-window hero-code" aria-label="statica quick start">
+        <div class="code-window-bar">
+          <span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span>
+          <span class="code-window-title">~/hello-statica</span>
+          <span class="badge badge-ghost badge-sm">shell</span>
+        </div>
+        <div class="terminal-lines" role="presentation">
+          <div class="terminal-line"><span class="prompt">$</span><code>npm i -g @statica/cli</code></div>
+          <div class="terminal-line"><span class="prompt">$</span><code>statica new hello-statica</code></div>
+          <div class="terminal-line"><span class="prompt">$</span><code>cd hello-statica</code></div>
+          <div class="terminal-line"><span class="prompt">$</span><code>statica watch</code></div>
+          <div class="terminal-line terminal-result"><span class="prompt">✓</span><code data-t="${i18n.hero.built}">Built with just HTML.</code></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</template>

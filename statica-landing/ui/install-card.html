@@ -1,29 +1,59 @@
+<link rel="statica/fragment" type="text/html" href="./icon-copy.html" id="icon-copy" />
+
 <template id="install-card" data-bind="{label, command, copy, copied}">
   <article class="card install-card bg-base-200 border border-base-300">
     <div class="card-body">
-      <span class="badge badge-ghost" data-t="${label}">Install</span>
       <div class="code-window install-code">
         <div class="code-window-bar compact">
           <span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span>
           <span class="code-window-title" data-t="${label}">Install</span>
         </div>
         <div class="terminal-lines compact">
-          <div class="terminal-line"><span class="prompt">$</span><code data-t="${command}">install statica</code></div>
+          <div class="terminal-line terminal-line-copy">
+            <span class="prompt">$</span>
+            <code data-t="${command}">install statica</code>
+            <button class="btn btn-xs btn-ghost btn-square tooltip tooltip-left copy-command" type="button" data-tip="${copy}" data-copy="${command}" data-label="${copy}" data-copied="${copied}" aria-label="${copy}">
+              <slot id="icon-copy"></slot>
+            </button>
+          </div>
         </div>
       </div>
-      <button class="btn btn-sm btn-ghost copy-command" type="button" data-copy="${command}" data-copied="${copied}" data-t="${copy}">Copy command</button>
     </div>
   </article>
 
   <script type="module">
     const button = $('.copy-command');
+    const copyText = async (value) => {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return;
+      }
+
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.append(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+    };
+
     button?.addEventListener('click', async () => {
       const command = button.dataset.copy;
       if (!command) return;
-      await navigator.clipboard.writeText(command);
-      const previous = button.textContent;
-      button.textContent = button.dataset.copied || 'Copied';
-      setTimeout(() => { button.textContent = previous; }, 1200);
+      await copyText(command);
+      const previousLabel = button.getAttribute('aria-label') || button.dataset.label || 'Copy command';
+      const copiedLabel = button.dataset.copied || 'Copied';
+      button.setAttribute('aria-label', copiedLabel);
+      button.dataset.tip = copiedLabel;
+      button.classList.add('is-copied');
+      setTimeout(() => {
+        button.setAttribute('aria-label', previousLabel);
+        button.dataset.tip = previousLabel;
+        button.classList.remove('is-copied');
+      }, 1200);
     });
   </script>
 </template>

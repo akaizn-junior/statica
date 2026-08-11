@@ -1,0 +1,11 @@
+<link rel="statica/fragment" type="text/html" href="./feature-card.html" id="feature-card" />
+
+<template id="features-section" data-bind="{i18n, catalog}">
+  <section class="section shell">
+    <div class="section-heading narrow-heading">
+      <h2 data-t="${i18n.features.title}">Enough power to build real sites.</h2>
+      <p data-t="${i18n.features.body}">These cards are not hard-coded. This very page funnels locale-specific JSON into a reusable statica fragment.</p>
+    </div>
+    <div class="feature-grid"><slot id="feature-card" data-each="catalog.feature_items"></slot></div>
+  </section>
+</template>

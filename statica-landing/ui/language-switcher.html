@@ -1,0 +1,14 @@
+<link rel="statica/fragment" type="text/html" href="./icon-language.html" id="icon-language" />
+
+<template id="language-switcher" data-bind="{i18n}">
+  <div class="dropdown dropdown-end language-switcher">
+    <button class="btn btn-sm btn-ghost" type="button" tabindex="0" aria-label="Language">
+      <slot id="icon-language"></slot>
+      <span data-t="${i18n.locale_label}">EN</span>
+    </button>
+    <ul class="dropdown-content menu bg-base-200 rounded-box z-30 mt-2 w-40 border border-base-300 p-2 shadow-xl" tabindex="0">
+      <li><a href="../en/">English</a></li>
+      <li><a href="../pt/">Português</a></li>
+    </ul>
+  </div>
+</template>

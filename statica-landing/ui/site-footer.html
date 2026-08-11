@@ -1,0 +1,16 @@
+<link rel="statica/fragment" type="text/html" href="./language-switcher.html" id="language-switcher" />
+
+<template id="site-footer" data-bind="{i18n}">
+  <footer class="footer shell site-footer">
+    <aside>
+      <a class="brand" href="#top"><img class="brand-mark" src="../public/statica-logo.png" alt="" aria-hidden="true" /><span>statica</span></a>
+      <p data-t="${i18n.footer.tagline}">Just HTML.</p>
+    </aside>
+    <nav>
+      <a class="link link-hover" href="https://github.com/akaizn-junior/statica">GitHub</a>
+      <a class="link link-hover" href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md" data-t="${i18n.footer.guide}">Guide</a>
+      <a class="link link-hover" href="https://github.com/akaizn-junior/statica/blob/main/LICENSE">MIT</a>
+      <slot id="language-switcher"></slot>
+    </nav>
+  </footer>
+</template>

@@ -1,0 +1,25 @@
+<template id="how-section" data-bind="{i18n}">
+  <section id="how" class="section shell">
+    <div class="section-heading">
+      <h2 data-t="${i18n.how.title}">HTML in. HTML out.</h2>
+    </div>
+    <ul class="timeline timeline-vertical process-timeline">
+      <li>
+        <div class="timeline-start timeline-box process-step"><strong data-t="${i18n.how.author_title}">Author</strong><span data-t="${i18n.how.author_body}">Write valid HTML. Link data and fragments only where you need them.</span></div>
+        <div class="timeline-middle timeline-dot bg-primary"></div>
+        <hr class="bg-primary" />
+      </li>
+      <li>
+        <hr class="bg-primary" />
+        <div class="timeline-middle timeline-dot bg-accent"></div>
+        <div class="timeline-end timeline-box process-step"><strong data-t="${i18n.how.build_title}">Build</strong><span>discover → funnel → emit.</span></div>
+        <hr class="bg-accent" />
+      </li>
+      <li>
+        <hr class="bg-accent" />
+        <div class="timeline-start timeline-box process-step"><strong data-t="${i18n.how.ship_title}">Ship</strong><span data-t="${i18n.how.ship_body}">Deploy plain HTML, CSS, and JavaScript anywhere static files can live.</span></div>
+        <div class="timeline-middle timeline-dot bg-success"></div>
+      </li>
+    </ul>
+  </section>
+</template>

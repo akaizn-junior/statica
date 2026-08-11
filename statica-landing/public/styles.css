@@ -4,6 +4,14 @@
   font-family: "Karla", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+[data-theme="business"] {
+  --color-primary: #089868;
+  --color-primary-content: #ffffff;
+  --color-accent: #20c058;
+  --color-accent-content: #07130d;
+  --color-success: #20c058;
+}
+
 html { scroll-behavior: smooth; }
 body {
   min-height: 100vh;
@@ -106,6 +114,8 @@ body {
 .platform-card p { max-width: 760px; font-size: 1.1rem; line-height: 1.75; color: color-mix(in oklab, currentColor 68%, transparent); }
 .section-lead { font-size: clamp(1.35rem, 2.5vw, 1.8rem) !important; color: currentColor !important; }
 .section-heading { margin-bottom: 2.5rem; }
+.section-heading,
+.narrow-heading { text-align: left; }
 .narrow-heading { max-width: 850px; }
 
 .compare-grid,
@@ -114,6 +124,9 @@ body {
   display: grid;
   gap: 1rem;
 }
+.compare-grid,
+.feature-grid,
+.install-grid { grid-template-columns: 1fr; }
 .compare-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .compare-card .card-body { gap: 1.5rem; }
 .compare-head { display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
@@ -122,14 +135,20 @@ body {
 .muted-code { opacity: .65; }
 .statica-card { box-shadow: 0 20px 55px color-mix(in oklab, var(--color-primary) 16%, transparent); }
 
-.process-steps { width: 100%; margin-top: 3rem; }
-.step-copy { display: grid; gap: .55rem; max-width: 260px; text-align: left; }
-.step-copy strong { font-size: 1.1rem; }
-.step-copy span { line-height: 1.55; opacity: .65; }
+.process-timeline { width: 100%; margin-top: 3rem; }
+.process-timeline li { min-height: 9rem; }
+.process-step { display: grid; gap: .55rem; width: min(100%, 520px); text-align: left; }
+.process-step strong { font-size: 1.1rem; }
+.process-step span { line-height: 1.55; opacity: .72; }
+.timeline-dot {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  box-shadow: 0 0 0 .35rem color-mix(in oklab, currentColor 14%, transparent);
+}
 
-.feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .feature-card { height: 100%; }
-.feature-card .card-body { min-height: 250px; }
+.feature-card .card-body { min-height: 0; }
 .feature-card .card-title { margin-top: auto; font-size: 1.3rem; }
 .feature-card p { color: color-mix(in oklab, currentColor 65%, transparent); line-height: 1.6; }
 
@@ -137,20 +156,35 @@ body {
 .platform-card { overflow: hidden; }
 .platform-body {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+  grid-template-columns: 1fr;
   gap: clamp(2rem, 7vw, 6rem);
-  align-items: center;
+  align-items: start;
   padding: clamp(2rem, 6vw, 5rem);
 }
 .platform-card h2 { margin-top: 1.25rem; }
-.flow-diagram { display: grid; justify-items: center; gap: .75rem; }
-.flow-node { width: min(100%, 280px); height: auto; padding: .9rem 1rem; white-space: normal; text-align: center; }
+.flow-diagram {
+  display: grid;
+  gap: .85rem;
+}
+.flow-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(7rem, .45fr) auto minmax(0, 1fr);
+  gap: .65rem;
+  align-items: center;
+}
+.flow-node {
+  width: 100%;
+  height: auto;
+  padding: .9rem 1rem;
+  white-space: normal;
+  text-align: center;
+}
 
-.install-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .install-card { height: 100%; }
 .install-code { margin-top: auto; min-height: 110px; }
 .install-code pre { white-space: pre-wrap; overflow-wrap: anywhere; }
-.copy-command { align-self: flex-start; }
+.copy-icon { width: 1.1rem; height: 1.1rem; }
+.copy-command.is-copied { color: var(--color-success); }
 .launch-actions { margin-top: 2rem; }
 
 .site-footer {
@@ -168,26 +202,33 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monos
   .platform-body,
   .split-section { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .install-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 680px) {
   .hero-layout { padding-block: 4rem; }
   .hero-copy h1 { font-size: clamp(3.2rem, 17vw, 5rem); }
   .hero-actions .btn, .launch-actions .btn { width: 100%; }
-  .stats-grid,
   .compare-grid,
-  .feature-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: 1fr; }
   .compare-code { min-height: auto; }
-  .process-steps { align-items: flex-start; }
+  .process-timeline .timeline-start,
+  .process-timeline .timeline-end { justify-self: stretch; }
+  .process-step { width: 100%; }
   .site-footer { align-items: flex-start; gap: 2rem; }
   .site-footer nav { flex-wrap: wrap; }
+  .flow-row { grid-template-columns: 1fr; justify-items: stretch; }
+  .flow-row span { text-align: center; transform: rotate(90deg); }
 }
 
 /* Polished code surfaces: keep daisyUI for structure, give code its own visual language. */
 .header-actions { gap: .35rem; }
 .language-switcher .dropdown-content { backdrop-filter: blur(16px); }
+.language-icon { width: 1rem; height: 1rem; }
+.github-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #fff;
+}
 
 .hero-copy h1 em {
   color: var(--color-primary);
@@ -287,11 +328,57 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monos
   border-color: color-mix(in oklab, var(--color-primary) 35%, rgba(255,255,255,.12));
   box-shadow: 0 18px 44px rgba(0,0,0,.22);
 }
-.syn-tag { color: #7dd3fc; }
+.syn-tag { color: #20c058; }
 .syn-attr { color: #f0abfc; }
 .syn-string { color: #86efac; }
 .syn-key { color: #c4b5fd; }
 .syn-punc { color: #94a3b8; }
+.code-marker {
+  position: relative;
+  display: inline-block;
+  border-radius: .28rem;
+  padding-inline: .18rem;
+  outline: 1px solid transparent;
+  animation-duration: 3.2s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+.marker-posts {
+  --marker-color: #20c058;
+  animation-name: marker-posts;
+}
+.marker-fragment {
+  --marker-color: #f2c94c;
+  animation-name: marker-fragment;
+}
+.marker-target { animation-delay: .8s; }
+.code-marker::after {
+  content: "";
+  position: absolute;
+  inset: -.38rem;
+  border: 2px solid var(--marker-color);
+  border-radius: .48rem;
+  opacity: 0;
+  pointer-events: none;
+  animation: marker-ring 3.2s ease-in-out infinite;
+}
+.marker-target::after { animation-delay: .8s; }
+
+@keyframes marker-posts {
+  0%, 18%, 100% { background: transparent; outline-color: transparent; }
+  24%, 46% { background: color-mix(in oklab, #20c058 30%, transparent); outline-color: #20c058; }
+}
+
+@keyframes marker-fragment {
+  0%, 48%, 100% { background: transparent; outline-color: transparent; }
+  54%, 76% { background: color-mix(in oklab, #f2c94c 34%, transparent); outline-color: #f2c94c; }
+}
+
+@keyframes marker-ring {
+  0%, 18%, 100% { opacity: 0; transform: scale(.94); }
+  24%, 40% { opacity: .9; transform: scale(1); }
+  52% { opacity: 0; transform: scale(1.08); }
+}
 
 .install-code {
   margin-top: auto;
@@ -300,8 +387,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monos
   box-shadow: none;
 }
 .install-code .terminal-line { min-height: 3.3rem; align-items: center; }
+.install-code .terminal-line-copy { grid-template-columns: 2rem minmax(0, 1fr) 2rem; }
+.install-code .copy-command { justify-self: end; color: rgba(231,234,240,.72); }
+.install-code .copy-command:hover,
+.install-code .copy-command:focus-visible,
+.install-code .copy-command.is-copied { color: var(--color-success); }
 .install-card .card-body { gap: 1rem; }
-.copy-command { align-self: flex-start; }
 
 @media (max-width: 680px) {
   .github-button { display: none; }

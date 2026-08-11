@@ -30,7 +30,7 @@
   "idea": {
     "eyebrow": "The idea",
     "title": "The web already has a language.",
-    "lead": "Static site generators keep inventing another one. statica doesn’t.",
+    "lead": "Static site generators keep inventing another one. statica doesn't.",
     "body": "Use HTML for structure, CSS for style, JavaScript for behavior, and structured data when you need to generate content. statica handles the build, then gets out of the way."
   },
   "compare": {
@@ -56,13 +56,16 @@
   "platform": {
     "badge": "Not just blogs",
     "title": "If the web can do it, your statica site can do it.",
-    "body": "statica does not impose a frontend runtime. Build an interactive API explorer from OpenAPI JSON, documentation, catalogs, dashboards, or a tiny five-page site. At runtime, it is simply the web platform.",
-    "explorer": "Interactive API explorer"
+    "body": "statica does not impose a frontend runtime. Turn structured files into real web experiences: blogs, API explorers, spreadsheet dashboards, product catalogs, or a tiny five-page site. At runtime, it is simply the web platform.",
+    "explorer": "Interactive API explorer",
+    "dashboard": "Excel-style dashboard",
+    "catalog": "Product catalog",
+    "blog": "Blog"
   },
   "install": {
-    "eyebrow": "Get started",
-    "title": "Your next site can just be a website.",
-    "body": "Choose your install path, create a site, then run statica watch.",
+    "eyebrow": "Install",
+    "title": "Install statica on your platform.",
+    "body": "Use npm, Homebrew, or Cargo to get the same native statica CLI, then create and run a site from any shell.",
     "github": "Star statica on GitHub ↗",
     "guide": "Read the full guide →"
   },
@@ -74,7 +77,7 @@
     {
       "eyebrow": "Funnel",
       "title": "Data-driven HTML",
-      "body": "Link JSON, JSONL, CSV, Markdown, text, or globs as build-time data. No runtime content fetch required."
+      "body": "Link JSON, JSONL, CSV, Markdown or text as build-time data. No runtime content fetch required."
     },
     {
       "eyebrow": "Routes",
@@ -104,20 +107,32 @@
   ],
   "install_items": [
     {
-      "label": "Homebrew",
+      "label": "npm",
+      "command": "npm i -g @statica/cli",
+      "copy": "Copy command",
+      "copied": "Copied"
+    },
+    {
+      "label": "homebrew",
       "command": "brew tap akaizn-junior/statica && brew install statica",
       "copy": "Copy command",
       "copied": "Copied"
     },
     {
-      "label": "Cargo",
+      "label": "cargo",
       "command": "cargo install statica-cli --locked",
       "copy": "Copy command",
       "copied": "Copied"
     },
     {
-      "label": "npm",
-      "command": "npm i -D @statica/cli",
+      "label": "new site",
+      "command": "statica new hello-statica",
+      "copy": "Copy command",
+      "copied": "Copied"
+    },
+    {
+      "label": "serve",
+      "command": "cd hello-statica && statica watch",
       "copy": "Copy command",
       "copied": "Copied"
     }

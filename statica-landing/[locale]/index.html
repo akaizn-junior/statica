@@ -2,6 +2,7 @@
 <html lang="${i18n.locale}" data-theme="business" data-bind="{i18n}">
 <head>
   <link rel="statica/data" href="../content/i18n/${i18n.locale}.json" id="catalog" />
+  <link rel="statica/data" href="../content/platform-examples.${i18n.locale}.json" id="platform_examples" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="${catalog.meta.description}" />
@@ -18,8 +19,16 @@
   <link rel="apple-touch-icon" href="../public/statica-logo.png" />
   <title data-t="${i18n.meta.title}">statica — Just HTML.</title>
 
-  <link rel="statica/fragment" type="text/html" href="../ui/feature-card.html" id="feature-card" />
-  <link rel="statica/fragment" type="text/html" href="../ui/install-card.html" id="install-card" />
+  <link rel="statica/fragment" type="text/html" href="../ui/site-header.html" id="site-header" />
+  <link rel="statica/fragment" type="text/html" href="../ui/hero-section.html" id="hero-section" />
+  <link rel="statica/fragment" type="text/html" href="../ui/stats-section.html" id="stats-section" />
+  <link rel="statica/fragment" type="text/html" href="../ui/idea-section.html" id="idea-section" />
+  <link rel="statica/fragment" type="text/html" href="../ui/compare-section.html" id="compare-section" />
+  <link rel="statica/fragment" type="text/html" href="../ui/how-section.html" id="how-section" />
+  <link rel="statica/fragment" type="text/html" href="../ui/features-section.html" id="features-section" />
+  <link rel="statica/fragment" type="text/html" href="../ui/platform-section.html" id="platform-section" />
+  <link rel="statica/fragment" type="text/html" href="../ui/install-section.html" id="install-section" />
+  <link rel="statica/fragment" type="text/html" href="../ui/site-footer.html" id="site-footer" />
 
   <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
   <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
@@ -29,213 +38,26 @@
   <link rel="stylesheet" href="../public/styles.css" />
 </head>
 <body>
-  <header class="site-header">
-    <div class="navbar shell">
-      <div class="navbar-start">
-        <a class="brand" href="#top" aria-label="statica home">
-          <img class="brand-mark" src="../public/statica-logo.png" alt="" aria-hidden="true" />
-          <span>statica</span>
-        </a>
-      </div>
-      <nav class="navbar-center nav-links" aria-label="Primary navigation">
-        <a class="btn btn-ghost btn-sm" href="#why" data-t="${i18n.nav.why}">Why</a>
-        <a class="btn btn-ghost btn-sm" href="#how" data-t="${i18n.nav.how}">How it works</a>
-        <a class="btn btn-ghost btn-sm" href="#install" data-t="${i18n.nav.install}">Install</a>
-      </nav>
-      <div class="navbar-end header-actions">
-        <div class="dropdown dropdown-end language-switcher">
-          <button class="btn btn-sm btn-ghost" type="button" tabindex="0" aria-label="Language">
-            <span aria-hidden="true">◎</span>
-            <span data-t="${i18n.locale_label}">EN</span>
-          </button>
-          <ul class="dropdown-content menu bg-base-200 rounded-box z-30 mt-2 w-40 border border-base-300 p-2 shadow-xl" tabindex="0">
-            <li><a href="../en/">English</a></li>
-            <li><a href="../pt/">Português</a></li>
-          </ul>
-        </div>
-        <a class="btn btn-sm btn-outline github-button" href="https://github.com/akaizn-junior/statica">GitHub ↗</a>
-      </div>
-    </div>
-  </header>
+  <slot id="site-header"></slot>
 
   <main id="top">
-    <section class="hero hero-launch">
-      <div class="hero-content shell hero-layout">
-        <div class="hero-copy">
-          <div class="hero-badges">
-            <span class="badge badge-primary badge-outline" data-t="${i18n.hero.open_source}">Open source</span>
-            <span class="badge badge-outline">Rust</span>
-            <span class="badge badge-outline">MIT</span>
-          </div>
-          <h1><span data-t="${i18n.hero.just}">Just</span> <em>HTML.</em><br /><span data-t="${i18n.hero.nothing_more}">Nothing more.</span></h1>
-          <p data-t="${i18n.hero.body}">statica is a blazingly fast static site generator that builds on just HTML. Your source is HTML. Your output is HTML. Everything in between is build time.</p>
-          <div class="hero-actions">
-            <a class="btn btn-primary btn-lg" href="#install" data-t="${i18n.hero.start}">Start building</a>
-            <a class="btn btn-ghost btn-lg" href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md" data-t="${i18n.hero.guide}">Read the guide →</a>
-          </div>
-        </div>
+    <slot id="hero-section"></slot>
 
-        <div class="code-window hero-code" aria-label="statica quick start">
-          <div class="code-window-bar">
-            <span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span>
-            <span class="code-window-title">~/hello-web</span>
-            <span class="badge badge-ghost badge-sm">shell</span>
-          </div>
-          <div class="terminal-lines" role="presentation">
-            <div class="terminal-line"><span class="prompt">$</span><code>brew tap akaizn-junior/statica</code></div>
-            <div class="terminal-line"><span class="prompt">$</span><code>brew install statica</code></div>
-            <div class="terminal-line"><span class="prompt">$</span><code>statica new hello-web</code></div>
-            <div class="terminal-line"><span class="prompt">$</span><code>cd hello-web &amp;&amp; statica watch</code></div>
-            <div class="terminal-line terminal-result"><span class="prompt">✓</span><code data-t="${i18n.hero.built}">Built with just HTML.</code></div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <slot id="stats-section"></slot>
 
-    <section class="shell proof-wrap" aria-label="Core promise">
-      <div class="stats stats-grid border border-base-300">
-        <div class="stat">
-          <div class="stat-title" data-t="${i18n.stats.templates}">Template languages</div>
-          <div class="stat-value">0</div>
-          <div class="stat-desc" data-t="${i18n.stats.templates_desc}">HTML is enough</div>
-        </div>
-        <div class="stat">
-          <div class="stat-title" data-t="${i18n.stats.runtime}">Framework runtime</div>
-          <div class="stat-value">0</div>
-          <div class="stat-desc" data-t="${i18n.stats.runtime_desc}">Ship the web platform</div>
-        </div>
-        <div class="stat">
-          <div class="stat-title" data-t="${i18n.stats.build_tool}">Build tool</div>
-          <div class="stat-value">1</div>
-          <div class="stat-desc">statica</div>
-        </div>
-        <div class="stat">
-          <div class="stat-title" data-t="${i18n.stats.language}">Authoring language</div>
-          <div class="stat-value stat-html">HTML</div>
-          <div class="stat-desc" data-t="${i18n.stats.language_desc}">all the way down</div>
-        </div>
-      </div>
-    </section>
+    <slot id="idea-section"></slot>
 
-    <section id="why" class="section shell split-section">
-      <div><span class="badge badge-ghost" data-t="${i18n.idea.eyebrow}">The idea</span></div>
-      <div class="section-copy">
-        <h2 data-t="${i18n.idea.title}">The web already has a language.</h2>
-        <p class="section-lead" data-t="${i18n.idea.lead}">Static site generators keep inventing another one. statica doesn’t.</p>
-        <p data-t="${i18n.idea.body}">Use HTML for structure, CSS for style, JavaScript for behavior, and structured data when you need to generate content. statica handles the build, then gets out of the way.</p>
-      </div>
-    </section>
+    <slot id="compare-section"></slot>
 
-    <section class="shell compare-grid" aria-label="Authoring comparison">
-      <article class="card compare-card bg-base-200 border border-base-300">
-        <div class="card-body">
-          <div class="compare-head">
-            <span class="badge badge-ghost" data-t="${i18n.compare.other_badge}">Another template language</span>
-            <span class="compare-note" data-t="${i18n.compare.other_note}">Learn the abstraction first</span>
-          </div>
-          <div class="code-window compare-code code-muted">
-            <div class="code-window-bar">
-              <span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span>
-              <span class="code-window-title">posts.astro</span>
-            </div>
-            <pre><code><span class="syn-punc">---</span>
-<span class="syn-key">const</span> posts = <span class="syn-key">await</span> getCollection(<span class="syn-string">"posts"</span>);
-<span class="syn-punc">---</span>
+    <slot id="how-section"></slot>
 
-<span class="syn-punc">{</span>posts.map(post =&gt; (
-  <span class="syn-tag">&amp;lt;Card</span> <span class="syn-attr">post</span>=<span class="syn-punc">{</span>post<span class="syn-punc">}</span> <span class="syn-tag">/&amp;gt;</span>
-))<span class="syn-punc">}</span></code></pre>
-          </div>
-        </div>
-      </article>
+    <slot id="features-section"></slot>
 
-      <article class="card compare-card statica-card bg-primary text-primary-content">
-        <div class="card-body">
-          <div class="compare-head">
-            <span class="badge badge-neutral" data-t="${i18n.compare.statica_badge}">The statica way</span>
-            <span class="compare-note" data-t="${i18n.compare.statica_note}">Keep writing HTML</span>
-          </div>
-          <div class="code-window compare-code code-featured">
-            <div class="code-window-bar">
-              <span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span>
-              <span class="code-window-title">index.html</span>
-              <span class="badge badge-primary badge-sm">HTML</span>
-            </div>
-            <pre><code><span class="syn-tag">&amp;lt;link</span>
-  <span class="syn-attr">rel</span>=<span class="syn-string">"statica/data"</span>
-  <span class="syn-attr">href</span>=<span class="syn-string">"./posts.json"</span>
-  <span class="syn-attr">id</span>=<span class="syn-string">"posts"</span>
-<span class="syn-tag">/&amp;gt;</span>
+    <slot id="platform-section"></slot>
 
-<span class="syn-tag">&amp;lt;slot</span> <span class="syn-attr">id</span>=<span class="syn-string">"post-card"</span> <span class="syn-attr">data-each</span>=<span class="syn-string">"posts"</span><span class="syn-tag">&amp;gt;&amp;lt;/slot&amp;gt;</span></code></pre>
-          </div>
-        </div>
-      </article>
-    </section>
-
-    <section id="how" class="section shell">
-      <div class="section-heading">
-        <span class="badge badge-ghost" data-t="${i18n.how.eyebrow}">How it works</span>
-        <h2 data-t="${i18n.how.title}">HTML in. HTML out.</h2>
-      </div>
-      <ul class="steps steps-vertical lg-steps-horizontal process-steps">
-        <li class="step step-primary"><div class="step-copy"><strong data-t="${i18n.how.author_title}">Author</strong><span data-t="${i18n.how.author_body}">Write valid HTML. Link data and fragments only where you need them.</span></div></li>
-        <li class="step step-primary"><div class="step-copy"><strong data-t="${i18n.how.build_title}">Build</strong><span>discover → pre → parse → funnel → expand → bind → scope → emit → minify.</span></div></li>
-        <li class="step step-primary"><div class="step-copy"><strong data-t="${i18n.how.ship_title}">Ship</strong><span data-t="${i18n.how.ship_body}">Deploy plain HTML, CSS, and JavaScript anywhere static files can live.</span></div></li>
-      </ul>
-    </section>
-
-    <section class="section shell">
-      <div class="section-heading narrow-heading">
-        <span class="badge badge-ghost" data-t="${i18n.features.eyebrow}">Batteries included</span>
-        <h2 data-t="${i18n.features.title}">Enough power to build real sites.</h2>
-        <p data-t="${i18n.features.body}">These cards are not hard-coded. This very page funnels locale-specific JSON into a reusable statica fragment.</p>
-      </div>
-      <div class="feature-grid"><slot id="feature-card" data-each="catalog.feature_items"></slot></div>
-    </section>
-
-    <section class="shell platform-callout">
-      <div class="card bg-neutral text-neutral-content platform-card">
-        <div class="card-body platform-body">
-          <div>
-            <span class="badge badge-primary" data-t="${i18n.platform.badge}">Not just blogs</span>
-            <h2 data-t="${i18n.platform.title}">If the web can do it, your statica site can do it.</h2>
-            <p data-t="${i18n.platform.body}">statica does not impose a frontend runtime. Build an interactive API explorer from OpenAPI JSON, documentation, catalogs, dashboards, or a tiny five-page site. At runtime, it is simply the web platform.</p>
-          </div>
-          <div class="flow-diagram" aria-label="OpenAPI build example">
-            <div class="badge badge-outline flow-node">openapi.json</div><span>↓</span>
-            <div class="badge badge-primary flow-node">statica</div><span>↓</span>
-            <div class="badge badge-outline flow-node">HTML + CSS + JS</div><span>↓</span>
-            <div class="badge badge-neutral flow-node" data-t="${i18n.platform.explorer}">Interactive API explorer</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="install" class="section shell install-section">
-      <div class="section-heading narrow-heading">
-        <span class="badge badge-ghost" data-t="${i18n.install.eyebrow}">Get started</span>
-        <h2 data-t="${i18n.install.title}">Your next site can just be a website.</h2>
-        <p data-t="${i18n.install.body}">Choose your install path, create a site, then run statica watch.</p>
-      </div>
-      <div class="install-grid"><slot id="install-card" data-each="catalog.install_items"></slot></div>
-      <div class="launch-actions">
-        <a class="btn btn-primary btn-lg" href="https://github.com/akaizn-junior/statica" data-t="${i18n.install.github}">Star statica on GitHub ↗</a>
-        <a class="btn btn-ghost btn-lg" href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md" data-t="${i18n.install.guide}">Read the full guide →</a>
-      </div>
-    </section>
+    <slot id="install-section"></slot>
   </main>
 
-  <footer class="footer shell site-footer">
-    <aside>
-      <a class="brand" href="#top"><img class="brand-mark" src="../public/statica-logo.png" alt="" aria-hidden="true" /><span>statica</span></a>
-      <p data-t="${i18n.footer.tagline}">Just HTML.</p>
-    </aside>
-    <nav>
-      <a class="link link-hover" href="https://github.com/akaizn-junior/statica">GitHub</a>
-      <a class="link link-hover" href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md" data-t="${i18n.footer.guide}">Guide</a>
-      <a class="link link-hover" href="https://github.com/akaizn-junior/statica/blob/main/LICENSE">MIT</a>
-    </nav>
-  </footer>
+  <slot id="site-footer"></slot>
 </body>
 </html>

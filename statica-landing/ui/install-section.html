@@ -1,0 +1,19 @@
+<link rel="statica/fragment" type="text/html" href="./install-card.html" id="install-card" />
+<link rel="statica/fragment" type="text/html" href="./icon-github.html" id="icon-github" />
+
+<template id="install-section" data-bind="{i18n, catalog}">
+  <section id="install" class="section shell install-section">
+    <div class="section-heading narrow-heading">
+      <h2 data-t="${i18n.install.title}">Your next site can just be a website.</h2>
+      <p data-t="${i18n.install.body}">Choose your install path, create a site, then run statica watch.</p>
+    </div>
+    <div class="install-grid"><slot id="install-card" data-each="catalog.install_items"></slot></div>
+    <div class="launch-actions">
+      <a class="btn btn-primary btn-lg github-cta" href="https://github.com/akaizn-junior/statica">
+        <slot id="icon-github"></slot>
+        <span data-t="${i18n.install.github}">Star statica on GitHub ↗</span>
+      </a>
+      <a class="btn btn-ghost btn-lg" href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md" data-t="${i18n.install.guide}">Read the full guide →</a>
+    </div>
+  </section>
+</template>

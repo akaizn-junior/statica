@@ -1,0 +1,17 @@
+<link rel="statica/fragment" type="text/html" href="./platform-example.html" id="platform-example" />
+
+<template id="platform-section" data-bind="{i18n, platform_examples}">
+  <section class="shell platform-callout">
+    <div class="card bg-neutral text-neutral-content platform-card">
+      <div class="card-body platform-body">
+        <div>
+          <h2 data-t="${i18n.platform.title}">If the web can do it, your statica site can do it.</h2>
+          <p data-t="${i18n.platform.body}">statica does not impose a frontend runtime. Turn structured files into real web experiences: blogs, API explorers, spreadsheet dashboards, product catalogs, or a tiny five-page site. At runtime, it is simply the web platform.</p>
+        </div>
+        <div class="flow-diagram" aria-label="statica source to site examples">
+          <slot id="platform-example" data-each="platform_examples"></slot>
+        </div>
+      </div>
+    </div>
+  </section>
+</template>
