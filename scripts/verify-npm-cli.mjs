@@ -100,7 +100,7 @@ function main() {
     ".bin",
     process.platform === "win32" ? "create-statica.cmd" : "create-statica",
   );
-  execFileSync(createShim, ["demo", "--yes"], {
+  execFileSync(createShim, ["demo"], {
     cwd: smokeDir,
     stdio: "inherit",
   });

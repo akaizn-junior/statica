@@ -21,7 +21,7 @@ npm i -D @statica/cli
 Create a new site directly from npm:
 
 ```bash
-npm create statica@latest my-site -- --yes
+npm create statica@latest my-site
 cd my-site
 statica
 ```
@@ -49,7 +49,7 @@ cargo install --path crates/statica-cli --force
 ## Quick start
 
 ```bash
-npm create statica@latest my-site -- --yes
+npm create statica@latest my-site
 cd my-site
 statica                 # build, watch, and serve cwd
 ```

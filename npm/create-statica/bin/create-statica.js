@@ -7,11 +7,10 @@ function usage() {
   console.log(`Create a new statica site.
 
 Usage:
-  create-statica <name> [--yes]
-  npm create statica@latest my-site -- --yes
+  create-statica <name>
+  npm create statica@latest my-site
 
 Options:
-  -y, --yes      Use the default starter without prompts
   -h, --help     Show help
   -v, --version  Show version`);
 }
@@ -28,15 +27,14 @@ if (args.includes("--version") || args.includes("-v")) {
   process.exit(0);
 }
 
-const scaffoldArgs = args.filter((arg) => arg !== "--yes" && arg !== "-y");
-const name = scaffoldArgs.find((arg) => !arg.startsWith("-"));
+const name = args.find((arg) => !arg.startsWith("-"));
 
 if (!name) {
   usage();
   process.exit(1);
 }
 
-const extra = scaffoldArgs.filter((arg) => arg !== name);
+const extra = args.filter((arg) => arg !== name);
 if (extra.length > 0) {
   console.error(`Unknown option: ${extra[0]}`);
   usage();

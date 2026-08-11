@@ -17,7 +17,7 @@ Works with npm, pnpm, yarn, and bun. Do not omit optional dependencies.
 To start a new site without installing first:
 
 ```bash
-npm create statica@latest my-site -- --yes
+npm create statica@latest my-site
 cd my-site
 statica
 ```

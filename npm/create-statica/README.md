@@ -3,7 +3,7 @@
 Create a new **statica** site from npm.
 
 ```bash
-npm create statica@latest my-site -- --yes
+npm create statica@latest my-site
 cd my-site
 statica
 ```

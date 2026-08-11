@@ -14,7 +14,7 @@ statica build [PATH]        # one-off build
 statica watch [PATH]        # watch + rebuild + serve
 statica serve [PATH]        # serve out_dir with 404 fallback
 statica new <NAME>          # scaffold
-npm create statica@latest <NAME> -- --yes
+npm create statica@latest <NAME>
 ```
 
 `PATH` defaults to `.`. statica resolves it against the process cwd, walks up for `statica.toml`, then uses that directory as the site root. If `project` or `--project` is set, the site root is that subdirectory under the config directory.
