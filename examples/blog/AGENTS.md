@@ -4,7 +4,7 @@ Dogfood statica site. Canonical reference for authoring. Read [../../AGENTS.md](
 
 ## Purpose
 
-This directory demonstrates every major statica feature: Markdown funnel, collections, pagination, fragments, fonts, forms, i18n, RSS, sitemap. Integration tests in `crates/statica/tests/build_fixture.rs` build this fixture.
+This directory demonstrates every major statica feature: Markdown funnel, collections, pagination, fragments, fonts, forms, i18n, RSS, sitemap, search. Integration tests in `crates/statica/tests/build_fixture.rs` build this fixture.
 
 When unsure how to author something, **copy from here** before inventing patterns.
 
@@ -99,6 +99,10 @@ index = true
 - `data-t="${i18n.about.title}"`-style paths on translatable elements
 - The page binds `{i18n}` on `<html>` before using catalog values
 - Config: `[i18n] enabled = true, locales = ["en", "pt"]`
+
+### Search
+
+[`index.html`](index.html) uses `<input type="statica/search">` in the nav. statica rewrites it into the generated search modal, emits `/search.json`, and writes `/statica/search.js` plus `/statica/search.css`.
 
 ## When editing this fixture
 

@@ -350,6 +350,57 @@ contact = "xyzabc"
 
 statica writes `action` and `method="POST"`. It does not inject client JavaScript.
 
+## Search
+
+Add a generated search modal with one authoring input.
+
+```html
+<input type="statica/search" placeholder="Search" />
+```
+
+During build, statica replaces that input with an accessible button and
+`<dialog>` search modal, emits `/search.json`, and writes the small runtime
+files at `/statica/search.js` and `/statica/search.css`. Search runs in the
+browser against the generated JSON index.
+
+Optional attributes:
+
+```html
+<input
+  type="statica/search"
+  placeholder="Search posts"
+  aria-label="Search posts"
+  data-index="/search.json"
+  data-limit="10"
+/>
+```
+
+`data-index` defaults to `/search.json`. `data-limit` defaults to `10`.
+
+To emit an index for a custom search UI without using the generated modal:
+
+```toml
+[search]
+enabled = true
+output = "search.json"
+```
+
+The generated index is an array of page records:
+
+```json
+[
+  {
+    "url": "/posts/hello/",
+    "title": "Hello",
+    "text": "Plain searchable page text",
+    "excerpt": "Plain searchable page text"
+  }
+]
+```
+
+statica indexes emitted HTML pages, excluding script, style, template,
+noscript, dialog content, and the generated 404 page.
+
 ## i18n
 
 Use `[locale]` in the route and enable `[i18n]`.
@@ -491,6 +542,10 @@ description_field = "summary"
 date_field = "published_at"
 collections = []
 
+[search]
+enabled = false
+output = "search.json"
+
 [performance]
 render_mode = "auto"
 render_threads = 0
@@ -501,6 +556,7 @@ CLI SPEC flags override TOML.
 ```bash
 statica build --process 'css=true,js=false,images=true'
 statica build --minify 'html=true,css=true,js=true'
+statica build --search 'output=assets/search.json'
 statica build --pagination 'page_size=10,index=true'
 statica build --i18n 'locales=en|pt,default=en'
 statica build --render-mode serial

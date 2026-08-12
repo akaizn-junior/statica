@@ -1,0 +1,56 @@
+.statica-search-trigger {
+  font: inherit;
+}
+
+.statica-search-modal {
+  width: min(42rem, calc(100vw - 2rem));
+  border: 1px solid #d4d4d8;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  box-shadow: 0 24px 80px #0003;
+}
+
+.statica-search-modal::backdrop {
+  background: #0006;
+}
+
+.statica-search-bar {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.statica-search-bar input {
+  flex: 1;
+  font: inherit;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #a1a1aa;
+  border-radius: 0.375rem;
+}
+
+.statica-search-bar button {
+  font: inherit;
+}
+
+.statica-search-results {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.statica-search-result {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.statica-search-result:hover {
+  background: #f4f4f5;
+}
+
+.statica-search-result span {
+  color: #52525b;
+  font-size: 0.925em;
+}

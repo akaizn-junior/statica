@@ -2,12 +2,12 @@
 //!
 //! # SPEC format
 //!
-//! Nested tables (`[process]`, `[sitemap]`, `[rss]`, `[preview]`,
+//! Nested tables (`[process]`, `[sitemap]`, `[rss]`, `[search]`, `[preview]`,
 //! `[[pagination]]`) are overridden with compact `key=value,key=value` strings,
 //! the same style as `--pagination`.
 //!
-//! - Bare `--rss` / `--sitemap` / `--process` enable that feature (empty SPEC).
-//! - `--no-rss` / `--no-sitemap` / `--no-process` disable.
+//! - Bare `--rss` / `--sitemap` / `--search` / `--process` enable that feature (empty SPEC).
+//! - `--no-rss` / `--no-sitemap` / `--no-search` / `--no-process` disable.
 //! - Inside `--rss`, list fields use `|` (`collections=posts|notes`) because
 //!   `,` separates keys.
 //!
@@ -171,6 +171,24 @@ Examples:\n\
     pub rss: Option<String>,
     #[arg(long = "no-rss", action = ArgAction::SetTrue, global = true, help = "Disable RSS feed")]
     pub no_rss: bool,
+
+    // ── [search] SPEC ──────────────────────────────────────────
+    #[arg(
+        long = "search",
+        value_name = "SPEC",
+        num_args = 0..=1,
+        default_missing_value = "",
+        global = true,
+        help = "Enable search index; optional key=value SPEC",
+        long_help = "Enable [search]. Optional SPEC:\n\
+  enabled, output\n\
+Examples:\n\
+  --search\n\
+  --search output=assets/search.json"
+    )]
+    pub search: Option<String>,
+    #[arg(long = "no-search", action = ArgAction::SetTrue, global = true, help = "Disable search index generation")]
+    pub no_search: bool,
 
     // ── [[pagination]] SPEC ────────────────────────────────────
     #[arg(

@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use statica::{
     AliasOptions, AssetProcessOptions, BuildOptions, FormsOptions, I18nOptions,
     ImageProcessOptions, LocalAlias, MinifyOptions, PaginationRule, RenderMode, RssOptions,
-    SitemapOptions, UrlAlias,
+    SearchOptions, SitemapOptions, UrlAlias,
 };
 
 /// Canonical config file name in a statica project root.
@@ -53,6 +53,8 @@ pub struct StaticaConfig {
     pub performance: PerformanceConfig,
     pub sitemap: SitemapConfig,
     pub rss: RssConfig,
+    /// Browser-side search index (`[search]`).
+    pub search: SearchConfig,
     /// Paginated listings (`[[pagination]]`).
     pub pagination: Vec<PaginationConfig>,
     /// Preview / watch HTTP server (`serve` + `watch`).
@@ -271,6 +273,23 @@ pub struct SitemapConfig {
     pub urls_per_file: usize,
 }
 
+/// `[search]` — browser-side search index emitted as JSON.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SearchConfig {
+    pub enabled: bool,
+    pub output: String,
+}
+
+impl Default for SearchConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            output: "search.json".into(),
+        }
+    }
+}
+
 /// `[[pagination]]` — chunk a data array into `[page]` pages.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -426,6 +445,7 @@ impl Default for StaticaConfig {
             performance: PerformanceConfig::default(),
             sitemap: SitemapConfig::default(),
             rss: RssConfig::default(),
+            search: SearchConfig::default(),
             pagination: Vec::new(),
             preview: PreviewConfig::default(),
             aliases: AliasesConfig::default(),
@@ -579,6 +599,16 @@ impl SitemapConfig {
     }
 }
 
+impl SearchConfig {
+    #[must_use]
+    pub fn to_core(&self) -> SearchOptions {
+        SearchOptions {
+            enabled: self.enabled,
+            output: self.output.clone(),
+        }
+    }
+}
+
 impl PaginationConfig {
     #[must_use]
     pub fn to_core(&self) -> PaginationRule {
@@ -668,6 +698,7 @@ impl StaticaConfig {
             site_url: self.site_url.clone(),
             sitemap: self.sitemap.to_core(),
             rss: self.rss.to_core(),
+            search: self.search.to_core(),
             pagination: self
                 .pagination
                 .iter()
@@ -755,6 +786,15 @@ impl StaticaConfig {
             self.rss.enabled = true;
             if !spec.is_empty() {
                 apply_rss_spec(&mut self.rss, spec)?;
+            }
+        }
+
+        if cli.no_search {
+            self.search.enabled = false;
+        } else if let Some(spec) = &cli.search {
+            self.search.enabled = true;
+            if !spec.is_empty() {
+                apply_search_spec(&mut self.search, spec)?;
             }
         }
 
@@ -867,6 +907,11 @@ title_field = "headline"
 description_field = "summary"
 date_field = "published_at"
 collections = []               # empty = all collections; or ["posts"]
+
+# Browser-side search index. Also auto-enabled by <input type="statica/search">
+[search]
+enabled = false
+output = "search.json"
 
 # Paginated listings — templates with [page], data via <html data-bind>
 # [[pagination]]
@@ -1027,6 +1072,17 @@ fn apply_rss_spec(cfg: &mut RssConfig, spec: &str) -> Result<()> {
                     .collect();
             }
             other => anyhow::bail!("unknown rss key `{other}`"),
+        }
+        Ok(())
+    })
+}
+
+fn apply_search_spec(cfg: &mut SearchConfig, spec: &str) -> Result<()> {
+    for_each_kv(spec, |key, value| {
+        match key {
+            "enabled" => cfg.enabled = parse_bool(value)?,
+            "output" => cfg.output = value.to_string(),
+            other => anyhow::bail!("unknown search key `{other}`"),
         }
         Ok(())
     })
@@ -1373,6 +1429,7 @@ dir = "locales"
             process: Some(String::new()),
             no_sitemap: true,
             rss: Some("title=T,limit=3,collections=posts|notes".into()),
+            search: Some("output=assets/search.json".into()),
             site_url: Some("https://ex.com".into()),
             pagination: vec!["page_size=2,sort_desc=true,index=true".into()],
             render_mode: Some(crate::cli_config::RenderModeArg::Parallel),
@@ -1387,6 +1444,8 @@ dir = "locales"
         assert_eq!(cfg.rss.title, "T");
         assert_eq!(cfg.rss.limit, 3);
         assert_eq!(cfg.rss.collections, vec!["posts", "notes"]);
+        assert!(cfg.search.enabled);
+        assert_eq!(cfg.search.output, "assets/search.json");
         assert_eq!(cfg.preview.port, 9000);
         assert_eq!(cfg.site_url, "https://ex.com");
         assert_eq!(cfg.pagination.len(), 1);

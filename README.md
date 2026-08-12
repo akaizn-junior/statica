@@ -142,6 +142,10 @@ index = true
 enabled = false
 limit = 50
 
+[search]
+enabled = false
+output = "search.json"
+
 [performance]
 render_mode = "auto"
 render_threads = 0
@@ -188,6 +192,7 @@ If the site does not define `404.html` or `404/index.html`, statica writes a def
 <link rel="statica/data" href="../content/posts.json" id="posts" />
 <link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
 <link rel="statica/font" href="@Google/?family=Outfit:wght@100..900&display=swap" />
+<input type="statica/search" placeholder="Search" />
 <slot id="post-card"></slot>
 ```
 

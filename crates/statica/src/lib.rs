@@ -68,6 +68,7 @@ pub mod parse;
 mod render;
 mod runtime;
 mod scope;
+mod search;
 
 pub use aliases::{
     join_alias, resolve_local_href, resolve_path, resolve_paths_in_document, AliasOptions,
@@ -92,3 +93,4 @@ pub use minify::{MinifyKind, MinifyOptions, MinifyReport};
 pub use paginate::PaginationRule;
 pub use parse::Document;
 pub use runtime::STATICA_JS;
+pub use search::SearchOptions;

@@ -32,6 +32,7 @@ use crate::minify::{self, MinifyOptions};
 use crate::paginate::{self, PaginationRule};
 use crate::parse::{self, Document};
 use crate::render::RenderPlan;
+use crate::search::{self, SearchOptions};
 use crate::FormsOptions;
 
 /// Inputs for a build. The CLI maps `statica.toml` into this; core does not read config files.
@@ -58,6 +59,8 @@ pub struct BuildOptions {
     pub forms: FormsOptions,
     /// Locale catalogs (`[i18n]` in statica.toml).
     pub i18n: I18nOptions,
+    /// Browser-side site search index and generated search controls.
+    pub search: SearchOptions,
     pub clean: bool,
     pub asset_dirs: Vec<String>,
     pub ignore_dirs: Vec<String>,
@@ -87,6 +90,7 @@ impl BuildOptions {
             aliases: AliasOptions::default(),
             forms: FormsOptions::default(),
             i18n: I18nOptions::default(),
+            search: SearchOptions::default(),
             clean: true,
             asset_dirs: vec!["public".into(), "assets".into(), "static".into()],
             ignore_dirs: vec![
@@ -773,6 +777,31 @@ fn build_scoped(opts: &BuildOptions, scope: &BuildScope) -> Result<BuildReport> 
         log.step(format!("feeds  {detail} ({feeds_ms}ms)"));
     }
 
+    let search_controls = if scope.is_full() {
+        search::count_controls_in_outputs(&outputs)
+    } else {
+        0
+    };
+    if scope.is_full() && (opts.search.enabled || search_controls > 0) {
+        let t = Instant::now();
+        search::write_index(&opts.out_dir, &outputs, &opts.search)?;
+        if search_controls > 0 {
+            search::write_runtime(&opts.out_dir)?;
+        }
+        let search_ms = t.elapsed().as_millis();
+        let detail = if search_controls > 0 {
+            format!("index, {search_controls} control(s)")
+        } else {
+            "index".into()
+        };
+        phases.push(BuildPhase {
+            name: "search",
+            duration_ms: search_ms,
+            detail: detail.clone(),
+        });
+        log.step(format!("search  {detail} ({search_ms}ms)"));
+    }
+
     if scope.is_full() && opts.minify.enabled {
         let t = Instant::now();
         let minified = minify::minify_output_dir(&opts.out_dir, &opts.minify);
@@ -808,6 +837,21 @@ fn ensure_default_404(out_dir: &Path) -> Result<()> {
     }
     emit::write_html(&nested, default_404_html())?;
     Ok(())
+}
+
+fn write_rendered_html(opts: &BuildOptions, path: &Path, html: &str) -> Result<()> {
+    let default_index = search_index_href(&opts.search.output);
+    let (html, _) = search::rewrite_controls(html, &default_index)?;
+    emit::write_html(path, &html)?;
+    Ok(())
+}
+
+fn search_index_href(output: &str) -> String {
+    if output.starts_with('/') {
+        output.into()
+    } else {
+        format!("/{output}")
+    }
 }
 
 fn default_404_html() -> &'static str {
@@ -956,7 +1000,7 @@ fn emit_prepared(
                     &mut data_cache,
                 )?;
                 let out = emit::out_path_for_route(&opts.out_dir, page.source.route.as_str(), None);
-                emit::write_html(&out, &rendered)?;
+                write_rendered_html(opts, &out, &rendered)?;
                 Ok(EmitResult {
                     outputs: vec![out],
                     route: page.route_row(1, PageKind::Static),
@@ -1002,7 +1046,7 @@ fn emit_locales(
             page.source.route.as_str(),
             Some((i18n::LOCALE_PARAM, loc)),
         );
-        emit::write_html(&out, &rendered)?;
+        write_rendered_html(opts, &out, &rendered)?;
         outs.push(out);
     }
     Ok(EmitResult {
@@ -1285,7 +1329,7 @@ fn emit_pagination_chunks(
             } else {
                 emit::out_path_for_route(&opts.out_dir, &index_route, None)
             };
-            emit::write_html(&out, &rendered)?;
+            write_rendered_html(opts, &out, &rendered)?;
             outs.push(out);
         }
     }
@@ -1368,7 +1412,7 @@ fn emit_paginated_item_chunk(
                 &[(page_param, &chunk.page), (item_param, folder)],
             )
         };
-        emit::write_html(&out, &rendered)?;
+        write_rendered_html(opts, &out, &rendered)?;
         Ok(out)
     };
     let rendered = if opts.render_mode.should_render_parallel() {
@@ -1423,7 +1467,7 @@ fn emit_paginated_listing_chunks(
                 Some((param, &chunk.page)),
             )
         };
-        emit::write_html(&out, &rendered)?;
+        write_rendered_html(opts, &out, &rendered)?;
         Ok(out)
     };
     let rendered = if opts.render_mode.should_render_parallel() {
@@ -1474,7 +1518,7 @@ fn emit_collection_items(
             page.source.route.as_str(),
             Some((param, &folder)),
         );
-        emit::write_html(&out, &rendered)?;
+        write_rendered_html(opts, &out, &rendered)?;
         Ok(out)
     };
     let rendered = if opts.render_mode.should_render_parallel() {
@@ -1540,7 +1584,7 @@ fn emit_locale_collection_items_parallel(
             page.source.route.as_str(),
             &[(i18n::LOCALE_PARAM, loc), (param, folder)],
         );
-        emit::write_html(&out, &rendered)?;
+        write_rendered_html(opts, &out, &rendered)?;
         Ok(out)
     };
     let rendered = if opts.render_mode.should_render_parallel() {

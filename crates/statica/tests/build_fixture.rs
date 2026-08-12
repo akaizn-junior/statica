@@ -1800,6 +1800,70 @@ fn preserves_authored_404_page() {
     assert_eq!(report.pages_written, 2);
 }
 
+#[test]
+fn statica_search_input_emits_modal_runtime_and_index() {
+    let dir = tempfile_dir();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head><title>Home Search</title></head>
+  <body>
+    <input type="statica/search" placeholder="Find things" data-limit="7" />
+    <main><h1>Home</h1><p>Needle content lives here.</p></main>
+    <script>const hidden = "not searchable";</script>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+
+    let report = build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(!html.contains(r#"type="statica/search""#));
+    assert!(html.contains("statica-search-modal"));
+    assert!(html.contains("data-limit=\"7\""));
+    assert!(dir.join("dist/statica/search.js").exists());
+    assert!(dir.join("dist/statica/search.css").exists());
+
+    let index = std::fs::read_to_string(dir.join("dist/search.json")).unwrap();
+    assert!(index.contains("\"url\": \"/\""));
+    assert!(index.contains("Home Search"));
+    assert!(index.contains("Needle content lives here."));
+    assert!(!index.contains("not searchable"));
+    assert!(report.phases.iter().any(|phase| phase.name == "search"));
+}
+
+#[test]
+fn search_config_emits_index_without_search_input() {
+    let dir = tempfile_dir();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head><title>Docs</title></head>
+  <body><main><p>Config enabled search content.</p></main></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    opts.search = statica::SearchOptions {
+        enabled: true,
+        output: "assets/site-search.json".into(),
+    };
+
+    build(&opts).expect("build");
+
+    let index = std::fs::read_to_string(dir.join("dist/assets/site-search.json")).unwrap();
+    assert!(index.contains("Config enabled search content."));
+    assert!(!dir.join("dist/statica/search.js").exists());
+}
+
 fn tempfile_dir() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static N: AtomicU64 = AtomicU64::new(0);

@@ -4,7 +4,7 @@
 .SH NAME
 statica \- statica \- Just HTML.
 .SH SYNOPSIS
-\fBstatica\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-render\-mode\fR] [\fB\-\-render\-threads\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-minify\fR] [\fB\-\-no\-minify\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-\-manifest\fR] [\fB\-\-no\-manifest\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-\-report\-json\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
+\fBstatica\fR [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-project\fR] [\fB\-\-out\-dir\fR] [\fB\-\-site\-url\fR] [\fB\-\-clean\fR] [\fB\-\-no\-clean\fR] [\fB\-\-copy\-assets\fR] [\fB\-\-no\-copy\-assets\fR] [\fB\-\-asset\-dirs\fR] [\fB\-\-ignore\-dirs\fR] [\fB\-\-render\-mode\fR] [\fB\-\-render\-threads\fR] [\fB\-\-process\fR] [\fB\-\-no\-process\fR] [\fB\-\-minify\fR] [\fB\-\-no\-minify\fR] [\fB\-\-sitemap\fR] [\fB\-\-no\-sitemap\fR] [\fB\-\-rss\fR] [\fB\-\-no\-rss\fR] [\fB\-\-search\fR] [\fB\-\-no\-search\fR] [\fB\-\-pagination\fR] [\fB\-\-preview\fR] [\fB\-\-host\fR] [\fB\-p\fR|\fB\-\-port\fR] [\fB\-\-i18n\fR] [\fB\-\-no\-i18n\fR] [\fB\-\-manifest\fR] [\fB\-\-no\-manifest\fR] [\fB\-V\fR|\fB\-\-verbose\fR] [\fB\-\-silent\fR] [\fB\-\-report\-json\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
 statica \- Just HTML.
 .PP
@@ -119,6 +119,16 @@ Examples:
 .TP
 \fB\-\-no\-rss\fR
 Disable RSS feed
+.TP
+\fB\-\-search\fR [\fI<SPEC>\fR]
+Enable [search]. Optional SPEC:
+enabled, output
+Examples:
+\-\-search
+\-\-search output=assets/search.json
+.TP
+\fB\-\-no\-search\fR
+Disable search index generation
 .TP
 \fB\-\-pagination\fR \fI<SPEC>\fR
 Replace all [[pagination]] entries. Repeat for multiple rules.
