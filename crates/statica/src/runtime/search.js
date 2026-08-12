@@ -9,6 +9,7 @@ const ready = async () => {
         url,
         fetch(url)
           .then((response) => (response.ok ? response.json() : []))
+          .then((data) => (Array.isArray(data) ? data : []))
           .catch(() => []),
       );
     }
@@ -37,6 +38,9 @@ const ready = async () => {
     );
 
   for (const modal of modals) {
+    if (modal.dataset.staticaSearchReady === "true") continue;
+    modal.dataset.staticaSearchReady = "true";
+
     const trigger = document.querySelector(`[aria-controls="${modal.id}"]`);
     const input = modal.querySelector("input[type='search']");
     const meta = modal.querySelector("[data-statica-search-meta]");
@@ -48,17 +52,22 @@ const ready = async () => {
       .split(",")
       .map((filter) => filter.trim())
       .filter(Boolean);
+    const close = () => {
+      if (modal.open) modal.close();
+    };
+
+    if (!input || !meta || !results) continue;
 
     if (filters.length) {
       meta.replaceChildren(filterList(filters));
     }
 
     trigger?.addEventListener("click", () => {
-      modal.showModal();
-      input?.focus();
+      if (!modal.open) modal.showModal();
+      input.focus();
     });
 
-    modal.addEventListener("cancel", () => modal.close());
+    modal.addEventListener("cancel", close);
     modal.addEventListener("click", (event) => {
       if (event.target !== modal) return;
       const rect = modal.getBoundingClientRect();
@@ -67,14 +76,14 @@ const ready = async () => {
         event.clientX > rect.right ||
         event.clientY < rect.top ||
         event.clientY > rect.bottom;
-      if (outside) modal.close();
+      if (outside) close();
     });
 
     modal
       .querySelector("[data-statica-search-close]")
-      ?.addEventListener("click", () => modal.close());
+      ?.addEventListener("click", close);
 
-    input?.addEventListener("input", async () => {
+    input.addEventListener("input", async () => {
       const terms = input.value
         .trim()
         .toLowerCase()
@@ -103,7 +112,7 @@ const ready = async () => {
 
       results.replaceChildren(
         ...matches.map(({ item }) => {
-          const href = valueAt(item, urlField) || item.url;
+          const href = String(valueAt(item, urlField) || item.url || "#");
           const link = document.createElement("a");
           link.className = "statica-search-result";
           link.href = href;

@@ -1813,6 +1813,7 @@ fn statica_search_input_emits_modal_runtime_and_index() {
   </head>
   <body>
     <input type="statica/search" placeholder="Find things" data-limit="7" data-filters="tags,categories" data-url-field="url" />
+    <input type="statica/search" id="secondary-search" aria-label="Second search" />
     <main><h1>Home</h1><p>Needle content lives here.</p></main>
     <script>const hidden = "not searchable";</script>
   </body>
@@ -1828,13 +1829,20 @@ fn statica_search_input_emits_modal_runtime_and_index() {
     let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
     assert!(!html.contains(r#"type="statica/search""#));
     assert!(html.contains("statica-search-modal"));
+    assert_eq!(html.matches("data-statica-search=\"\"").count(), 2);
     assert!(html.contains("data-limit=\"7\""));
     assert!(html.contains("data-filters=\"tags,categories\""));
     assert!(html.contains("data-url-field=\"url\""));
+    assert!(html.contains("id=\"secondary-search\""));
     assert!(html.contains("<svg"));
     assert!(!html.contains(">Find things</button>"));
     assert!(dir.join("dist/statica/search.js").exists());
     assert!(dir.join("dist/statica/search.css").exists());
+
+    let runtime = std::fs::read_to_string(dir.join("dist/statica/search.js")).unwrap();
+    assert!(runtime.contains("staticaSearchReady"));
+    assert!(runtime.contains("Array.isArray"));
+    assert!(runtime.contains("if (!modal.open) modal.showModal()"));
 
     let index = std::fs::read_to_string(dir.join("dist/search.json")).unwrap();
     assert!(index.contains("\"url\": \"/\""));
