@@ -30,7 +30,7 @@ Add to `package.json`:
 {
   "scripts": {
     "build": "statica build .",
-    "dev": "statica watch ."
+    "dev": "statica ."
   }
 }
 ```
@@ -40,7 +40,7 @@ Or run directly:
 ```bash
 npx statica build .
 statica -v
-statica watch
+statica
 ```
 
 ## Platforms

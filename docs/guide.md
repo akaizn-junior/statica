@@ -499,13 +499,13 @@ render_threads = 0
 CLI SPEC flags override TOML.
 
 ```bash
-statica --process 'css=true,js=false,images=true'
-statica --minify 'html=true,css=true,js=true'
-statica --pagination 'page_size=10,index=true'
-statica --i18n 'locales=en|pt,default=en'
-statica --render-mode serial
-statica --render-mode parallel --render-threads 8
-statica --report-json report.json
+statica build --process 'css=true,js=false,images=true'
+statica build --minify 'html=true,css=true,js=true'
+statica build --pagination 'page_size=10,index=true'
+statica build --i18n 'locales=en|pt,default=en'
+statica build --render-mode serial
+statica build --render-mode parallel --render-threads 8
+statica build --report-json report.json
 statica watch --preview host=127.0.0.1,port=9000
 ```
 

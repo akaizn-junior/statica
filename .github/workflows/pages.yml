@@ -28,7 +28,7 @@ jobs:
         run: cargo install --path crates/statica-cli --locked
 
       - name: Build with statica
-        run: statica ./statica-landing
+        run: statica build ./statica-landing
 
       - name: Validate landing artifact
         run: |

@@ -40,7 +40,7 @@ The root `index.html` redirects to `./en/`. Locale-switch links are relative sib
 ## Build
 
 ```bash
-statica .
+statica build .
 ```
 
 Expected output includes:
@@ -54,4 +54,4 @@ Expected output includes:
 
 ## Deployment
 
-The repository GitHub Actions workflow builds with statica and publishes `statica-landing/.website` to GitHub Pages. The landing source links CSS relatively as `../public/styles.css`, so styles work both locally and under the `/statica/` GitHub Pages project path.
+The repository GitHub Actions workflow runs `statica build ./statica-landing` and publishes `statica-landing/.website` to GitHub Pages. The landing source links CSS relatively as `../public/styles.css`, so styles work both locally and under the `/statica/` GitHub Pages project path.
