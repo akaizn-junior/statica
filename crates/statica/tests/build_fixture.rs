@@ -1807,9 +1807,12 @@ fn statica_search_input_emits_modal_runtime_and_index() {
         dir.join("index.html"),
         r#"<!doctype html>
 <html lang="en">
-  <head><title>Home Search</title></head>
+  <head>
+    <title>Home Search</title>
+    <meta name="description" content="Searchable test page" />
+  </head>
   <body>
-    <input type="statica/search" placeholder="Find things" data-limit="7" />
+    <input type="statica/search" placeholder="Find things" data-limit="7" data-filters="tags,categories" data-url-field="url" />
     <main><h1>Home</h1><p>Needle content lives here.</p></main>
     <script>const hidden = "not searchable";</script>
   </body>
@@ -1826,12 +1829,18 @@ fn statica_search_input_emits_modal_runtime_and_index() {
     assert!(!html.contains(r#"type="statica/search""#));
     assert!(html.contains("statica-search-modal"));
     assert!(html.contains("data-limit=\"7\""));
+    assert!(html.contains("data-filters=\"tags,categories\""));
+    assert!(html.contains("data-url-field=\"url\""));
+    assert!(html.contains("<svg"));
+    assert!(!html.contains(">Find things</button>"));
     assert!(dir.join("dist/statica/search.js").exists());
     assert!(dir.join("dist/statica/search.css").exists());
 
     let index = std::fs::read_to_string(dir.join("dist/search.json")).unwrap();
     assert!(index.contains("\"url\": \"/\""));
+    assert!(index.contains("\"section\": \"home\""));
     assert!(index.contains("Home Search"));
+    assert!(index.contains("Searchable test page"));
     assert!(index.contains("Needle content lives here."));
     assert!(!index.contains("not searchable"));
     assert!(report.phases.iter().any(|phase| phase.name == "search"));

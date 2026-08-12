@@ -30,8 +30,16 @@ impl Default for SearchOptions {
 struct SearchEntry {
     url: String,
     title: String,
+    section: String,
     text: String,
     excerpt: String,
+    meta: Vec<SearchMeta>,
+}
+
+#[derive(Debug, Serialize)]
+struct SearchMeta {
+    name: String,
+    value: String,
 }
 
 pub fn rewrite_controls(html: &str, default_index: &str) -> Result<(String, usize)> {
@@ -71,13 +79,12 @@ pub fn write_index(out_dir: &Path, outputs: &[PathBuf], options: &SearchOptions)
         let doc = parse::parse_document(&html)?;
         let title = title_text(&doc.children);
         let text = visible_text(&doc.children);
+        let url = url_for_output(out_dir, path);
         entries.push(SearchEntry {
-            url: url_for_output(out_dir, path),
-            title: if title.is_empty() {
-                url_for_output(out_dir, path)
-            } else {
-                title
-            },
+            title: if title.is_empty() { url.clone() } else { title },
+            section: section_for_url(&url),
+            meta: meta_values(&doc.children),
+            url,
             excerpt: excerpt(&text),
             text,
         });
@@ -116,6 +123,8 @@ fn search_control(input: &Element, seq: usize, default_index: &str) -> Element {
     let index = input.attr("data-index").unwrap_or(default_index);
     let limit = input.attr("data-limit").unwrap_or("10");
     let label = input.attr("aria-label").unwrap_or("Search site");
+    let filters = input.attr("data-filters").unwrap_or("");
+    let url_field = input.attr("data-url-field").unwrap_or("url");
     Element {
         name: "div".into(),
         attrs: attrs(&[("class", "statica-search")]),
@@ -134,9 +143,10 @@ fn search_control(input: &Element, seq: usize, default_index: &str) -> Element {
                     ("type", "button"),
                     ("aria-controls", &id),
                     ("aria-label", label),
+                    ("title", label),
                 ]),
                 void: false,
-                children: vec![Node::Text(placeholder.into())],
+                children: vec![search_icon()],
             }),
             Node::Element(Element {
                 name: "dialog".into(),
@@ -146,35 +156,53 @@ fn search_control(input: &Element, seq: usize, default_index: &str) -> Element {
                     ("data-statica-search", ""),
                     ("data-index", index),
                     ("data-limit", limit),
+                    ("data-filters", filters),
+                    ("data-url-field", url_field),
                 ]),
                 void: false,
                 children: vec![
                     Node::Element(Element {
                         name: "div".into(),
-                        attrs: attrs(&[("class", "statica-search-bar")]),
+                        attrs: attrs(&[("class", "statica-search-head")]),
                         void: false,
                         children: vec![
                             Node::Element(Element {
-                                name: "input".into(),
-                                attrs: attrs(&[
-                                    ("type", "search"),
-                                    ("placeholder", placeholder),
-                                    ("aria-label", label),
-                                    ("autocomplete", "off"),
-                                ]),
-                                void: true,
-                                children: Vec::new(),
+                                name: "div".into(),
+                                attrs: attrs(&[("class", "statica-search-bar")]),
+                                void: false,
+                                children: vec![Node::Element(Element {
+                                    name: "input".into(),
+                                    attrs: attrs(&[
+                                        ("type", "search"),
+                                        ("placeholder", placeholder),
+                                        ("aria-label", label),
+                                        ("autocomplete", "off"),
+                                    ]),
+                                    void: true,
+                                    children: Vec::new(),
+                                })],
                             }),
                             Node::Element(Element {
                                 name: "button".into(),
                                 attrs: attrs(&[
+                                    ("class", "statica-search-close"),
                                     ("type", "button"),
+                                    ("aria-label", "Close search"),
                                     ("data-statica-search-close", ""),
                                 ]),
                                 void: false,
                                 children: vec![Node::Text("Close".into())],
                             }),
                         ],
+                    }),
+                    Node::Element(Element {
+                        name: "div".into(),
+                        attrs: attrs(&[
+                            ("class", "statica-search-meta"),
+                            ("data-statica-search-meta", ""),
+                        ]),
+                        void: false,
+                        children: Vec::new(),
                     }),
                     Node::Element(Element {
                         name: "div".into(),
@@ -195,6 +223,34 @@ fn search_control(input: &Element, seq: usize, default_index: &str) -> Element {
             }),
         ],
     }
+}
+
+fn search_icon() -> Node {
+    Node::Element(Element {
+        name: "svg".into(),
+        attrs: attrs(&[
+            ("viewBox", "0 0 24 24"),
+            ("width", "18"),
+            ("height", "18"),
+            ("aria-hidden", "true"),
+            ("focusable", "false"),
+        ]),
+        void: false,
+        children: vec![
+            Node::Element(Element {
+                name: "circle".into(),
+                attrs: attrs(&[("cx", "11"), ("cy", "11"), ("r", "7")]),
+                void: false,
+                children: Vec::new(),
+            }),
+            Node::Element(Element {
+                name: "path".into(),
+                attrs: attrs(&[("d", "m16.5 16.5 4 4")]),
+                void: false,
+                children: Vec::new(),
+            }),
+        ],
+    })
 }
 
 fn attrs(pairs: &[(&str, &str)]) -> AttrMap {
@@ -228,6 +284,63 @@ fn url_for_output(out_dir: &Path, path: &Path) -> String {
         parts.pop();
     }
     format!("/{}/", parts.join("/"))
+}
+
+fn section_for_url(url: &str) -> String {
+    let first = url
+        .trim_matches('/')
+        .split('/')
+        .find(|part| !part.is_empty());
+    first
+        .map(|part| part.replace('-', " "))
+        .unwrap_or_else(|| "home".into())
+}
+
+fn meta_values(nodes: &[Node]) -> Vec<SearchMeta> {
+    let mut out = Vec::new();
+    collect_meta(nodes, &mut out);
+    out
+}
+
+fn collect_meta(nodes: &[Node], out: &mut Vec<SearchMeta>) {
+    for node in nodes {
+        if let Node::Element(el) = node {
+            if el.name.eq_ignore_ascii_case("meta") {
+                if let (Some(name), Some(value)) = (meta_name(el), el.attr("content")) {
+                    let value = value.trim();
+                    if !value.is_empty() && searchable_meta(name) {
+                        out.push(SearchMeta {
+                            name: name.to_string(),
+                            value: value.to_string(),
+                        });
+                    }
+                }
+            }
+            collect_meta(&el.children, out);
+        }
+    }
+}
+
+fn meta_name(el: &Element) -> Option<&str> {
+    el.attr("name")
+        .or_else(|| el.attr("property"))
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+}
+
+fn searchable_meta(name: &str) -> bool {
+    matches!(
+        name,
+        "description"
+            | "author"
+            | "keywords"
+            | "category"
+            | "categories"
+            | "tag"
+            | "tags"
+            | "article:tag"
+            | "article:section"
+    ) || name.starts_with("statica:")
 }
 
 fn title_text(nodes: &[Node]) -> String {
