@@ -192,7 +192,7 @@ If the site does not define `404.html` or `404/index.html`, statica writes a def
 <link rel="statica/data" href="../content/posts.json" id="posts" />
 <link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
 <link rel="statica/font" href="@Google/?family=Outfit:wght@100..900&display=swap" />
-<input type="statica/search" placeholder="Search" />
+<input type="statica/search" placeholder="Search" data-filters="tags,categories" data-url-field="url" />
 <slot id="post-card"></slot>
 ```
 
