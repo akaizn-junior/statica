@@ -24,4 +24,5 @@ Demonstrates:
 - Static forms (`<form statica>` + `[forms]` in `statica.toml`)
 - i18n (`[locale]/about/` + `data-t` catalogs in `content/i18n/`)
 - Sitemap + RSS (`site_url` + `[sitemap]` / `[rss]` in `statica.toml`)
+- Generated site search (`<input type="statica/search">` + `/search.json`)
 - Public assets copied from `public/` (e.g. `site.css`, `statica-logo.png`)

@@ -88,6 +88,27 @@ a {
   font-weight: 650;
 }
 
+.topbar .statica-search {
+  display: inline-flex;
+}
+
+.topbar .statica-search-trigger {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 14px;
+  background: #fff;
+  color: #171717;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.topbar .statica-search-trigger:hover {
+  border-color: var(--green);
+  color: var(--green-dark);
+}
+
 .topbar-links .is-active {
   color: var(--muted);
 }
@@ -141,6 +162,20 @@ a {
 
 .mobile-menu a:hover {
   background: var(--soft);
+}
+
+.mobile-menu .statica-search,
+.mobile-menu .statica-search-trigger {
+  width: 100%;
+}
+
+.mobile-menu .statica-search-trigger {
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--soft);
+  color: var(--ink);
 }
 
 .hero-panel {

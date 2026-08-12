@@ -216,8 +216,8 @@ Keep content funnels build-time. Production output should not fetch site data at
 
 - `crates/statica-cli` — CLI (cwd/project resolve, config, SPECs, watch/serve, man pages)
 - `crates/statica` — discover → funnel → bind → scope → emit
-- `examples/blog` — dogfood fixture and canonical styled example
-- `examples/dealership-dashboard` — CSV/dashboard example using daisyUI and statica branding
+- `examples/blog` — dogfood fixture and canonical styled example with generated search
+- `examples/dealership-dashboard` — CSV/dashboard example using daisyUI, statica branding, and generated search
 - `examples/bench-*` — stress fixtures with lightweight scaffold-style pages
 - `docs/` — guide + man pages
 

@@ -19,6 +19,9 @@ description_field = "summary"
 date_field = "published_at"
 limit = 40
 
+[search]
+enabled = true
+
 [[pagination]]
 route = "inventory/[page]"
 page_size = 24
