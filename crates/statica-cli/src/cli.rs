@@ -206,7 +206,8 @@ Notes:
   Fails if out_dir is missing.";
 
 const WATCH_ABOUT: &str = "\
-Watch PATH for changes, rebuild incrementally, and serve out_dir over HTTP.
+Watch PATH for changes, rebuild incrementally, serve out_dir over HTTP, and
+reload open browser pages after successful rebuilds.
 
 Performs an initial full build, then rebuilds when source files change.
 Debounce and poll intervals come from [preview] (or --debounce-ms /

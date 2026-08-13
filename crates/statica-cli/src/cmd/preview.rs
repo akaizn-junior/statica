@@ -7,7 +7,9 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use axum::http::StatusCode;
 use axum::response::Response;
+use axum::routing::get;
 use axum::Router;
+use tokio::sync::broadcast;
 use tower::{service_fn, Service};
 use tower_http::services::{ServeDir, ServeFile};
 
@@ -18,6 +20,24 @@ use crate::style;
 /// Prints a **Local** URL and any **Network** (LAN) URLs so phones on the same
 /// Wi‑Fi can open the site when bound to `0.0.0.0` (the default).
 pub async fn serve_dir(out_dir: &Path, host: IpAddr, port: u16) -> Result<()> {
+    serve_dir_inner(out_dir, host, port, None).await
+}
+
+pub async fn serve_dir_with_reload(
+    out_dir: &Path,
+    host: IpAddr,
+    port: u16,
+    reloads: broadcast::Sender<()>,
+) -> Result<()> {
+    serve_dir_inner(out_dir, host, port, Some(reloads)).await
+}
+
+async fn serve_dir_inner(
+    out_dir: &Path,
+    host: IpAddr,
+    port: u16,
+    reloads: Option<broadcast::Sender<()>>,
+) -> Result<()> {
     if !out_dir.is_dir() {
         bail!(
             "output directory `{}` not found — run `statica build` first",
@@ -48,6 +68,11 @@ pub async fn serve_dir(out_dir: &Path, host: IpAddr, port: u16) -> Result<()> {
             .precompressed_gzip()
             .fallback(not_found_service),
     );
+    let app = if let Some(reloads) = reloads {
+        app.route("/__statica/reload", get(move || reload(reloads.clone())))
+    } else {
+        app
+    };
 
     let addr = SocketAddr::from((host, port));
     let listener = tokio::net::TcpListener::bind(addr)
@@ -60,6 +85,14 @@ pub async fn serve_dir(out_dir: &Path, host: IpAddr, port: u16) -> Result<()> {
         .await
         .context("preview server exited with error")?;
     Ok(())
+}
+
+async fn reload(reloads: broadcast::Sender<()>) -> StatusCode {
+    let mut rx = reloads.subscribe();
+    match rx.recv().await {
+        Ok(()) | Err(broadcast::error::RecvError::Lagged(_)) => StatusCode::NO_CONTENT,
+        Err(broadcast::error::RecvError::Closed) => StatusCode::SERVICE_UNAVAILABLE,
+    }
 }
 
 fn not_found_file(out_dir: &Path) -> std::path::PathBuf {
