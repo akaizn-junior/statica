@@ -1,6 +1,6 @@
 //! Build-time search controls and browser-side search index output.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -129,6 +129,7 @@ pub fn write_index(
             ));
         }
     }
+    disambiguate_duplicate_titles(&mut entries);
     let out = out_dir.join(&options.output);
     if let Some(parent) = out.parent() {
         fs::create_dir_all(parent)?;
@@ -161,26 +162,7 @@ fn item_title(item: &Value) -> Option<String> {
     obj.iter()
         .filter_map(|(key, value)| title_candidate(key, value))
         .max_by_key(|candidate| candidate.score)
-        .map(|candidate| with_identifier(obj, candidate.value))
-}
-
-fn with_identifier(obj: &serde_json::Map<String, Value>, title: String) -> String {
-    for key in [
-        "sku",
-        "code",
-        "reference",
-        "ref",
-        "number",
-        "stock_number",
-        "id",
-    ] {
-        if let Some(id) = obj.get(key).and_then(scalar_text) {
-            if !id.is_empty() && !title.contains(&id) {
-                return format!("{title} ({id})");
-            }
-        }
-    }
-    title
+        .map(|candidate| candidate.value)
 }
 
 struct TitleCandidate {
@@ -206,8 +188,19 @@ fn title_key_score(key: &str) -> Option<i32> {
         "headline" | "name" | "label" => Some(100),
         "title" => Some(90),
         "slug" | "filename" | "file" => Some(80),
-        "sku" | "code" | "reference" | "ref" | "number" | "stock_number" | "id" => Some(70),
         _ => None,
+    }
+}
+
+fn disambiguate_duplicate_titles(entries: &mut [SearchEntry]) {
+    let mut counts = HashMap::new();
+    for entry in entries.iter() {
+        *counts.entry(entry.title.clone()).or_insert(0_usize) += 1;
+    }
+    for entry in entries {
+        if counts.get(&entry.title).copied().unwrap_or_default() > 1 {
+            entry.title.clone_from(&entry.url);
+        }
     }
 }
 

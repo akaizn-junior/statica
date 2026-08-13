@@ -104,6 +104,24 @@ const ready = async () => {
       .querySelector("[data-statica-search-close]")
       ?.addEventListener("click", close);
 
+    meta.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-filter]");
+      if (!button || !meta.contains(button)) return;
+      const filter = String(button.dataset.filter || "").trim();
+      if (!filter) return;
+      const terms = input.value
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
+      if (!terms.includes(filter.toLowerCase())) {
+        terms.push(filter);
+      }
+      input.value = terms.join(" ");
+      input.focus();
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
     input.addEventListener("input", async () => {
       const terms = input.value
         .trim()

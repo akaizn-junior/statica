@@ -1847,6 +1847,8 @@ fn statica_search_input_emits_modal_runtime_and_index() {
     assert!(runtime.contains("staticaSearchReady"));
     assert!(runtime.contains("Array.isArray"));
     assert!(runtime.contains("if (!modal.open) modal.showModal()"));
+    assert!(runtime.contains("input.dispatchEvent(new Event(\"input\""));
+    assert!(runtime.contains("[data-filter]"));
     assert!(runtime.find("const label").unwrap() < runtime.find("const ready").unwrap());
 
     let index = std::fs::read_to_string(dir.join("dist/search.json")).unwrap();
@@ -1947,7 +1949,7 @@ fn search_prefers_collection_item_data_for_generated_pages() {
 }
 
 #[test]
-fn search_item_titles_prefer_distinguishing_record_fields() {
+fn search_duplicate_item_titles_fall_back_to_urls() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("content")).unwrap();
     std::fs::create_dir_all(dir.join("records/[slug]")).unwrap();
@@ -1965,10 +1967,15 @@ fn search_item_titles_prefer_distinguishing_record_fields() {
         r#"[
   {
     "slug":"north-region-launch-plan",
-    "title":"Record Detail",
-    "name":"North Region Launch Plan",
+    "name":"Launch Plan",
     "code":"PLAN-042",
     "status":"Ready"
+  },
+  {
+    "slug":"south-region-launch-plan",
+    "name":"Launch Plan",
+    "code":"PLAN-043",
+    "status":"Draft"
   }
 ]"#,
     )
@@ -1995,7 +2002,9 @@ fn search_item_titles_prefer_distinguishing_record_fields() {
     let entries: serde_json::Value = serde_json::from_str(&index).unwrap();
     let entries = entries.as_array().unwrap();
     assert_eq!(entries[0]["url"], "/records/north-region-launch-plan/");
-    assert_eq!(entries[0]["title"], "North Region Launch Plan (PLAN-042)");
+    assert_eq!(entries[0]["title"], "/records/north-region-launch-plan/");
+    assert_eq!(entries[1]["url"], "/records/south-region-launch-plan/");
+    assert_eq!(entries[1]["title"], "/records/south-region-launch-plan/");
 }
 
 fn tempfile_dir() -> PathBuf {
