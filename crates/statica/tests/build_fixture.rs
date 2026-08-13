@@ -1946,6 +1946,58 @@ fn search_prefers_collection_item_data_for_generated_pages() {
     );
 }
 
+#[test]
+fn search_item_titles_prefer_distinguishing_record_fields() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("content")).unwrap();
+    std::fs::create_dir_all(dir.join("records/[slug]")).unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head><title>Home</title></head>
+  <body><input type="statica/search" /></body>
+</html>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/records.json"),
+        r#"[
+  {
+    "slug":"north-region-launch-plan",
+    "title":"Record Detail",
+    "name":"North Region Launch Plan",
+    "code":"PLAN-042",
+    "status":"Ready"
+  }
+]"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("records/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{item}">
+  <head>
+    <link rel="statica/data" href="../../content/records.json" id="records" />
+    <title>Record Detail</title>
+  </head>
+  <body><h1>Record Detail</h1></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+
+    build(&opts).expect("build");
+
+    let index = std::fs::read_to_string(dir.join("dist/search.json")).unwrap();
+    let entries: serde_json::Value = serde_json::from_str(&index).unwrap();
+    let entries = entries.as_array().unwrap();
+    assert_eq!(entries[0]["url"], "/records/north-region-launch-plan/");
+    assert_eq!(entries[0]["title"], "North Region Launch Plan (PLAN-042)");
+}
+
 fn tempfile_dir() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static N: AtomicU64 = AtomicU64::new(0);

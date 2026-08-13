@@ -158,16 +158,86 @@ impl SearchEntry {
 
 fn item_title(item: &Value) -> Option<String> {
     let obj = item.as_object()?;
+    obj.iter()
+        .filter_map(|(key, value)| title_candidate(key, value))
+        .max_by_key(|candidate| candidate.score)
+        .map(|candidate| with_identifier(obj, candidate.value))
+}
+
+fn with_identifier(obj: &serde_json::Map<String, Value>, title: String) -> String {
     for key in [
-        "title", "headline", "name", "label", "slug", "id", "filename", "file",
+        "sku",
+        "code",
+        "reference",
+        "ref",
+        "number",
+        "stock_number",
+        "id",
     ] {
-        if let Some(value) = obj.get(key).and_then(scalar_text) {
-            if !value.is_empty() {
-                return Some(value);
+        if let Some(id) = obj.get(key).and_then(scalar_text) {
+            if !id.is_empty() && !title.contains(&id) {
+                return format!("{title} ({id})");
             }
         }
     }
-    None
+    title
+}
+
+struct TitleCandidate {
+    value: String,
+    score: i32,
+}
+
+fn title_candidate(key: &str, value: &Value) -> Option<TitleCandidate> {
+    let value = scalar_text(value)?;
+    if value.is_empty() || value.chars().count() > 120 {
+        return None;
+    }
+    let key = key.to_ascii_lowercase();
+    let base = title_key_score(&key)?;
+    Some(TitleCandidate {
+        score: base + title_value_score(&value),
+        value,
+    })
+}
+
+fn title_key_score(key: &str) -> Option<i32> {
+    match key {
+        "headline" | "name" | "label" => Some(100),
+        "title" => Some(90),
+        "slug" | "filename" | "file" => Some(80),
+        "sku" | "code" | "reference" | "ref" | "number" | "stock_number" | "id" => Some(70),
+        _ => None,
+    }
+}
+
+fn title_value_score(value: &str) -> i32 {
+    let mut score = 0;
+    if value.chars().any(|ch| ch.is_ascii_digit()) {
+        score += 8;
+    }
+    if value.contains('-') || value.contains('_') || value.contains('/') {
+        score += 6;
+    }
+    if value.split_whitespace().count() >= 3 {
+        score += 4;
+    }
+    if is_generic_title(value) {
+        score -= 35;
+    }
+    score
+}
+
+fn is_generic_title(value: &str) -> bool {
+    let value = value.trim().to_ascii_lowercase();
+    let words = value.split_whitespace().collect::<Vec<_>>();
+    words.len() <= 3
+        && words.iter().any(|word| {
+            matches!(
+                *word,
+                "detail" | "details" | "page" | "record" | "item" | "entry" | "overview"
+            )
+        })
 }
 
 fn item_search_text(value: &Value) -> String {
