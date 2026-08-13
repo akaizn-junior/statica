@@ -855,24 +855,7 @@ fn search_index_href(output: &str) -> String {
 }
 
 fn default_404_html() -> &'static str {
-    r#"<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>404 Not Found</title>
-    <style>
-      body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 10vh auto; padding: 0 1rem; line-height: 1.5; }
-      a { color: #0f766e; }
-    </style>
-  </head>
-  <body>
-    <h1>404 Not Found</h1>
-    <p>The page you are looking for does not exist.</p>
-    <p><a href="/">Return home</a></p>
-  </body>
-</html>
-"#
+    include_str!("runtime/404.html")
 }
 
 fn prepare_pages(
