@@ -1839,6 +1839,7 @@ fn statica_search_input_emits_modal_runtime_and_index() {
     assert!(html.contains("id=\"secondary-search\""));
     assert!(html.contains("<svg"));
     assert!(!html.contains(">Find things</button>"));
+    assert_eq!(html.matches(r#"src="/statica/search.js""#).count(), 1);
     assert!(dir.join("dist/statica/search.js").exists());
     assert!(dir.join("dist/statica/search.css").exists());
 

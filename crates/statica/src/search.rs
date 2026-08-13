@@ -49,6 +49,7 @@ pub fn rewrite_controls(html: &str, default_index: &str) -> Result<(String, usiz
     if next == 0 {
         return Ok((html.to_string(), 0));
     }
+    append_runtime_script(&mut doc.children);
     Ok((parse::serialize_document(&doc), next))
 }
 
@@ -108,6 +109,48 @@ fn rewrite_nodes(nodes: &mut Vec<Node>, next: &mut usize, default_index: &str) {
             }
         }
     }
+}
+
+fn append_runtime_script(nodes: &mut Vec<Node>) {
+    if contains_search_runtime(nodes) {
+        return;
+    }
+    let script = Node::Element(Element {
+        name: "script".into(),
+        attrs: attrs(&[("type", "module"), ("src", "/statica/search.js")]),
+        void: false,
+        children: Vec::new(),
+    });
+    if let Some(body) = find_body_mut(nodes) {
+        body.children.push(script);
+    } else {
+        nodes.push(script);
+    }
+}
+
+fn find_body_mut(nodes: &mut [Node]) -> Option<&mut Element> {
+    for node in nodes {
+        let Node::Element(el) = node else {
+            continue;
+        };
+        if el.name.eq_ignore_ascii_case("body") {
+            return Some(el);
+        }
+        if let Some(body) = find_body_mut(&mut el.children) {
+            return Some(body);
+        }
+    }
+    None
+}
+
+fn contains_search_runtime(nodes: &[Node]) -> bool {
+    nodes.iter().any(|node| {
+        let Node::Element(el) = node else {
+            return false;
+        };
+        (el.name.eq_ignore_ascii_case("script") && el.attr("src") == Some("/statica/search.js"))
+            || contains_search_runtime(&el.children)
+    })
 }
 
 fn is_search_input(el: &Element) -> bool {
@@ -210,12 +253,6 @@ fn search_control(input: &Element, seq: usize, default_index: &str) -> Element {
                             ("class", "statica-search-results"),
                             ("data-statica-search-results", ""),
                         ]),
-                        void: false,
-                        children: Vec::new(),
-                    }),
-                    Node::Element(Element {
-                        name: "script".into(),
-                        attrs: attrs(&[("type", "module"), ("src", "/statica/search.js")]),
                         void: false,
                         children: Vec::new(),
                     }),

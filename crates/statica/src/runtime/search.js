@@ -42,7 +42,11 @@ const ready = async () => {
     if (modal.dataset.staticaSearchReady === "true") continue;
     modal.dataset.staticaSearchReady = "true";
 
-    const trigger = document.querySelector(`[aria-controls="${modal.id}"]`);
+    const trigger =
+      modal
+        .closest(".statica-search")
+        ?.querySelector(`[aria-controls="${modal.id}"]`) ||
+      document.querySelector(`[aria-controls="${modal.id}"]`);
     const input = modal.querySelector("input[type='search']");
     const meta = modal.querySelector("[data-statica-search-meta]");
     const results = modal.querySelector("[data-statica-search-results]");
