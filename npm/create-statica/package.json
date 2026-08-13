@@ -1,6 +1,6 @@
 {
   "name": "create-statica",
-  "version": "0.49.0",
+  "version": "0.50.2",
   "description": "Create a new statica site",
   "license": "MIT",
   "type": "commonjs",
@@ -33,7 +33,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@statica/cli": "0.49.0"
+    "@statica/cli": "0.50.2"
   },
   "publishConfig": {
     "access": "public"
