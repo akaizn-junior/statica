@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -26,7 +25,6 @@ pub async fn run(dir: &Path, overrides: &ConfigCli) -> Result<()> {
     );
 
     let report = util::run_build(&opts)?;
-    inject_live_reload(&opts.out_dir)?;
     util::log_build(&report, &opts.out_dir, "Built", opts.verbose);
     util::write_report_json(&report, overrides.report_json.as_deref())?;
 
@@ -110,9 +108,6 @@ fn start_watcher(
                 rebuild_opts.clean = false;
                 match util::run_rebuild(&rebuild_opts, &changed) {
                     Ok(report) => {
-                        if let Err(e) = inject_live_reload(&rebuild_opts.out_dir) {
-                            eprintln!("{} {e:#}", style::error("reload injection failed:"));
-                        }
                         util::log_build(
                             &report,
                             &rebuild_opts.out_dir,
@@ -149,94 +144,4 @@ fn should_ignore_path(root: &Path, path: &Path, ignore_dirs: &[String]) -> bool 
         return rel.components().any(|c| matches_ignore(c.as_os_str()));
     }
     path.components().any(|c| matches_ignore(c.as_os_str()))
-}
-
-const LIVE_RELOAD_SNIPPET: &str = r#"<script type="module" data-statica-live-reload>
-(() => {
-  const listen = async () => {
-    for (;;) {
-      try {
-        await fetch("/__statica/reload", { cache: "no-store" });
-        location.reload();
-        return;
-      } catch (_) {
-        await new Promise((resolve) => setTimeout(resolve, 700));
-      }
-    }
-  };
-  listen();
-})();
-</script>"#;
-
-fn inject_live_reload(out_dir: &Path) -> Result<()> {
-    if !out_dir.is_dir() {
-        return Ok(());
-    }
-    inject_live_reload_dir(out_dir)
-}
-
-fn inject_live_reload_dir(dir: &Path) -> Result<()> {
-    for entry in fs::read_dir(dir).with_context(|| format!("read {}", dir.display()))? {
-        let entry = entry?;
-        let path = entry.path();
-        let file_type = entry.file_type()?;
-        if file_type.is_dir() {
-            inject_live_reload_dir(&path)?;
-        } else if path.extension().and_then(|ext| ext.to_str()) == Some("html") {
-            inject_live_reload_file(&path)?;
-        }
-    }
-    Ok(())
-}
-
-fn inject_live_reload_file(path: &Path) -> Result<()> {
-    let html = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
-    if html.contains("data-statica-live-reload") {
-        return Ok(());
-    }
-    let updated = if let Some(pos) = html.rfind("</body>") {
-        let mut out = String::with_capacity(html.len() + LIVE_RELOAD_SNIPPET.len() + 1);
-        out.push_str(&html[..pos]);
-        out.push_str(LIVE_RELOAD_SNIPPET);
-        out.push('\n');
-        out.push_str(&html[pos..]);
-        out
-    } else {
-        format!("{html}\n{LIVE_RELOAD_SNIPPET}\n")
-    };
-    fs::write(path, updated).with_context(|| format!("write {}", path.display()))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn temp_dir() -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "statica-live-reload-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ))
-    }
-
-    #[test]
-    fn live_reload_injection_is_idempotent() {
-        let dir = temp_dir();
-        fs::create_dir_all(dir.join("nested")).unwrap();
-        let page = dir.join("nested/index.html");
-        fs::write(&page, "<!doctype html><body><h1>Hi</h1></body>").unwrap();
-
-        inject_live_reload(&dir).unwrap();
-        inject_live_reload(&dir).unwrap();
-
-        let html = fs::read_to_string(&page).unwrap();
-        assert_eq!(html.matches("data-statica-live-reload").count(), 1);
-        assert!(html.contains("/__statica/reload"));
-        assert!(html.contains("</script>\n</body>"));
-
-        let _ = fs::remove_dir_all(dir);
-    }
 }
