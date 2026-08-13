@@ -4,16 +4,19 @@
   height: 2.5rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in oklab, currentColor 18%, transparent);
+  border: 1px solid #dbe3df;
   border-radius: 0.5rem;
-  background: color-mix(in oklab, Canvas 92%, currentColor 8%);
-  color: inherit;
+  background: #ffffff;
+  color: #64748b;
   cursor: pointer;
   font: inherit;
+  box-shadow: 0 0.35rem 1rem rgb(15 23 42 / 0.08);
 }
 
 .statica-search-trigger:hover {
-  background: color-mix(in oklab, Canvas 86%, currentColor 14%);
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #111827;
 }
 
 .statica-search-trigger svg,
