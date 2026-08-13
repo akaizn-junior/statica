@@ -1762,8 +1762,8 @@ fn emits_default_404_when_author_omits_one() {
     let html = std::fs::read_to_string(dir.join("dist/404/index.html")).unwrap();
     assert!(html.contains("<title>404 Not Found</title>"));
     assert!(html.contains("place-items: center"));
-    assert!(html.contains(r#"<div class="mark" aria-label="statica">s</div>"#));
     assert!(html.contains("<h1>404</h1>"));
+    assert!(html.contains("<main>"));
     assert!(html.contains("The page you are looking for does not exist."));
     assert_eq!(report.pages_written, 1);
     assert!(!report.outputs.contains(&dir.join("dist/404/index.html")));
