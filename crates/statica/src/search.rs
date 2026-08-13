@@ -210,6 +210,15 @@ fn search_control(input: &Element, seq: usize, default_index: &str) -> Element {
                         void: false,
                         children: vec![
                             Node::Element(Element {
+                                name: "span".into(),
+                                attrs: attrs(&[
+                                    ("class", "statica-search-input-icon"),
+                                    ("aria-hidden", "true"),
+                                ]),
+                                void: false,
+                                children: vec![search_icon()],
+                            }),
+                            Node::Element(Element {
                                 name: "div".into(),
                                 attrs: attrs(&[("class", "statica-search-bar")]),
                                 void: false,
@@ -256,10 +265,49 @@ fn search_control(input: &Element, seq: usize, default_index: &str) -> Element {
                         void: false,
                         children: Vec::new(),
                     }),
+                    Node::Element(Element {
+                        name: "div".into(),
+                        attrs: attrs(&[("class", "statica-search-footer")]),
+                        void: false,
+                        children: vec![
+                            hint("↑", "↓", "to navigate"),
+                            hint("↵", "", "to select"),
+                            hint("Esc", "", "to exit"),
+                        ],
+                    }),
                 ],
             }),
         ],
     }
+}
+
+fn hint(first_key: &str, second_key: &str, text: &str) -> Node {
+    let mut children = vec![Node::Element(Element {
+        name: "kbd".into(),
+        attrs: AttrMap::new(),
+        void: false,
+        children: vec![Node::Text(first_key.into())],
+    })];
+    if !second_key.is_empty() {
+        children.push(Node::Element(Element {
+            name: "kbd".into(),
+            attrs: AttrMap::new(),
+            void: false,
+            children: vec![Node::Text(second_key.into())],
+        }));
+    }
+    children.push(Node::Element(Element {
+        name: "span".into(),
+        attrs: AttrMap::new(),
+        void: false,
+        children: vec![Node::Text(text.into())],
+    }));
+    Node::Element(Element {
+        name: "span".into(),
+        attrs: attrs(&[("class", "statica-search-hint")]),
+        void: false,
+        children,
+    })
 }
 
 fn search_icon() -> Node {

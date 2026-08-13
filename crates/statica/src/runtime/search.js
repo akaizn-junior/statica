@@ -57,6 +57,22 @@ const ready = async () => {
       .split(",")
       .map((filter) => filter.trim())
       .filter(Boolean);
+    let activeIndex = -1;
+    const resultLinks = () => [...results.querySelectorAll(".statica-search-result")];
+    const setActive = (next) => {
+      const links = resultLinks();
+      if (!links.length) {
+        activeIndex = -1;
+        return;
+      }
+      activeIndex = (next + links.length) % links.length;
+      links.forEach((link, index) => {
+        const active = index === activeIndex;
+        link.toggleAttribute("data-active", active);
+        link.setAttribute("aria-selected", active ? "true" : "false");
+        if (active) link.scrollIntoView({ block: "nearest" });
+      });
+    };
     const close = () => {
       if (modal.open) modal.close();
     };
@@ -96,6 +112,7 @@ const ready = async () => {
         .filter(Boolean);
 
       if (!terms.length) {
+        activeIndex = -1;
         results.replaceChildren();
         meta.replaceChildren(...(filters.length ? [filterList(filters)] : []));
         return;
@@ -121,6 +138,10 @@ const ready = async () => {
           const link = document.createElement("a");
           link.className = "statica-search-result";
           link.href = href;
+          link.setAttribute("role", "option");
+
+          const body = document.createElement("span");
+          body.className = "statica-search-result-body";
 
           const title = document.createElement("strong");
           title.textContent = item.title || item.url;
@@ -137,10 +158,30 @@ const ready = async () => {
             metadata.append(chip(`${label(field.name)}: ${shorten(field.value, 64)}`));
           }
 
-          link.append(metadata, title, excerpt);
+          body.append(title, excerpt, metadata);
+          link.append(body);
           return link;
         }),
       );
+      setActive(matches.length ? 0 : -1);
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActive(activeIndex + 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActive(activeIndex - 1);
+      } else if (event.key === "Enter") {
+        const active = resultLinks()[activeIndex];
+        if (active) {
+          event.preventDefault();
+          active.click();
+        }
+      } else if (event.key === "Escape") {
+        close();
+      }
     });
   }
 };
