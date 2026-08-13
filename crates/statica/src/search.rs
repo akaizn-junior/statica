@@ -1,9 +1,11 @@
 //! Build-time search controls and browser-side search index output.
 
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::error::Result;
 use crate::parse::{self, AttrMap, Element, Node};
@@ -26,8 +28,8 @@ impl Default for SearchOptions {
     }
 }
 
-#[derive(Debug, Serialize)]
-struct SearchEntry {
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct SearchEntry {
     url: String,
     title: String,
     section: String,
@@ -36,7 +38,7 @@ struct SearchEntry {
     meta: Vec<SearchMeta>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct SearchMeta {
     name: String,
     value: String,
@@ -70,8 +72,31 @@ pub fn count_controls_in_outputs(outputs: &[PathBuf]) -> usize {
         .sum()
 }
 
-pub fn write_index(out_dir: &Path, outputs: &[PathBuf], options: &SearchOptions) -> Result<()> {
+pub(crate) fn entry_for_item(item: &Value, url: String, collection_id: &str) -> SearchEntry {
+    let text = item_search_text(item);
+    SearchEntry {
+        title: item_title(item).unwrap_or_else(|| url.clone()),
+        section: collection_id.replace(['-', '_'], " "),
+        excerpt: excerpt(&text),
+        text,
+        url,
+        meta: item_meta(item),
+    }
+}
+
+pub fn write_index(
+    out_dir: &Path,
+    outputs: &[PathBuf],
+    options: &SearchOptions,
+    preferred: Vec<SearchEntry>,
+) -> Result<()> {
     let mut entries = Vec::new();
+    let mut seen = HashSet::new();
+    for entry in preferred {
+        if seen.insert(entry.url.clone()) {
+            entries.push(entry);
+        }
+    }
     for path in outputs
         .iter()
         .filter(|path| is_html(path) && !is_404(out_dir, path))
@@ -81,14 +106,16 @@ pub fn write_index(out_dir: &Path, outputs: &[PathBuf], options: &SearchOptions)
         let title = title_text(&doc.children);
         let text = visible_text(&doc.children);
         let url = url_for_output(out_dir, path);
-        entries.push(SearchEntry {
-            title: if title.is_empty() { url.clone() } else { title },
-            section: section_for_url(&url),
-            meta: meta_values(&doc.children),
-            url,
-            excerpt: excerpt(&text),
-            text,
-        });
+        if seen.insert(url.clone()) {
+            entries.push(SearchEntry {
+                title: if title.is_empty() { url.clone() } else { title },
+                section: section_for_url(&url),
+                meta: meta_values(&doc.children),
+                url,
+                excerpt: excerpt(&text),
+                text,
+            });
+        }
     }
     let out = out_dir.join(&options.output);
     if let Some(parent) = out.parent() {
@@ -96,6 +123,108 @@ pub fn write_index(out_dir: &Path, outputs: &[PathBuf], options: &SearchOptions)
     }
     fs::write(out, serde_json::to_string_pretty(&entries)?)?;
     Ok(())
+}
+
+fn item_title(item: &Value) -> Option<String> {
+    let obj = item.as_object()?;
+    for key in [
+        "title", "headline", "name", "label", "slug", "id", "filename", "file",
+    ] {
+        if let Some(value) = obj.get(key).and_then(scalar_text) {
+            if !value.is_empty() {
+                return Some(value);
+            }
+        }
+    }
+    None
+}
+
+fn item_search_text(value: &Value) -> String {
+    let mut out = Vec::new();
+    collect_item_text(value, &mut out);
+    normalize_ws(&out.join(" "))
+}
+
+fn collect_item_text(value: &Value, out: &mut Vec<String>) {
+    match value {
+        Value::Null | Value::Bool(_) => {}
+        Value::Number(n) => out.push(n.to_string()),
+        Value::String(s) => out.push(strip_html(s)),
+        Value::Array(items) => {
+            for item in items {
+                collect_item_text(item, out);
+            }
+        }
+        Value::Object(obj) => {
+            for value in obj.values() {
+                collect_item_text(value, out);
+            }
+        }
+    }
+}
+
+fn item_meta(item: &Value) -> Vec<SearchMeta> {
+    let Some(obj) = item.as_object() else {
+        return Vec::new();
+    };
+    [
+        "tags",
+        "categories",
+        "category",
+        "author",
+        "published_at",
+        "date",
+    ]
+    .iter()
+    .filter_map(|key| {
+        let value = obj.get(*key).and_then(meta_text)?;
+        Some(SearchMeta {
+            name: (*key).into(),
+            value,
+        })
+    })
+    .collect()
+}
+
+fn meta_text(value: &Value) -> Option<String> {
+    match value {
+        Value::String(s) => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        Value::Array(items) => {
+            let text = items
+                .iter()
+                .filter_map(scalar_text)
+                .collect::<Vec<_>>()
+                .join(", ");
+            (!text.is_empty()).then_some(text)
+        }
+        _ => None,
+    }
+}
+
+fn scalar_text(value: &Value) -> Option<String> {
+    match value {
+        Value::String(s) => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }
+}
+
+fn strip_html(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut in_tag = false;
+    for ch in raw.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' => {
+                in_tag = false;
+                out.push(' ');
+            }
+            _ if !in_tag => out.push(ch),
+            _ => {}
+        }
+    }
+    out
 }
 
 fn rewrite_nodes(nodes: &mut Vec<Node>, next: &mut usize, default_index: &str) {

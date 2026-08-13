@@ -95,6 +95,7 @@ fn pagination_listing_route(
 
 struct EmitResult {
     outputs: Vec<PathBuf>,
+    search_entries: Vec<search::SearchEntry>,
     route: BuildRouteRow,
 }
 
@@ -205,12 +206,14 @@ fn build_scoped(opts: &BuildOptions, scope: &BuildScope) -> Result<BuildReport> 
     };
     let emit_ms = t.elapsed().as_millis();
 
-    let render_outputs = results
+    let emitted = results.into_iter().collect::<Result<Vec<_>>>()?;
+    let render_outputs = emitted
+        .iter()
+        .flat_map(|chunk| chunk.outputs.iter().cloned())
+        .collect::<Vec<_>>();
+    let search_entries = emitted
         .into_iter()
-        .map(|result| result.map(|chunk| chunk.outputs))
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .flatten()
+        .flat_map(|chunk| chunk.search_entries)
         .collect::<Vec<_>>();
     let parallel_detail = render_detail(render_mode, opts.render_threads);
     phases.push(BuildPhase {
@@ -343,7 +346,7 @@ fn build_scoped(opts: &BuildOptions, scope: &BuildScope) -> Result<BuildReport> 
     };
     if scope.is_full() && (opts.search.enabled || search_controls > 0) {
         let t = Instant::now();
-        search::write_index(&opts.out_dir, &outputs, &opts.search)?;
+        search::write_index(&opts.out_dir, &outputs, &opts.search, search_entries)?;
         if search_controls > 0 {
             search::write_runtime(&opts.out_dir)?;
         }

@@ -19,6 +19,7 @@ use crate::loc::Diagnostic;
 use crate::manifest::ManifestMeta;
 use crate::paginate::{self, PaginationRule};
 use crate::parse::Document;
+use crate::search;
 
 use super::output::write_rendered_html;
 use super::page::PreparedPage;
@@ -103,6 +104,7 @@ pub(super) fn emit_prepared(
             write_rendered_html(opts, &out, &rendered)?;
             Ok(EmitResult {
                 outputs: vec![out],
+                search_entries: Vec::new(),
                 route: page.route_row(1, PageKind::Static),
             })
         }
@@ -151,6 +153,7 @@ fn emit_locales(
     }
     Ok(EmitResult {
         outputs: outs,
+        search_entries: Vec::new(),
         route: page.route_row(locales.len(), PageKind::Static),
     })
 }
@@ -197,6 +200,7 @@ fn emit_locale_paginated(
     let listing_route = pagination_listing_route(rule, page, &param);
     let mut data_cache = std::collections::HashMap::new();
     let mut outs = Vec::new();
+    let mut search_entries = Vec::new();
 
     if page.collection_varies_by_locale(&collection_id, i18n_catalogs, &opts.i18n) {
         for loc in &opts.i18n.locales {
@@ -232,6 +236,8 @@ fn emit_locale_paginated(
                 manifest,
                 &mut data_cache,
                 &mut outs,
+                &mut search_entries,
+                &collection_id,
             )?;
         }
     } else {
@@ -241,6 +247,7 @@ fn emit_locale_paginated(
             push_empty_pagination_warning(page, warnings, &collection_id, &needle_refs)?;
             return Ok(EmitResult {
                 outputs: Vec::new(),
+                search_entries: Vec::new(),
                 route: page.route_row(0, BuildRouteKind::Paginated),
             });
         }
@@ -261,6 +268,8 @@ fn emit_locale_paginated(
                 manifest,
                 &mut data_cache,
                 &mut outs,
+                &mut search_entries,
+                &collection_id,
             )?;
         }
     }
@@ -268,6 +277,7 @@ fn emit_locale_paginated(
     let count = outs.len();
     Ok(EmitResult {
         outputs: outs,
+        search_entries,
         route: page.route_row(count, BuildRouteKind::Paginated),
     })
 }
@@ -358,6 +368,8 @@ fn emit_pagination_chunks(
     manifest: Option<&ManifestMeta>,
     data_cache: &mut std::collections::HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     outs: &mut Vec<PathBuf>,
+    search_entries: &mut Vec<search::SearchEntry>,
+    collection_id: &str,
 ) -> Result<()> {
     let item_param = pagination_item_param(page, param);
     if page
@@ -387,6 +399,8 @@ fn emit_pagination_chunks(
                     i18n_catalogs,
                     manifest,
                     outs,
+                    search_entries,
+                    collection_id,
                 )?;
             }
         }
@@ -447,6 +461,8 @@ fn emit_paginated_item_chunk(
     i18n_catalogs: &I18nCatalogs,
     manifest: Option<&ManifestMeta>,
     outs: &mut Vec<PathBuf>,
+    search_entries: &mut Vec<search::SearchEntry>,
+    collection_id: &str,
 ) -> Result<()> {
     let items = chunk
         .value
@@ -513,18 +529,18 @@ fn emit_paginated_item_chunk(
             )
         };
         write_rendered_html(opts, &out, &rendered)?;
-        Ok(out)
+        let url = search_url_for_output(&opts.out_dir, &out);
+        Ok::<_, Error>((out, search::entry_for_item(item, url, collection_id)))
     };
     let rendered = if opts.render_mode.should_render_parallel() {
-        tasks
-            .par_iter()
-            .map(render)
-            .collect::<Vec<Result<PathBuf>>>()
+        tasks.par_iter().map(render).collect::<Vec<_>>()
     } else {
-        tasks.iter().map(render).collect::<Vec<Result<PathBuf>>>()
+        tasks.iter().map(render).collect::<Vec<_>>()
     };
     for out in rendered {
-        outs.push(out?);
+        let (out, entry) = out?;
+        outs.push(out);
+        search_entries.push(entry);
     }
     Ok(())
 }
@@ -590,9 +606,10 @@ fn emit_collection_items(
     registry: &FragmentRegistry,
     i18n_catalogs: &I18nCatalogs,
     manifest: Option<&ManifestMeta>,
+    collection_id: &str,
     param: &str,
     items: &[Value],
-) -> Result<Vec<PathBuf>> {
+) -> Result<(Vec<PathBuf>, Vec<search::SearchEntry>)> {
     let render = |item: &Value| {
         let folder = funnel::field_as_str(item, param).ok_or_else(|| {
             page.at(
@@ -619,17 +636,22 @@ fn emit_collection_items(
             Some((param, &folder)),
         );
         write_rendered_html(opts, &out, &rendered)?;
-        Ok(out)
+        let url = search_url_for_output(&opts.out_dir, &out);
+        Ok::<_, Error>((out, search::entry_for_item(item, url, collection_id)))
     };
     let rendered = if opts.render_mode.should_render_parallel() {
-        items
-            .par_iter()
-            .map(render)
-            .collect::<Vec<Result<PathBuf>>>()
+        items.par_iter().map(render).collect::<Vec<_>>()
     } else {
-        items.iter().map(render).collect::<Vec<Result<PathBuf>>>()
+        items.iter().map(render).collect::<Vec<_>>()
     };
-    rendered.into_iter().collect()
+    let mut outs = Vec::new();
+    let mut entries = Vec::new();
+    for rendered in rendered {
+        let (out, entry) = rendered?;
+        outs.push(out);
+        entries.push(entry);
+    }
+    Ok((outs, entries))
 }
 
 fn emit_locale_collection_items_parallel(
@@ -638,12 +660,13 @@ fn emit_locale_collection_items_parallel(
     registry: &FragmentRegistry,
     i18n_catalogs: &I18nCatalogs,
     manifest: Option<&ManifestMeta>,
+    collection_id: &str,
     param: &str,
     items: &[Value],
     loc: &str,
     needle_refs: &[&str],
     seen: &mut HashSet<String>,
-) -> Result<Vec<PathBuf>> {
+) -> Result<(Vec<PathBuf>, Vec<search::SearchEntry>)> {
     let tasks = items
         .iter()
         .map(|item| {
@@ -685,17 +708,22 @@ fn emit_locale_collection_items_parallel(
             &[(i18n::LOCALE_PARAM, loc), (param, folder)],
         );
         write_rendered_html(opts, &out, &rendered)?;
-        Ok(out)
+        let url = search_url_for_output(&opts.out_dir, &out);
+        Ok::<_, Error>((out, search::entry_for_item(item, url, collection_id)))
     };
     let rendered = if opts.render_mode.should_render_parallel() {
-        tasks
-            .par_iter()
-            .map(render)
-            .collect::<Vec<Result<PathBuf>>>()
+        tasks.par_iter().map(render).collect::<Vec<_>>()
     } else {
-        tasks.iter().map(render).collect::<Vec<Result<PathBuf>>>()
+        tasks.iter().map(render).collect::<Vec<_>>()
     };
-    rendered.into_iter().collect()
+    let mut outs = Vec::new();
+    let mut entries = Vec::new();
+    for rendered in rendered {
+        let (out, entry) = rendered?;
+        outs.push(out);
+        entries.push(entry);
+    }
+    Ok((outs, entries))
 }
 
 fn emit_paginated(
@@ -743,11 +771,13 @@ fn emit_paginated(
         push_empty_pagination_warning(page, warnings, &collection_id, &needle_refs)?;
         return Ok(EmitResult {
             outputs: Vec::new(),
+            search_entries: Vec::new(),
             route: page.route_row(0, BuildRouteKind::Paginated),
         });
     }
 
     let mut outs = Vec::with_capacity(chunks.len() + usize::from(rule.index));
+    let mut search_entries = Vec::new();
     emit_pagination_chunks(
         opts,
         page,
@@ -760,11 +790,14 @@ fn emit_paginated(
         manifest,
         &mut data_cache,
         &mut outs,
+        &mut search_entries,
+        &collection_id,
     )?;
 
     let count = outs.len();
     Ok(EmitResult {
         outputs: outs,
+        search_entries,
         route: page.route_row(count, BuildRouteKind::Paginated),
     })
 }
@@ -822,6 +855,7 @@ fn emit_collection(
         ));
         return Ok(EmitResult {
             outputs: Vec::new(),
+            search_entries: Vec::new(),
             route: page.route_row(0, PageKind::Collection),
         });
     }
@@ -849,10 +883,20 @@ fn emit_collection(
             ));
         }
     }
-    let outs = emit_collection_items(opts, page, registry, i18n_catalogs, manifest, param, &items)?;
+    let (outs, search_entries) = emit_collection_items(
+        opts,
+        page,
+        registry,
+        i18n_catalogs,
+        manifest,
+        &collection_id,
+        param,
+        &items,
+    )?;
     let count = outs.len();
     Ok(EmitResult {
         outputs: outs,
+        search_entries,
         route: page.route_row(count, PageKind::Collection),
     })
 }
@@ -879,6 +923,7 @@ fn emit_locale_collection(
         collection_param(&page.source.params).map_err(|e| page.at(&needle_refs, e.to_string()))?;
 
     let mut outs = Vec::new();
+    let mut search_entries = Vec::new();
     let mut data_cache = std::collections::HashMap::new();
     let varies = page.collection_varies_by_locale(&collection_id, i18n_catalogs, &opts.i18n);
 
@@ -918,18 +963,21 @@ fn emit_locale_collection(
                 continue;
             }
             let mut seen = HashSet::new();
-            outs.extend(emit_locale_collection_items_parallel(
+            let (loc_outs, loc_entries) = emit_locale_collection_items_parallel(
                 opts,
                 page,
                 registry,
                 i18n_catalogs,
                 manifest,
+                &collection_id,
                 param,
                 &items,
                 loc,
                 &needle_refs,
                 &mut seen,
-            )?);
+            )?;
+            outs.extend(loc_outs);
+            search_entries.extend(loc_entries);
         }
     } else {
         let items = page.shared_collection_items(&collection_id, &needle_refs)?;
@@ -943,29 +991,51 @@ fn emit_locale_collection(
             ));
             return Ok(EmitResult {
                 outputs: Vec::new(),
+                search_entries: Vec::new(),
                 route: page.route_row(0, PageKind::Collection),
             });
         }
         let mut seen = HashSet::new();
         for loc in &opts.i18n.locales {
-            outs.extend(emit_locale_collection_items_parallel(
+            let (loc_outs, loc_entries) = emit_locale_collection_items_parallel(
                 opts,
                 page,
                 registry,
                 i18n_catalogs,
                 manifest,
+                &collection_id,
                 param,
                 &items,
                 loc,
                 &needle_refs,
                 &mut seen,
-            )?);
+            )?;
+            outs.extend(loc_outs);
+            search_entries.extend(loc_entries);
         }
     }
 
     let count = outs.len();
     Ok(EmitResult {
         outputs: outs,
+        search_entries,
         route: page.route_row(count, PageKind::Collection),
     })
+}
+
+fn search_url_for_output(out_dir: &Path, path: &Path) -> String {
+    let Ok(rel) = path.strip_prefix(out_dir) else {
+        return "/".into();
+    };
+    if rel == Path::new("index.html") {
+        return "/".into();
+    }
+    let mut parts = rel
+        .components()
+        .filter_map(|part| part.as_os_str().to_str())
+        .collect::<Vec<_>>();
+    if parts.last() == Some(&"index.html") {
+        parts.pop();
+    }
+    format!("/{}/", parts.join("/"))
 }
