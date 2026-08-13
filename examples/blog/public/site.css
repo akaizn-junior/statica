@@ -70,13 +70,24 @@ a {
   font-weight: 900;
 }
 
-.hero {
+.home-hero {
   display: grid;
   justify-items: center;
-  gap: 1.25rem;
+  align-content: center;
   min-height: 58vh;
-  padding: 5rem 0 4rem;
+  padding: 6.5rem 0 5.5rem;
   text-align: center;
+}
+
+.home-hero h1 {
+  font-size: 3rem;
+  margin-bottom: 1.1rem;
+}
+
+.home-hero .lede {
+  max-width: 42rem;
+  margin: 0 0 1.75rem;
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
 }
 
 .hero-logo {

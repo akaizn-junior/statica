@@ -16,12 +16,6 @@
       rel="statica/font"
       href="@Google/?family=Outfit:wght@400;600&display=swap"
     />
-    <link
-      rel="statica/fragment"
-      type="text/html"
-      href="./ui/button.html"
-      id="button"
-    />
   </head>
   <body data-theme="light">
     <main class="site-shell">
@@ -38,10 +32,10 @@
         </div>
       </nav>
 
-      <section class="hero">
+      <section class="home-hero">
         <h1>statica blog</h1>
         <p class="lede">Funnel markdown into pages, pagination, fragments, i18n, RSS, sitemap, search, and forms.</p>
-        <p><slot id="button">Read the blog</slot></p>
+        <a class="btn btn-primary" href="/blog/">Read the blog</a>
       </section>
 
       <footer class="site-footer">
