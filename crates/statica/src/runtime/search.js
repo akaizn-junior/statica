@@ -1,3 +1,9 @@
+const label = (value) =>
+  String(value || "")
+    .replace(/^statica:/, "")
+    .replace(/[:_-]+/g, " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+
 const ready = async () => {
   const modals = document.querySelectorAll("[data-statica-search]");
   if (!modals.length) return;
@@ -22,11 +28,6 @@ const ready = async () => {
       .split(".")
       .filter(Boolean)
       .reduce((current, part) => current?.[part], item);
-  const label = (value) =>
-    String(value || "")
-      .replace(/^statica:/, "")
-      .replace(/[:_-]+/g, " ")
-      .replace(/\b\w/g, (match) => match.toUpperCase());
   const score = (item, terms) =>
     terms.reduce(
       (total, term) =>

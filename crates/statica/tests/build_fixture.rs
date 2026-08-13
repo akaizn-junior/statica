@@ -1846,6 +1846,7 @@ fn statica_search_input_emits_modal_runtime_and_index() {
     assert!(runtime.contains("staticaSearchReady"));
     assert!(runtime.contains("Array.isArray"));
     assert!(runtime.contains("if (!modal.open) modal.showModal()"));
+    assert!(runtime.find("const label").unwrap() < runtime.find("const ready").unwrap());
 
     let index = std::fs::read_to_string(dir.join("dist/search.json")).unwrap();
     assert!(index.contains("\"url\": \"/\""));
