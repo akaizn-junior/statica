@@ -91,6 +91,7 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="../public/statica-logo.png" type="image/png" />
     <title data-t="${i18n.home.title}">statica starter</title>
     <style>
       :root {
@@ -249,6 +250,7 @@ mod tests {
         let home = fs::read_to_string(root.join(".website/en/index.html")).unwrap();
         assert!(home.contains("statica starter"));
         assert!(home.contains("../public/statica-logo.png"));
+        assert!(home.contains(r#"<link rel="icon" href="../public/statica-logo.png" type="image/png""#));
         assert!(home.contains("https://github.com/akaizn-junior/statica/blob/main/docs/guide.md"));
         assert!(home.contains("Star on GitHub"));
         assert!(root.join(".website/public/statica-logo.png").exists());
