@@ -211,10 +211,10 @@ fn build_scoped(opts: &BuildOptions, scope: &BuildScope) -> Result<BuildReport> 
         .iter()
         .flat_map(|chunk| chunk.outputs.iter().cloned())
         .collect::<Vec<_>>();
-    let search_entries = emitted
-        .into_iter()
-        .flat_map(|chunk| chunk.search_entries)
-        .collect::<Vec<_>>();
+    let mut search_entries = Vec::new();
+    for chunk in emitted {
+        search_entries.extend(chunk.search_entries);
+    }
     let parallel_detail = render_detail(render_mode, opts.render_threads);
     phases.push(BuildPhase {
         name: "emit",

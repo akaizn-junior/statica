@@ -38,6 +38,19 @@ pub(crate) struct SearchEntry {
     meta: Vec<SearchMeta>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct SearchUrl(String);
+
+impl SearchUrl {
+    pub(crate) fn for_output(out_dir: &Path, path: &Path) -> Self {
+        Self(url_for_output(out_dir, path))
+    }
+
+    fn into_string(self) -> String {
+        self.0
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct SearchMeta {
     name: String,
@@ -72,16 +85,16 @@ pub fn count_controls_in_outputs(outputs: &[PathBuf]) -> usize {
         .sum()
 }
 
-pub(crate) fn entry_for_item(item: &Value, url: String, collection_id: &str) -> SearchEntry {
+pub(crate) fn entry_for_item(item: &Value, url: SearchUrl, collection_id: &str) -> SearchEntry {
+    let url = url.into_string();
     let text = item_search_text(item);
-    SearchEntry {
-        title: item_title(item).unwrap_or_else(|| url.clone()),
-        section: collection_id.replace(['-', '_'], " "),
-        excerpt: excerpt(&text),
+    SearchEntry::new(
+        url.clone(),
+        item_title(item).unwrap_or(url),
+        collection_id.replace(['-', '_'], " "),
         text,
-        url,
-        meta: item_meta(item),
-    }
+        item_meta(item),
+    )
 }
 
 pub fn write_index(
@@ -107,14 +120,13 @@ pub fn write_index(
         let text = visible_text(&doc.children);
         let url = url_for_output(out_dir, path);
         if seen.insert(url.clone()) {
-            entries.push(SearchEntry {
-                title: if title.is_empty() { url.clone() } else { title },
-                section: section_for_url(&url),
-                meta: meta_values(&doc.children),
-                url,
-                excerpt: excerpt(&text),
+            entries.push(SearchEntry::new(
+                url.clone(),
+                if title.is_empty() { url.clone() } else { title },
+                section_for_url(&url),
                 text,
-            });
+                meta_values(&doc.children),
+            ));
         }
     }
     let out = out_dir.join(&options.output);
@@ -123,6 +135,25 @@ pub fn write_index(
     }
     fs::write(out, serde_json::to_string_pretty(&entries)?)?;
     Ok(())
+}
+
+impl SearchEntry {
+    fn new(
+        url: String,
+        title: String,
+        section: String,
+        text: String,
+        meta: Vec<SearchMeta>,
+    ) -> Self {
+        Self {
+            excerpt: excerpt(&text),
+            text,
+            url,
+            title,
+            section,
+            meta,
+        }
+    }
 }
 
 fn item_title(item: &Value) -> Option<String> {

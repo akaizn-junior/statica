@@ -529,7 +529,7 @@ fn emit_paginated_item_chunk(
             )
         };
         write_rendered_html(opts, &out, &rendered)?;
-        let url = search_url_for_output(&opts.out_dir, &out);
+        let url = search::SearchUrl::for_output(&opts.out_dir, &out);
         Ok::<_, Error>((out, search::entry_for_item(item, url, collection_id)))
     };
     let rendered = if opts.render_mode.should_render_parallel() {
@@ -636,7 +636,7 @@ fn emit_collection_items(
             Some((param, &folder)),
         );
         write_rendered_html(opts, &out, &rendered)?;
-        let url = search_url_for_output(&opts.out_dir, &out);
+        let url = search::SearchUrl::for_output(&opts.out_dir, &out);
         Ok::<_, Error>((out, search::entry_for_item(item, url, collection_id)))
     };
     let rendered = if opts.render_mode.should_render_parallel() {
@@ -708,7 +708,7 @@ fn emit_locale_collection_items_parallel(
             &[(i18n::LOCALE_PARAM, loc), (param, folder)],
         );
         write_rendered_html(opts, &out, &rendered)?;
-        let url = search_url_for_output(&opts.out_dir, &out);
+        let url = search::SearchUrl::for_output(&opts.out_dir, &out);
         Ok::<_, Error>((out, search::entry_for_item(item, url, collection_id)))
     };
     let rendered = if opts.render_mode.should_render_parallel() {
@@ -1021,21 +1021,4 @@ fn emit_locale_collection(
         search_entries,
         route: page.route_row(count, PageKind::Collection),
     })
-}
-
-fn search_url_for_output(out_dir: &Path, path: &Path) -> String {
-    let Ok(rel) = path.strip_prefix(out_dir) else {
-        return "/".into();
-    };
-    if rel == Path::new("index.html") {
-        return "/".into();
-    }
-    let mut parts = rel
-        .components()
-        .filter_map(|part| part.as_os_str().to_str())
-        .collect::<Vec<_>>();
-    if parts.last() == Some(&"index.html") {
-        parts.pop();
-    }
-    format!("/{}/", parts.join("/"))
 }
