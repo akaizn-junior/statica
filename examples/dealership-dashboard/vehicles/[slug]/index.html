@@ -36,9 +36,9 @@
       <header class="hero-panel compact">
         <div>
           <img class="hero-logo compact-logo" src="/public/statica-logo.png" alt="statica logo" />
-          <p class="eyebrow"><slot name="item.stock_number"></slot></p>
-          <h1><slot name="item.headline"></slot></h1>
-          <p class="timestamp"><slot name="item.status"></slot></p>
+          <p class="eyebrow" data-t="${item.stock_number}"></p>
+          <h1 data-t="${item.headline}">Vehicle</h1>
+          <p class="timestamp" data-t="${item.status}"></p>
         </div>
       </header>
 
@@ -46,21 +46,21 @@
         <article class="detail-panel">
           <h2>Vehicle</h2>
           <dl>
-            <div><dt>Condition</dt><dd><slot name="item.condition"></slot></dd></div>
-            <div><dt>Body</dt><dd><slot name="item.body_style"></slot></dd></div>
-            <div><dt>Fuel</dt><dd><slot name="item.fuel_type"></slot></dd></div>
-            <div><dt>Color</dt><dd><slot name="item.exterior_color"></slot></dd></div>
-            <div><dt>Mileage</dt><dd><slot name="item.mileage"></slot></dd></div>
+            <div><dt>Condition</dt><dd data-t="${item.condition}"></dd></div>
+            <div><dt>Body</dt><dd data-t="${item.body_style}"></dd></div>
+            <div><dt>Fuel</dt><dd data-t="${item.fuel_type}"></dd></div>
+            <div><dt>Color</dt><dd data-t="${item.exterior_color}"></dd></div>
+            <div><dt>Mileage</dt><dd data-t="${item.mileage}"></dd></div>
           </dl>
         </article>
         <article class="detail-panel">
           <h2>Commercials</h2>
           <dl>
-            <div><dt>List price</dt><dd>$<slot name="item.list_price"></slot></dd></div>
-            <div><dt>Gross margin</dt><dd>$<slot name="item.gross_margin"></slot></dd></div>
-            <div><dt>Days in stock</dt><dd><slot name="item.days_in_stock"></slot></dd></div>
-            <div><dt>Location</dt><dd><slot name="item.location"></slot></dd></div>
-            <div><dt>Lead channel</dt><dd><slot name="item.lead_channel">Not assigned</slot></dd></div>
+            <div><dt>List price</dt><dd>$<span data-t="${item.list_price}"></span></dd></div>
+            <div><dt>Gross margin</dt><dd>$<span data-t="${item.gross_margin}"></span></dd></div>
+            <div><dt>Days in stock</dt><dd data-t="${item.days_in_stock}"></dd></div>
+            <div><dt>Location</dt><dd data-t="${item.location}"></dd></div>
+            <div><dt>Lead channel</dt><dd data-t="${item.lead_channel}">Not assigned</dd></div>
           </dl>
         </article>
       </section>

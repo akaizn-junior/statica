@@ -156,7 +156,7 @@ Pages must opt into canonical roots with `<html data-bind>`.
   </head>
   <body>
     <h1 data-t="${item.headline}">Post</h1>
-    <slot name="item.html"></slot>
+    <div data-t="${item.html}"></div>
   </body>
 </html>
 ```

@@ -5,17 +5,17 @@
   <article class="inventory-card">
     <div class="vehicle-topline">
       <div>
-        <p><slot name="stock_number"></slot></p>
-        <h2><a href="/vehicles/${slug}/"><slot name="headline"></slot></a></h2>
+        <p data-t="${stock_number}"></p>
+        <h2><a href="/vehicles/${slug}/" data-t="${headline}">Vehicle</a></h2>
       </div>
-      <span class="status-pill"><slot name="status"></slot></span>
+      <span class="status-pill" data-t="${status}"></span>
     </div>
-    <p class="vehicle-summary"><slot name="summary"></slot></p>
+    <p class="vehicle-summary" data-t="${summary}"></p>
     <dl>
-      <div><dt>Condition</dt><dd><slot name="condition"></slot></dd></div>
-      <div><dt>Price</dt><dd>$<slot name="list_price"></slot></dd></div>
-      <div><dt>Age</dt><dd><slot name="days_in_stock"></slot>d</dd></div>
-      <div><dt>Location</dt><dd><slot name="location"></slot></dd></div>
+      <div><dt>Condition</dt><dd data-t="${condition}"></dd></div>
+      <div><dt>Price</dt><dd>$<span data-t="${list_price}"></span></dd></div>
+      <div><dt>Age</dt><dd><span data-t="${days_in_stock}"></span>d</dd></div>
+      <div><dt>Location</dt><dd data-t="${location}"></dd></div>
     </dl>
     <a class="card-link" href="/vehicles/${slug}/">View details</a>
   </article>

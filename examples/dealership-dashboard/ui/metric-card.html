@@ -1,7 +1,7 @@
 <template id="metric-card" data-bind="{label, value, note}">
   <article class="metric">
-    <p><slot name="label"></slot></p>
-    <strong><slot name="value"></slot></strong>
-    <span><slot name="note"></slot></span>
+    <p data-t="${label}"></p>
+    <strong data-t="${value}"></strong>
+    <span data-t="${note}"></span>
   </article>
 </template>
