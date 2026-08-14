@@ -167,7 +167,7 @@ fn collection_param(params: &[RouteParam]) -> Result<&str> {
         .ok_or_else(|| {
             Error::at_file(
                 "<build>",
-                "locale collection route needs a param besides [locale] (e.g. [locale]/posts/[slug])",
+                "a localized collection route needs another parameter besides [locale]; use a route like [locale]/posts/[slug]/index.html so statica knows which item field becomes the folder name",
             )
         })
 }
@@ -192,7 +192,7 @@ fn emit_locale_paginated(
     let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
             &["<html", "data-bind"],
-            "paginated page needs data-bind on <html> (data-bind=\"id\" or data-bind=\"{…}\")",
+            "this paginated route needs <html data-bind=\"id\"> pointing at the data source to paginate, for example <html data-bind=\"posts\">",
         )
     })?;
     let needles = html_source_needles(&collection_id);
@@ -296,7 +296,7 @@ fn pagination_param(page: &PreparedPage, needle_refs: &[&str]) -> Result<String>
             page.at(
                 needle_refs,
                 format!(
-                    "pagination route `{}` needs a [page] segment (e.g. blog/[page])",
+                    "pagination route `{}` is missing a [page] folder; rename the route to something like blog/[page]/index.html",
                     page.source.route.as_str()
                 ),
             )
@@ -331,7 +331,9 @@ fn pagination_items_for_locale(
         let value = list.value();
         page.at(
             needle_refs,
-            format!("pagination `{collection_id}` must be an array, got {value}"),
+            format!(
+                "data source `{collection_id}` must be an array for pagination, but it resolved to {value}; point data-bind at an array source"
+            ),
         )
     })
 }
@@ -464,7 +466,12 @@ fn emit_paginated_item_chunk(
         .value
         .get(paginate::PaginationField::Items.as_str())
         .and_then(Value::as_array)
-        .ok_or_else(|| page.at(&["page.pagination.items"], "pagination chunk missing items"))?;
+        .ok_or_else(|| {
+            page.at(
+                &["page.pagination.items"],
+                "internal pagination data is missing `page.pagination.items`; this usually means the page was rendered without a pagination context",
+            )
+        })?;
     let tasks = items
         .iter()
         .map(|item| {
@@ -472,7 +479,7 @@ fn emit_paginated_item_chunk(
                 page.at(
                     &[item_param],
                     format!(
-                        "pagination item missing field `{item_param}` required by route `[{item_param}]`"
+                        "pagination item is missing `{item_param}`, which is required by route folder `[{item_param}]`; add that field to every item in the paginated data"
                     ),
                 )
             })?;
@@ -610,7 +617,9 @@ fn emit_collection_items(
         let folder = funnel::field_as_str(item, param).ok_or_else(|| {
             page.at(
                 &[param],
-                format!("collection item missing field `{param}` required by route `[{param}]`"),
+                format!(
+                    "collection item is missing `{param}`, which is required by route folder `[{param}]`; add that field to every item in the collection data"
+                ),
             )
         })?;
         let mut data_cache = std::collections::HashMap::new();
@@ -735,7 +744,7 @@ fn emit_paginated(
     let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
             &["<html", "data-bind"],
-            "paginated page needs data-bind on <html> (data-bind=\"id\" or data-bind=\"{…}\")",
+            "this paginated route needs <html data-bind=\"id\"> pointing at the data source to paginate, for example <html data-bind=\"posts\">",
         )
     })?;
 
@@ -809,7 +818,7 @@ fn emit_collection(
     let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
             &["<html", "data-bind"],
-            "collection page needs data-bind on <html> (data-bind=\"id\" or data-bind=\"{…}\")",
+            "this collection route needs <html data-bind=\"id\"> pointing at the data source that provides route items, for example <html data-bind=\"posts\">",
         )
     })?;
 
@@ -832,7 +841,9 @@ fn emit_collection(
         let value = list.value();
         page.at(
             &needle_refs,
-            format!("collection `{collection_id}` must be an array, got {value}"),
+            format!(
+                "data source `{collection_id}` must be an array for this collection route, but it resolved to {value}; point data-bind at an array source"
+            ),
         )
     })?;
 
@@ -864,7 +875,9 @@ fn emit_collection(
         let folder = funnel::field_as_str(item, param).ok_or_else(|| {
             page.at(
                 &needle_refs,
-                format!("collection item missing field `{param}` required by route `[{param}]`"),
+                format!(
+                    "collection item is missing `{param}`, which is required by route folder `[{param}]`; add that field to every item in the collection data"
+                ),
             )
         })?;
         if !seen.insert(folder.clone()) {
@@ -903,7 +916,7 @@ fn emit_locale_collection(
     let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
             &["<html", "data-bind"],
-            "collection page needs data-bind on <html> (data-bind=\"id\" or data-bind=\"{…}\")",
+            "this collection route needs <html data-bind=\"id\"> pointing at the data source that provides route items, for example <html data-bind=\"posts\">",
         )
     })?;
 
@@ -935,7 +948,9 @@ fn emit_locale_collection(
                 let value = list.value();
                 page.at(
                     &needle_refs,
-                    format!("collection `{collection_id}` must be an array, got {value}"),
+                    format!(
+                        "data source `{collection_id}` must be an array for this collection route, but it resolved to {value}; point data-bind at an array source"
+                    ),
                 )
             })?;
             if items.is_empty() {

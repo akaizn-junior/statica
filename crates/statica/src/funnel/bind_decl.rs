@@ -87,18 +87,18 @@ pub fn parse_bind_decl(raw: Option<&str>) -> std::result::Result<BindDecl, Strin
     let ret = Parser::new(&allocator, &wrapped, SourceType::mjs()).parse();
     if ret.panicked || !ret.diagnostics.is_empty() || ret.program.body.len() != 1 {
         return Err(format!(
-            "data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`"
+            "data-bind=\"{raw}\" is invalid; use a single name like `item` or an object destructure like `{{slug, title}}`"
         ));
     }
 
     let Statement::VariableDeclaration(decl) = &ret.program.body[0] else {
         return Err(format!(
-            "data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`"
+            "data-bind=\"{raw}\" is invalid; use a single name like `item` or an object destructure like `{{slug, title}}`"
         ));
     };
     if decl.declarations.len() != 1 {
         return Err(format!(
-            "data-bind=`{raw}` is not a JS identifier or destructure `{{a, b}}`"
+            "data-bind=\"{raw}\" is invalid; bind exactly one value, for example `item` or `{{slug, title}}`"
         ));
     }
 
@@ -113,10 +113,10 @@ pub fn parse_bind_decl(raw: Option<&str>) -> std::result::Result<BindDecl, Strin
             Ok(BindDecl::Destructure(binds))
         }
         BindingPattern::ArrayPattern(_) => Err(format!(
-            "data-bind=`{raw}`: array destructure is not supported"
+            "data-bind=\"{raw}\" uses array destructuring, which statica does not support; use an object destructure like `{{items}}`"
         )),
         BindingPattern::AssignmentPattern(_) => Err(format!(
-            "data-bind=`{raw}`: default values are not supported"
+            "data-bind=\"{raw}\" uses a default value, which statica does not support; provide defaults in your data instead"
         )),
     }
 }
@@ -129,7 +129,7 @@ fn collect_object_pattern(
 ) -> std::result::Result<(), String> {
     if obj.rest.is_some() {
         return Err(format!(
-            "data-bind=`{raw}`: rest bindings are not supported"
+            "data-bind=\"{raw}\" uses a rest binding, which statica does not support; list each field explicitly"
         ));
     }
     if obj.properties.is_empty() {
@@ -137,7 +137,7 @@ fn collect_object_pattern(
             "empty destructure `data-bind=\"{}\"`".into()
         } else {
             format!(
-                "data-bind=`{raw}`: empty nested destructure for `{}`",
+                "data-bind=\"{raw}\" has an empty nested destructure for `{}`; add at least one field or remove that nested binding",
                 path_prefix.last().unwrap()
             )
         });
@@ -156,12 +156,12 @@ fn collect_binding_property(
 ) -> std::result::Result<(), String> {
     if prop.computed {
         return Err(format!(
-            "data-bind=`{raw}`: only plain identifier properties are supported"
+            "data-bind=\"{raw}\" uses a computed property; statica only supports plain identifier fields"
         ));
     }
     let PropertyKey::StaticIdentifier(key) = &prop.key else {
         return Err(format!(
-            "data-bind=`{raw}`: only plain identifier properties are supported"
+            "data-bind=\"{raw}\" uses a non-identifier property; statica only supports plain identifier fields"
         ));
     };
     let key_name = key.name.as_str();
@@ -173,7 +173,7 @@ fn collect_binding_property(
             let bind_name = id.name.as_str();
             if bind_name != key_name {
                 return Err(format!(
-                    "data-bind=`{raw}`: renames are not supported (`{key_name}: {bind_name}`)"
+                    "data-bind=\"{raw}\" renames `{key_name}` to `{bind_name}`, but statica does not support renames; use `{key_name}` directly"
                 ));
             }
             push_bind(
@@ -187,10 +187,10 @@ fn collect_binding_property(
         }
         BindingPattern::ObjectPattern(nested) => collect_object_pattern(raw, nested, &path, out),
         BindingPattern::ArrayPattern(_) => Err(format!(
-            "data-bind=`{raw}`: array destructure is not supported"
+            "data-bind=\"{raw}\" uses array destructuring, which statica does not support; use object fields instead"
         )),
         BindingPattern::AssignmentPattern(_) => Err(format!(
-            "data-bind=`{raw}`: default values are not supported"
+            "data-bind=\"{raw}\" uses a default value, which statica does not support; provide defaults in your data instead"
         )),
     }
 }
@@ -201,7 +201,10 @@ fn push_bind(
     bind: DestructureBind,
 ) -> std::result::Result<(), String> {
     if out.iter().any(|b| b.name == bind.name) {
-        return Err(format!("data-bind=`{raw}`: duplicate name `{}`", bind.name));
+        return Err(format!(
+            "data-bind=\"{raw}\" declares `{}` more than once; each bound name must be unique",
+            bind.name
+        ));
     }
     out.push(bind);
     Ok(())

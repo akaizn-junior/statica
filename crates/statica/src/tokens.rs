@@ -24,10 +24,14 @@ pub(crate) fn rel_double_quoted_data() -> String {
 
 #[must_use]
 pub(crate) fn missing_data_source_message(id: &str) -> String {
-    format!("missing data source id `{id}` (no <link rel=\"{REL_DATA}\" id=\"{id}\">)")
+    format!(
+        "no data source named `{id}` is available here; add <link rel=\"{REL_DATA}\" href=\"...\" id=\"{id}\"> to this page or fragment, or update the binding to use an existing data id"
+    )
 }
 
 #[must_use]
 pub(crate) fn missing_fragment_message(id: &str) -> String {
-    format!("missing fragment id `{id}` (no <link rel=\"{REL_FRAGMENT}\" id=\"{id}\">)")
+    format!(
+        "no fragment named `{id}` has been imported; add <link rel=\"{REL_FRAGMENT}\" type=\"text/html\" href=\"...\" id=\"{id}\"> before mounting <slot id=\"{id}\">"
+    )
 }

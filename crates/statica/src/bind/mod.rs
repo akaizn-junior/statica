@@ -64,8 +64,8 @@ pub fn require_collection_id(doc: &Document, source: BindSource<'_>) -> Result<S
     }
     let ids = funnel::data_link_ids(doc);
     let message = match ids.len() {
-        0 => "collection page needs data-bind=\"id\" or data-bind=\"{…}\" with a data link",
-        _ => "multiple data links — set data-bind=\"id\" on <html> to the collection id",
+        0 => "this collection route has no data source; add <link rel=\"statica/data\" href=\"...\" id=\"items\"> and bind it from <html data-bind=\"items\"> or <html data-bind=\"{item}\">",
+        _ => "this collection route has multiple data sources; set <html data-bind=\"id\"> to the collection data id that should drive the route",
     };
     Err(Error::at(
         source.file,
@@ -584,14 +584,17 @@ fn resolve_each_array<'a>(
         return match current {
             Some(Value::Array(items)) => Ok(Some(Cow::Borrowed(items))),
             Some(Value::Null) | None => Ok(None),
-            Some(_) => Err(Error::at_file("<data>", "data-each expected an array")),
+            Some(_) => Err(Error::at_file(
+                "<data>",
+                "data-each can only loop over an array; update the expression to point at an array value",
+            )),
         };
     }
 
     let mut parts = expr.split('.').filter(|p| !p.is_empty());
     let first = parts
         .next()
-        .ok_or_else(|| Error::at_file("<data>", "empty data expression"))?;
+        .ok_or_else(|| Error::at_file("<data>", "data expression is empty"))?;
     let rest: Vec<&str> = parts.collect();
 
     if first == "this" {
@@ -610,7 +613,12 @@ fn resolve_each_array<'a>(
             return source
                 .array()
                 .map(|items| Some(Cow::Owned(items)))
-                .ok_or_else(|| Error::at_file("<data>", "data-each expected an array"));
+                .ok_or_else(|| {
+                    Error::at_file(
+                        "<data>",
+                        "data-each can only loop over an array; the selected data source is not an array",
+                    )
+                });
         }
     }
 
@@ -618,7 +626,10 @@ fn resolve_each_array<'a>(
     match value {
         Value::Array(items) => Ok(Some(Cow::Owned(items))),
         Value::Null => Ok(None),
-        _ => Err(Error::at_file("<data>", "data-each expected an array")),
+        _ => Err(Error::at_file(
+            "<data>",
+            "data-each can only loop over an array; update the expression to point at an array value",
+        )),
     }
 }
 
@@ -632,7 +643,10 @@ fn array_at_path<'a>(mut value: &'a Value, path: &[&str]) -> Result<Option<Cow<'
     match value {
         Value::Array(items) => Ok(Some(Cow::Borrowed(items))),
         Value::Null => Ok(None),
-        _ => Err(Error::at_file("<data>", "data-each expected an array")),
+        _ => Err(Error::at_file(
+            "<data>",
+            "data-each can only loop over an array; update the expression to point at an array value",
+        )),
     }
 }
 

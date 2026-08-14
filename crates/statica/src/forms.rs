@@ -88,7 +88,7 @@ fn wire_form(el: &mut Element, forms: &FormsOptions, site: Option<(&str, &str)>)
         form_err(
             site,
             &["statica", "name=", "id="],
-            "statica form requires a name or id attribute for [forms.ids] lookup",
+            "statica form is missing `name` or `id`; add one so statica can look up the form in [forms.ids]",
         )
     })?;
 
@@ -102,14 +102,16 @@ fn wire_form(el: &mut Element, forms: &FormsOptions, site: Option<(&str, &str)>)
                         &format!("id=\"{key}\""),
                         "statica",
                     ],
-                    format!("no [forms.ids] entry for form `{key}`"),
+                    format!(
+                        "no [forms.ids] entry found for form `{key}`; add `{key} = \"your-formspree-id\"` under [forms.ids] in statica.toml"
+                    ),
                 )
             })?;
             if !forms.endpoint.contains("{id}") {
                 return Err(form_err(
                     site,
                     &["statica"],
-                    "forms endpoint must contain `{id}` for provider \"formspree\"",
+                    "Formspree forms endpoint must contain `{id}` so statica can substitute the value from [forms.ids]",
                 ));
             }
             forms.endpoint.replace("{id}", id)
@@ -119,7 +121,7 @@ fn wire_form(el: &mut Element, forms: &FormsOptions, site: Option<(&str, &str)>)
                 return Err(form_err(
                     site,
                     &["statica"],
-                    "forms endpoint is empty for provider \"custom\"",
+                    "custom forms provider needs a non-empty [forms].endpoint URL",
                 ));
             }
             forms.endpoint.clone()

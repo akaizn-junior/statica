@@ -93,7 +93,7 @@ impl I18nOptions {
         if self.locales.is_empty() {
             return Err(Error::at_file(
                 "statica.toml",
-                "[i18n].locales must list at least one locale when i18n is enabled",
+                "[i18n].locales is empty; add at least one locale, for example locales = [\"en\"]",
             ));
         }
         if !self.locales.iter().any(|l| l == &self.default_locale) {
@@ -200,7 +200,7 @@ impl I18nCatalogs {
                     return Err(Error::at_file(
                         "i18n",
                         format!(
-                            "i18n catalog key `{key}` cannot be used in data-t — top-level keys must be identifiers"
+                            "i18n catalog key `{key}` cannot be used in data-t; top-level keys must be identifiers like `nav` or `about_title`"
                         ),
                     ));
                 }
@@ -227,7 +227,10 @@ fn read_catalog(path: &Path) -> Result<Value> {
     if !path.exists() {
         return Err(Error::at_file(
             path.display().to_string(),
-            format!("missing i18n catalog: {}", path.display()),
+            format!(
+                "missing i18n catalog at {}; create this file or remove the locale from [i18n].locales",
+                path.display()
+            ),
         ));
     }
     let text = fs::read_to_string(path).map_err(|e| Error::read(path.display().to_string(), e))?;

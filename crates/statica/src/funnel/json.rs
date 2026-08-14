@@ -163,7 +163,9 @@ fn load_data_links(
                 return Err(site_err(
                     site,
                     &[&rel_dq, &rel_sq],
-                    format!("{REL_DATA} link missing id"),
+                    format!(
+                        "{REL_DATA} link is missing `id`; add an id such as <link rel=\"{REL_DATA}\" href=\"...\" id=\"posts\"> so templates can refer to the data"
+                    ),
                 ));
             }
         };
@@ -174,7 +176,7 @@ fn load_data_links(
                 site,
                 &[&id_dq, &id_sq],
                 format!(
-                    "{REL_DATA} id `{id}` conflicts with canonical page context — rename this data source"
+                    "{REL_DATA} id `{id}` conflicts with canonical page context; rename this data source to something project-specific, such as `posts` or `site`"
                 ),
             ));
         }
@@ -183,7 +185,9 @@ fn load_data_links(
             return Err(site_err(
                 site,
                 &[&rel_dq, id_dq.as_str()],
-                format!("{REL_DATA}#{id} missing href"),
+                format!(
+                    "{REL_DATA} link `{id}` is missing `href`; point it at a file or explicit glob, for example href=\"../content/{id}.json\""
+                ),
             ));
         };
         let href = aliases::resolve_path(href, aliases, site, "href")?;
@@ -209,7 +213,9 @@ fn load_data_links(
                 site_err(
                     site,
                     &[&type_dq, &type_sq, raw],
-                    format!("unsupported {REL_DATA} type `{raw}`"),
+                    format!(
+                        "unsupported {REL_DATA} type `{raw}`; use JSON, JSONL/NDJSON, CSV, Markdown, plain text, or omit `type` and let statica infer it from the file extension"
+                    ),
                 )
             })?),
             None => None,

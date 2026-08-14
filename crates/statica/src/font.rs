@@ -59,7 +59,9 @@ fn expand_font_link(
         return Err(font_err(
             site,
             &["href"],
-            format!("{REL_FONT} link missing href"),
+            format!(
+                "{REL_FONT} link is missing `href`; point it at a font stylesheet URL or local CSS file"
+            ),
         ));
     }
 
