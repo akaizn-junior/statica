@@ -684,6 +684,170 @@ fn page_linked_each_source_is_bound() {
 }
 
 #[test]
+fn fragment_mount_forwards_class_to_plus_marker() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("ui/button.html"),
+        r#"<template id="button" data-bind="{label}">
+  <a class="btn+" href="/start/" data-t="${label}">Fallback</a>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="./ui/button.html" id="button" />
+  </head>
+  <body><slot id="button" class="hero-cta"></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains(r#"class="btn hero-cta""#));
+    assert!(!html.contains("btn+"));
+}
+
+#[test]
+fn fragment_mount_class_requires_plus_marker() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("ui/button.html"),
+        r#"<template id="button" data-bind="{label}">
+  <a class="btn" href="/start/" data-t="${label}">Fallback</a>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="./ui/button.html" id="button" />
+  </head>
+  <body><slot id="button" class="hero-cta"></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains(r#"class="btn""#));
+    assert!(!html.contains("hero-cta"));
+}
+
+#[test]
+fn fragment_mount_class_can_use_plus_as_whole_class() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("ui/button.html"),
+        r#"<template id="button" data-bind="{label}">
+  <a class="+" href="/start/" data-t="${label}">Fallback</a>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="./ui/button.html" id="button" />
+  </head>
+  <body><slot id="button" class="hero-cta"></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains(r#"class="hero-cta""#));
+    assert!(!html.contains(r#"class="+"#));
+}
+
+#[test]
+fn fragment_mount_class_forwards_to_nested_plus_marker() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("ui/button.html"),
+        r#"<template id="button" data-bind="{label}">
+  <a class="btn" href="/start/"><span class="label+" data-t="${label}">Fallback</span></a>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="./ui/button.html" id="button" />
+  </head>
+  <body><slot id="button" class="hero-cta"></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains(r#"class="btn""#));
+    assert!(html.contains(r#"class="label hero-cta""#));
+    assert!(!html.contains("label+"));
+}
+
+#[test]
+fn fragment_mount_forwards_class_inside_each_loop() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(dir.join("posts.json"), r#"[{"label":"A"},{"label":"B"}]"#).unwrap();
+    std::fs::write(
+        dir.join("ui/button.html"),
+        r#"<template id="button" data-bind="{label}">
+  <a class="btn+" data-t="${label}">Fallback</a>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/data" href="./posts.json" id="posts" />
+    <link rel="statica/fragment" type="text/html" href="./ui/button.html" id="button" />
+  </head>
+  <body><slot id="button" data-each="posts" class="list-action"></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert_eq!(html.matches(r#"class="btn list-action""#).count(), 2);
+    assert!(html.contains(">A</a>"));
+    assert!(html.contains(">B</a>"));
+}
+
+#[test]
 fn page_undeclared_each_source_errors() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("ui")).unwrap();

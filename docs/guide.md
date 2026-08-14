@@ -275,6 +275,25 @@ Loop with `data-each`.
 </template>
 ```
 
+Forward a mount `class` to a specific fragment element by ending one class token
+with `+`.
+
+```html
+<!-- page -->
+<slot id="button" class="hero-cta"></slot>
+```
+
+```html
+<!-- ui/button.html -->
+<template id="button" data-bind="{label}">
+  <a class="btn+" href="/start/" data-t="${label}">Start</a>
+</template>
+```
+
+The emitted class is `class="btn hero-cta"`. A bare `class="+"` forwards the
+mount class without keeping a base class. Only `class` forwarding is supported;
+other mount attributes stay on the mount and are not forwarded.
+
 Fragment paths are relative to the file that declares them. Fragments may import their own data and other fragments.
 
 Fragments do not inherit canonical page roots. A fragment can read only values passed through its render context and names introduced by its own data links. Use `data-each` on mount slots for loops; keep `data-bind` on the fragment `<template>`.
