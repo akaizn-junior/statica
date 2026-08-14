@@ -7,6 +7,7 @@ use crate::context::CanonicalRoot;
 use crate::fragment::FragmentRegistry;
 use crate::funnel::{self, TemplatePlaceholder, TemplateToken};
 use crate::parse::{Document, Element, Node, SlotKind};
+use crate::tokens::{ATTR_CLASS, DATA_BIND};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PageRenderer {
@@ -86,6 +87,7 @@ pub enum Op {
     Mount {
         id: String,
         each: Option<String>,
+        class: Option<String>,
         children: Vec<Op>,
     },
 }
@@ -194,6 +196,7 @@ fn compile_node(node: &Node, ops: &mut Vec<Op>) {
                 ops.push(Op::Mount {
                     id,
                     each: el.each_directive().map(|each| each.expr().to_string()),
+                    class: el.attr(ATTR_CLASS).map(ToOwned::to_owned),
                     children: compile_nodes(&el.children),
                 });
             }
@@ -241,7 +244,7 @@ fn compile_attrs(el: &Element, ops: &mut Vec<Op>) {
         .collect();
 
     for (name, value) in &el.attrs {
-        let is_html_bind = name == "data-bind" && el.name.eq_ignore_ascii_case("html");
+        let is_html_bind = name == DATA_BIND && el.name.eq_ignore_ascii_case("html");
         if !is_html_bind && !Element::is_translation_attr(name) {
             push_static(ops, " ");
             push_static(ops, name);

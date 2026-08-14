@@ -20,7 +20,7 @@ use crate::manifest::ManifestMeta;
 use crate::paginate::{self, PaginationRule};
 use crate::parse::Document;
 use crate::search;
-use crate::tokens::missing_data_source_message;
+use crate::tokens::{missing_data_source_message, DATA_BIND};
 
 use super::output::write_rendered_html;
 use super::page::PreparedPage;
@@ -191,7 +191,7 @@ fn emit_locale_paginated(
 ) -> Result<EmitResult> {
     let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
-            &["<html", "data-bind"],
+            &["<html", DATA_BIND],
             "this paginated route needs <html data-bind=\"id\"> pointing at the data source to paginate, for example <html data-bind=\"posts\">",
         )
     })?;
@@ -743,7 +743,7 @@ fn emit_paginated(
 ) -> Result<EmitResult> {
     let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
-            &["<html", "data-bind"],
+            &["<html", DATA_BIND],
             "this paginated route needs <html data-bind=\"id\"> pointing at the data source to paginate, for example <html data-bind=\"posts\">",
         )
     })?;
@@ -817,7 +817,7 @@ fn emit_collection(
 ) -> Result<EmitResult> {
     let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
-            &["<html", "data-bind"],
+            &["<html", DATA_BIND],
             "this collection route needs <html data-bind=\"id\"> pointing at the data source that provides route items, for example <html data-bind=\"posts\">",
         )
     })?;
@@ -915,7 +915,7 @@ fn emit_locale_collection(
 ) -> Result<EmitResult> {
     let collection_id = html_data_source(&page.doc).ok_or_else(|| {
         page.at(
-            &["<html", "data-bind"],
+            &["<html", DATA_BIND],
             "this collection route needs <html data-bind=\"id\"> pointing at the data source that provides route items, for example <html data-bind=\"posts\">",
         )
     })?;

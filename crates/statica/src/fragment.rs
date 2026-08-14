@@ -12,6 +12,7 @@ use crate::funnel::{self, BindDecl, DataSource};
 use crate::parse::{self, Document, Element, Node};
 use crate::render::RenderPlan;
 use crate::scope;
+use crate::tokens::DATA_BIND;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FragmentId(String);
@@ -163,8 +164,8 @@ impl FragmentRegistry {
             Ok(decl) => decl,
             Err(reason) => {
                 let prop = template_el.bind_directive().unwrap_or("").to_string();
-                let dq = format!("data-bind=\"{prop}\"");
-                let sq = format!("data-bind='{prop}'");
+                let dq = format!("{DATA_BIND}=\"{prop}\"");
+                let sq = format!("{DATA_BIND}='{prop}'");
                 return Err(Error::at(
                     &file,
                     &raw,

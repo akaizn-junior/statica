@@ -5,6 +5,7 @@ mod js;
 
 use crate::parse::{Document, Element, Node};
 use crate::runtime::STATICA_JS;
+use crate::tokens::{DATA_SCOPE, DATA_SCRIPT_SCOPE};
 
 pub use css::scope_style_text;
 pub use js::wrap_script_with_scope;
@@ -15,7 +16,7 @@ pub fn apply_scope_to_nodes(nodes: &mut [Node], scope_id: &str) {
         if let Node::Element(el) = node {
             if !(el.is_style() || el.is_script() || el.is_slot()) {
                 el.attrs
-                    .entry("data-s".into())
+                    .entry(DATA_SCOPE.into())
                     .or_insert_with(|| scope_id.to_string());
             }
             if el.is_style() {
@@ -52,7 +53,8 @@ pub fn rewrite_scripts_in_nodes(nodes: &mut [Node], scope_id: &str) {
                         continue;
                     }
                     el.attrs.shift_remove("type"); // classic script so currentScript works
-                    el.attrs.insert("data-s-scope".into(), scope_id.to_string());
+                    el.attrs
+                        .insert(DATA_SCRIPT_SCOPE.into(), scope_id.to_string());
                     let wrapped = wrap_script_with_scope(&body, scope_id);
                     el.children = vec![Node::Text(wrapped)];
                 }

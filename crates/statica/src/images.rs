@@ -17,6 +17,7 @@ use walkdir::WalkDir;
 use crate::error::{Error, Result};
 use crate::loc::Diagnostic;
 use crate::parse::{self, Document, Element, Node};
+use crate::tokens::{DATA_IMAGE, DATA_IMAGE_SIZES};
 
 /// Responsive image settings (mapped from `[process.image]` in statica.toml).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -453,8 +454,8 @@ impl<'a> ImageRewriteRequest<'a> {
         let fallback_srcset = self.image.srcset_for_format(&self.image.source_format);
 
         let mut img = self.img.clone();
-        img.attrs.shift_remove("data-s-img");
-        img.attrs.shift_remove("data-s-img-sizes");
+        img.attrs.shift_remove(DATA_IMAGE);
+        img.attrs.shift_remove(DATA_IMAGE_SIZES);
         img.attrs.insert("src".into(), fallback);
         if !fallback_srcset.is_empty() {
             img.attrs.insert("srcset".into(), fallback_srcset);
@@ -492,7 +493,7 @@ impl<'a> ImageRewriteDecision<'a> {
         };
         match (
             img.attr("srcset").is_some(),
-            image_opt_out(img.attr("data-s-img")),
+            image_opt_out(img.attr(DATA_IMAGE)),
             is_local_src(src),
         ) {
             (false, false, true) => Self::Rewrite { src },
@@ -518,7 +519,7 @@ fn picture_formats(opts: &ImageProcessOptions, image: &ResponsiveImage) -> Vec<S
 }
 
 fn image_sizes(img: &Element, opts: &ImageProcessOptions) -> String {
-    img.attr("data-s-img-sizes")
+    img.attr(DATA_IMAGE_SIZES)
         .or_else(|| img.attr("sizes"))
         .unwrap_or(opts.default_sizes.as_str())
         .to_string()

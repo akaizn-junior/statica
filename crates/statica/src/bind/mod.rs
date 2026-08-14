@@ -19,7 +19,10 @@ use crate::manifest::ManifestMeta;
 use crate::parse::{Document, EachDirective, Element, Node, SlotKind};
 use crate::render::{Op, PageRenderer, RenderPlan};
 use crate::scope;
-use crate::tokens::missing_fragment_message;
+use crate::tokens::{
+    contains_forwarded_class_marker, forwarded_class_base, missing_fragment_message, ATTR_CLASS,
+    DATA_BIND, DATA_EACH,
+};
 use crate::{AliasOptions, FormsOptions};
 
 pub(crate) use attrs::expand_template;
@@ -29,6 +32,7 @@ pub use slots::{clear_remaining_named_slots, fill_default_slots, fill_named_slot
 #[derive(Debug, Clone)]
 struct FragmentMount {
     id: String,
+    class: Option<String>,
     children: Vec<Node>,
     each: Option<EachDirective>,
 }
@@ -80,7 +84,10 @@ fn html_bind_raw(doc: &Document) -> Option<&str> {
 }
 
 pub fn collection_needles(id: &str) -> [String; 2] {
-    [format!("data-bind=\"{id}\""), format!("data-bind='{id}'")]
+    [
+        format!("{DATA_BIND}=\"{id}\""),
+        format!("{DATA_BIND}='{id}'"),
+    ]
 }
 
 fn parse_html_bind_decl(doc: &Document) -> Result<BindDecl> {
@@ -94,8 +101,8 @@ fn parse_html_bind_decl(doc: &Document) -> Result<BindDecl> {
             "<page>",
             "",
             &[
-                &format!("data-bind=\"{prop}\""),
-                &format!("data-bind='{prop}'"),
+                &format!("{DATA_BIND}=\"{prop}\""),
+                &format!("{DATA_BIND}='{prop}'"),
             ],
             reason,
         )
@@ -316,11 +323,17 @@ fn render_plan_ops(
                     out,
                 )?;
             }
-            Op::Mount { id, each, children } => {
+            Op::Mount {
+                id,
+                each,
+                class,
+                children,
+            } => {
                 render_plan_mount(
                     registry,
                     id,
                     each.as_deref(),
+                    class.as_deref(),
                     children,
                     current,
                     data_map,
@@ -342,6 +355,7 @@ fn render_plan_mount(
     registry: &FragmentRegistry,
     id: &str,
     each: Option<&str>,
+    class: Option<&str>,
     children: &[Op],
     current: Option<&Value>,
     data_map: &HashMap<String, DataSource>,
@@ -362,6 +376,7 @@ fn render_plan_mount(
                         registry,
                         id,
                         item,
+                        class,
                         data_map,
                         children,
                         locale,
@@ -382,6 +397,7 @@ fn render_plan_mount(
             registry,
             id,
             &value,
+            class,
             data_map,
             children,
             locale,
@@ -399,6 +415,7 @@ fn render_plan_fragment(
     registry: &FragmentRegistry,
     id: &str,
     prop_value: &Value,
+    mount_class: Option<&str>,
     parent_data: &HashMap<String, DataSource>,
     children: &[Op],
     locale: Option<&str>,
@@ -426,7 +443,7 @@ fn render_plan_fragment(
     let context_tree = ContextTree::new(ContextScope::Fragment, bind_ctx, local.clone());
     render_plan_ops(
         registry,
-        frag.render_plan.ops(),
+        &forward_mount_class_to_ops(frag.render_plan.ops(), mount_class),
         Some(prop_value),
         local.as_map(),
         &context_tree.render_context_with_linked_roots(Some(frag.render_plan.linked_roots())),
@@ -442,6 +459,104 @@ fn render_plan_fragment(
         children,
         out,
     )
+}
+
+fn forward_mount_class_to_ops(ops: &[Op], mount_class: Option<&str>) -> Vec<Op> {
+    let Some(mount_class) = mount_class.map(str::trim).filter(|class| !class.is_empty()) else {
+        return ops.to_vec();
+    };
+    ops.iter()
+        .cloned()
+        .map(|op| forward_mount_class_to_op(op, mount_class))
+        .collect()
+}
+
+fn forward_mount_class_to_op(op: Op, mount_class: &str) -> Op {
+    match op {
+        Op::Static(html) if contains_forwarded_class_marker(&html) => {
+            Op::Static(forward_mount_class_to_static_html(&html, mount_class))
+        }
+        Op::DefaultSlot(children) => {
+            Op::DefaultSlot(forward_mount_class_to_ops(&children, Some(mount_class)))
+        }
+        Op::Mount {
+            id,
+            each,
+            class,
+            children,
+        } => Op::Mount {
+            id,
+            each,
+            class,
+            children: forward_mount_class_to_ops(&children, Some(mount_class)),
+        },
+        other => other,
+    }
+}
+
+fn forward_mount_class_to_static_html(html: &str, mount_class: &str) -> String {
+    let mut out = String::with_capacity(html.len() + mount_class.len());
+    let mut cursor = 0;
+    let mut changed = false;
+    while let Some(class_start_rel) = html[cursor..].find(" class=\"") {
+        let class_start = cursor + class_start_rel;
+        let value_start = class_start + " class=\"".len();
+        let Some(value_end_rel) = html[value_start..].find('"') else {
+            break;
+        };
+        let value_end = value_start + value_end_rel;
+        let original = &html[value_start..value_end];
+        let class = append_forwarded_class_marker(original, mount_class);
+        out.push_str(&html[cursor..value_start]);
+        if class == original {
+            out.push_str(original);
+        } else {
+            changed = true;
+            out.push_str(&escape_attr(&class));
+        }
+        cursor = value_end;
+    }
+    if !changed {
+        return html.to_string();
+    }
+    out.push_str(&html[cursor..]);
+    out
+}
+
+fn forward_mount_class_to_nodes(nodes: &mut [Node], mount_class: Option<&str>) {
+    let Some(mount_class) = mount_class.map(str::trim).filter(|class| !class.is_empty()) else {
+        return;
+    };
+    for node in nodes {
+        if let Node::Element(el) = node {
+            if let Some(class) = el.attrs.get_mut(ATTR_CLASS) {
+                *class = append_forwarded_class_marker(class, mount_class);
+            }
+            forward_mount_class_to_nodes(&mut el.children, Some(mount_class));
+        }
+    }
+}
+
+fn append_forwarded_class_marker(class: &str, mount_class: &str) -> String {
+    let mut changed = false;
+    let mut out = Vec::new();
+    for token in class.split_whitespace() {
+        if let Some("") = forwarded_class_base(token) {
+            changed = true;
+            out.extend(mount_class.split_whitespace());
+        } else if let Some(base) = forwarded_class_base(token) {
+            changed = true;
+            out.push(base);
+            out.extend(mount_class.split_whitespace());
+        } else {
+            out.push(token);
+        }
+    }
+    if changed {
+        out.join(" ")
+    } else {
+        class.to_string()
+    }
 }
 
 fn escape_attr(s: &str) -> String {
@@ -495,6 +610,7 @@ pub fn expand_usage_slots_in_nodes(
             Node::Element(el) => match el.slot_kind() {
                 Some(SlotKind::FragmentMount(id)) => Some(FragmentMount {
                     id,
+                    class: el.attr(ATTR_CLASS).map(ToOwned::to_owned),
                     children: el.children.clone(),
                     each: el.each_directive(),
                 }),
@@ -511,6 +627,7 @@ pub fn expand_usage_slots_in_nodes(
                     registry,
                     &mount.id,
                     list,
+                    mount.class.as_deref(),
                     data_map,
                     &mount.children,
                     locale,
@@ -526,6 +643,7 @@ pub fn expand_usage_slots_in_nodes(
                     registry,
                     &mount.id,
                     &value,
+                    mount.class.as_deref(),
                     data_map,
                     &mount.children,
                     locale,
@@ -560,10 +678,10 @@ pub fn expand_usage_slots_in_nodes(
 fn relocate_data_err(err: Error, site: Option<(&str, &str)>, expr: &str) -> Error {
     match site {
         Some((file, source)) => {
-            let dq = format!("data-bind=\"{expr}\"");
-            let sq = format!("data-bind='{expr}'");
-            let each_dq = format!("data-each=\"{expr}\"");
-            let each_sq = format!("data-each='{expr}'");
+            let dq = format!("{DATA_BIND}=\"{expr}\"");
+            let sq = format!("{DATA_BIND}='{expr}'");
+            let each_dq = format!("{DATA_EACH}=\"{expr}\"");
+            let each_sq = format!("{DATA_EACH}='{expr}'");
             err.in_file_at(file, source, &[&dq, &sq, &each_dq, &each_sq, expr])
         }
         None => err,
@@ -665,6 +783,7 @@ fn render_each(
     registry: &FragmentRegistry,
     id: &str,
     list: Option<Cow<'_, [Value]>>,
+    mount_class: Option<&str>,
     data_map: &HashMap<String, DataSource>,
     children: &[Node],
     locale: Option<&str>,
@@ -683,6 +802,7 @@ fn render_each(
             registry,
             id,
             item,
+            mount_class,
             data_map,
             children,
             locale,
@@ -699,6 +819,7 @@ fn render_fragment_nodes(
     registry: &FragmentRegistry,
     id: &str,
     prop_value: &Value,
+    mount_class: Option<&str>,
     parent_data: &HashMap<String, DataSource>,
     children: &[Node],
     locale: Option<&str>,
@@ -729,6 +850,7 @@ fn render_fragment_nodes(
     let ctx = context_tree.render_context();
 
     let mut nodes = fragment::template_children(frag);
+    forward_mount_class_to_nodes(&mut nodes, mount_class);
     fill_attr_templates_in_nodes(&mut nodes, &ctx);
     fill_named_slots(&mut nodes, &ctx);
     fill_default_slots(&mut nodes, children);

@@ -1,6 +1,8 @@
 use indexmap::IndexMap;
 
-use crate::tokens::{REL_DATA, REL_FONT, REL_FRAGMENT};
+use crate::tokens::{
+    DATA_BIND, DATA_EACH, DATA_T, DATA_T_ATTR_PREFIX, REL_DATA, REL_FONT, REL_FRAGMENT,
+};
 
 /// Ordered element attributes.
 pub type AttrMap = IndexMap<String, String>;
@@ -130,30 +132,30 @@ impl Element {
 
     #[must_use]
     pub fn each_directive(&self) -> Option<EachDirective> {
-        self.attr("data-each")
+        self.attr(DATA_EACH)
             .and_then(|expr| EachDirective::new(expr.to_string()))
     }
 
     #[must_use]
     pub fn bind_directive(&self) -> Option<&str> {
-        self.attr("data-bind")
+        self.attr(DATA_BIND)
             .map(str::trim)
             .filter(|expr| !expr.is_empty())
     }
 
     #[must_use]
     pub fn text_directive(&self) -> Option<&str> {
-        self.attr("data-t")
+        self.attr(DATA_T)
     }
 
     #[must_use]
     pub fn translated_attr_target(name: &str) -> Option<&str> {
-        name.strip_prefix("data-t-")
+        name.strip_prefix(DATA_T_ATTR_PREFIX)
     }
 
     #[must_use]
     pub fn is_translation_attr(name: &str) -> bool {
-        name == "data-t" || Self::translated_attr_target(name).is_some()
+        name == DATA_T || Self::translated_attr_target(name).is_some()
     }
 
     #[must_use]

@@ -11,15 +11,10 @@ use crate::discover::PageSource;
 use crate::error::{Error, Result};
 use crate::funnel::is_identifier;
 use crate::parse::{Document, Node};
+pub use crate::tokens::{DATA_T, DATA_T_ATTR_PREFIX};
 
 /// Route param name for locale expansion (`[locale]/…`).
 pub const LOCALE_PARAM: &str = "locale";
-
-/// Translate element text content from the catalog.
-pub const DATA_T: &str = "data-t";
-
-/// Prefix for per-attribute translation markers: `data-t-{attr}` → `{attr}`.
-pub const DATA_T_ATTR_PREFIX: &str = "data-t-";
 
 /// Accessibility-related attributes that authors typically translate via `data-t-{attr}`.
 pub const A11Y_TRANSLATABLE_ATTRS: &[&str] = &[

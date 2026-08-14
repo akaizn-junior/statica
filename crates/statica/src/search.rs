@@ -9,7 +9,11 @@ use serde_json::Value;
 
 use crate::error::Result;
 use crate::parse::{self, AttrMap, Element, Node};
-use crate::tokens::{META_PREFIX, TYPE_SEARCH};
+use crate::tokens::{
+    DATA_STATICA_SEARCH, DATA_STATICA_SEARCH_CLOSE, DATA_STATICA_SEARCH_META,
+    DATA_STATICA_SEARCH_RESULTS, META_PREFIX, SEARCH_CSS_PATH, SEARCH_JS_PATH, SEARCH_RUNTIME_DIR,
+    TYPE_SEARCH,
+};
 
 const RUNTIME_JS: &str = include_str!("runtime/search.js");
 const RUNTIME_CSS: &str = include_str!("runtime/search.css");
@@ -76,7 +80,7 @@ pub fn rewrite_controls(html: &str, options: &SearchOptions) -> Result<(String, 
 }
 
 pub fn write_runtime(out_dir: &Path) -> Result<()> {
-    let dir = out_dir.join("statica");
+    let dir = out_dir.join(SEARCH_RUNTIME_DIR);
     fs::create_dir_all(&dir)?;
     fs::write(dir.join("search.js"), RUNTIME_JS)?;
     fs::write(dir.join("search.css"), RUNTIME_CSS)?;
@@ -88,7 +92,7 @@ pub fn count_controls_in_outputs(outputs: &[PathBuf]) -> usize {
     outputs
         .iter()
         .filter_map(|path| fs::read_to_string(path).ok())
-        .map(|html| html.matches("data-statica-search").count())
+        .map(|html| html.matches(DATA_STATICA_SEARCH).count())
         .sum()
 }
 
@@ -347,7 +351,7 @@ fn append_runtime_script(nodes: &mut Vec<Node>) {
     }
     let script = Node::Element(Element {
         name: "script".into(),
-        attrs: attrs(&[("type", "module"), ("src", "/statica/search.js")]),
+        attrs: attrs(&[("type", "module"), ("src", SEARCH_JS_PATH)]),
         void: false,
         children: Vec::new(),
     });
@@ -378,7 +382,7 @@ fn contains_search_runtime(nodes: &[Node]) -> bool {
         let Node::Element(el) = node else {
             return false;
         };
-        (el.name.eq_ignore_ascii_case("script") && el.attr("src") == Some("/statica/search.js"))
+        (el.name.eq_ignore_ascii_case("script") && el.attr("src") == Some(SEARCH_JS_PATH))
             || contains_search_runtime(&el.children)
     })
 }
@@ -403,7 +407,7 @@ fn search_control(input: &Element, seq: usize, options: &SearchOptions) -> Eleme
         children: vec![
             Node::Element(Element {
                 name: "link".into(),
-                attrs: attrs(&[("rel", "stylesheet"), ("href", "/statica/search.css")]),
+                attrs: attrs(&[("rel", "stylesheet"), ("href", SEARCH_CSS_PATH)]),
                 void: true,
                 children: Vec::new(),
             }),
@@ -424,7 +428,7 @@ fn search_control(input: &Element, seq: usize, options: &SearchOptions) -> Eleme
                 attrs: attrs(&[
                     ("id", &id),
                     ("class", "statica-search-modal"),
-                    ("data-statica-search", ""),
+                    (DATA_STATICA_SEARCH, ""),
                     ("data-index", &index),
                     ("data-limit", &limit),
                     ("data-filters", &filters),
@@ -468,7 +472,7 @@ fn search_control(input: &Element, seq: usize, options: &SearchOptions) -> Eleme
                                     ("class", "statica-search-close"),
                                     ("type", "button"),
                                     ("aria-label", "Close search"),
-                                    ("data-statica-search-close", ""),
+                                    (DATA_STATICA_SEARCH_CLOSE, ""),
                                 ]),
                                 void: false,
                                 children: vec![Node::Text("Close".into())],
@@ -479,7 +483,7 @@ fn search_control(input: &Element, seq: usize, options: &SearchOptions) -> Eleme
                         name: "div".into(),
                         attrs: attrs(&[
                             ("class", "statica-search-meta"),
-                            ("data-statica-search-meta", ""),
+                            (DATA_STATICA_SEARCH_META, ""),
                         ]),
                         void: false,
                         children: Vec::new(),
@@ -488,7 +492,7 @@ fn search_control(input: &Element, seq: usize, options: &SearchOptions) -> Eleme
                         name: "div".into(),
                         attrs: attrs(&[
                             ("class", "statica-search-results"),
-                            ("data-statica-search-results", ""),
+                            (DATA_STATICA_SEARCH_RESULTS, ""),
                         ]),
                         void: false,
                         children: Vec::new(),

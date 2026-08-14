@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use crate::error::{Error, Result};
 use crate::parse::{Document, Element, Node};
+use crate::tokens::STATICA_FORM;
 
 /// Form provider backend (from `[forms]` in statica.toml).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -76,7 +77,7 @@ fn wire_forms_in_nodes(
 }
 
 fn is_statica_form(el: &Element) -> bool {
-    el.name.eq_ignore_ascii_case("form") && el.attrs.contains_key("statica")
+    el.name.eq_ignore_ascii_case("form") && el.attrs.contains_key(STATICA_FORM)
 }
 
 fn form_key(el: &Element) -> Option<&str> {
@@ -87,7 +88,7 @@ fn wire_form(el: &mut Element, forms: &FormsOptions, site: Option<(&str, &str)>)
     let key = form_key(el).ok_or_else(|| {
         form_err(
             site,
-            &["statica", "name=", "id="],
+            &[STATICA_FORM, "name=", "id="],
             "statica form is missing `name` or `id`; add one so statica can look up the form in [forms.ids]",
         )
     })?;
@@ -100,7 +101,7 @@ fn wire_form(el: &mut Element, forms: &FormsOptions, site: Option<(&str, &str)>)
                     &[
                         &format!("name=\"{key}\""),
                         &format!("id=\"{key}\""),
-                        "statica",
+                        STATICA_FORM,
                     ],
                     format!(
                         "no [forms.ids] entry found for form `{key}`; add `{key} = \"your-formspree-id\"` under [forms.ids] in statica.toml"
@@ -110,7 +111,7 @@ fn wire_form(el: &mut Element, forms: &FormsOptions, site: Option<(&str, &str)>)
             if !forms.endpoint.contains("{id}") {
                 return Err(form_err(
                     site,
-                    &["statica"],
+                    &[STATICA_FORM],
                     "Formspree forms endpoint must contain `{id}` so statica can substitute the value from [forms.ids]",
                 ));
             }
@@ -120,7 +121,7 @@ fn wire_form(el: &mut Element, forms: &FormsOptions, site: Option<(&str, &str)>)
             if forms.endpoint.is_empty() {
                 return Err(form_err(
                     site,
-                    &["statica"],
+                    &[STATICA_FORM],
                     "custom forms provider needs a non-empty [forms].endpoint URL",
                 ));
             }
@@ -128,7 +129,7 @@ fn wire_form(el: &mut Element, forms: &FormsOptions, site: Option<(&str, &str)>)
         }
     };
 
-    el.attrs.shift_remove("statica");
+    el.attrs.shift_remove(STATICA_FORM);
     el.attrs.insert("action".into(), action);
     el.attrs.insert("method".into(), "POST".into());
     Ok(())

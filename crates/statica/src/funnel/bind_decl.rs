@@ -11,6 +11,7 @@ use serde_json::Value;
 use crate::error::{Error, Result};
 use crate::funnel::{DottedPath, TemplatePlaceholder, TemplateToken};
 use crate::parse::{Element, Node, SlotKind};
+use crate::tokens::{DATA_BIND, DATA_EACH};
 
 use super::json::read_field;
 
@@ -343,8 +344,8 @@ fn validate_element(
     source: BindSource<'_>,
 ) -> Result<()> {
     if let Some(bind) = el.bind_directive() {
-        let dq = format!("data-bind=\"{bind}\"");
-        let sq = format!("data-bind='{bind}'");
+        let dq = format!("{DATA_BIND}=\"{bind}\"");
+        let sq = format!("{DATA_BIND}='{bind}'");
         return Err(Error::at(
             source.file,
             source.source,
@@ -414,8 +415,8 @@ fn validate_data_expr(
     if expr == "." {
         return Ok(());
     }
-    let dq = format!("data-each=\"{expr}\"");
-    let sq = format!("data-each='{expr}'");
+    let dq = format!("{DATA_EACH}=\"{expr}\"");
+    let sq = format!("{DATA_EACH}='{expr}'");
     match DottedPath::parse(expr) {
         Some(path) => ensure_bound(fragment_id, scope, expr, path.root(), source, &[&dq, &sq]),
         None => Err(invalid_path_error(source, expr, &[&dq, &sq])),

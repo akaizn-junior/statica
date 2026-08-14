@@ -12,7 +12,9 @@ use crate::context::CanonicalRoot;
 use crate::error::{Error, Result};
 use crate::parse::escape_text;
 use crate::parse::{Document, Element, Node, StaticaLinkRel};
-use crate::tokens::{missing_data_source_message, rel_double_quoted, rel_single_quoted, REL_DATA};
+use crate::tokens::{
+    missing_data_source_message, rel_double_quoted, rel_single_quoted, DATA_BIND, REL_DATA,
+};
 
 use std::path::Component;
 
@@ -522,7 +524,7 @@ pub fn strip_authoring(doc: &mut Document) {
     for child in &mut doc.children {
         if let Node::Element(el) = child {
             if el.name.eq_ignore_ascii_case("html") {
-                el.attrs.shift_remove("data-bind");
+                el.attrs.shift_remove(DATA_BIND);
             }
         }
     }
