@@ -260,15 +260,14 @@ fn print_route_table(routes: &[BuildRouteRow]) {
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     fn temp_tree() -> PathBuf {
+        static N: AtomicU64 = AtomicU64::new(0);
         let dir = std::env::temp_dir().join(format!(
             "statica-resolve-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
+            N.fetch_add(1, Ordering::Relaxed)
         ));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("nested/deep")).unwrap();
