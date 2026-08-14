@@ -279,6 +279,9 @@ pub struct SitemapConfig {
 pub struct SearchConfig {
     pub enabled: bool,
     pub output: String,
+    pub limit: usize,
+    pub filters: Vec<String>,
+    pub url_field: String,
 }
 
 impl Default for SearchConfig {
@@ -286,6 +289,9 @@ impl Default for SearchConfig {
         Self {
             enabled: false,
             output: "search.json".into(),
+            limit: 10,
+            filters: Vec::new(),
+            url_field: "url".into(),
         }
     }
 }
@@ -605,6 +611,9 @@ impl SearchConfig {
         SearchOptions {
             enabled: self.enabled,
             output: self.output.clone(),
+            limit: self.limit.max(1),
+            filters: self.filters.clone(),
+            url_field: self.url_field.clone(),
         }
     }
 }
@@ -912,6 +921,9 @@ collections = []               # empty = all collections; or ["posts"]
 [search]
 enabled = false
 output = "search.json"
+limit = 10
+filters = []
+url_field = "url"
 
 # Paginated listings — templates with [page], data via <html data-bind>
 # [[pagination]]
@@ -1018,6 +1030,16 @@ fn parse_width_list(value: &str) -> Result<Vec<u32>> {
         .collect()
 }
 
+fn parse_string_list(value: &str) -> Vec<String> {
+    let sep = if value.contains('|') { '|' } else { ',' };
+    value
+        .split(sep)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
 fn apply_minify_spec(cfg: &mut MinifyConfig, spec: &str) -> Result<()> {
     for_each_kv(spec, |key, value| {
         match key {
@@ -1082,6 +1104,13 @@ fn apply_search_spec(cfg: &mut SearchConfig, spec: &str) -> Result<()> {
         match key {
             "enabled" => cfg.enabled = parse_bool(value)?,
             "output" => cfg.output = value.to_string(),
+            "limit" => {
+                cfg.limit = value
+                    .parse()
+                    .with_context(|| format!("invalid limit `{value}`"))?;
+            }
+            "filters" => cfg.filters = parse_string_list(value),
+            "url_field" => cfg.url_field = value.to_string(),
             other => anyhow::bail!("unknown search key `{other}`"),
         }
         Ok(())
@@ -1397,6 +1426,23 @@ fonts = "./assets/fonts"
         assert!(cfg.i18n.enabled);
         assert_eq!(cfg.i18n.locales, vec!["en", "pt"]);
         assert_eq!(cfg.i18n.default, "en");
+    }
+
+    #[test]
+    fn apply_cli_search_options() {
+        let mut cfg = StaticaConfig::default();
+        let cli = crate::cli::ConfigCli {
+            search: Some(
+                "output=assets/search.json,limit=8,filters=tags|category,url_field=link".into(),
+            ),
+            ..crate::cli::ConfigCli::default()
+        };
+        cfg.apply_cli(&cli).unwrap();
+        assert!(cfg.search.enabled);
+        assert_eq!(cfg.search.output, "assets/search.json");
+        assert_eq!(cfg.search.limit, 8);
+        assert_eq!(cfg.search.filters, vec!["tags", "category"]);
+        assert_eq!(cfg.search.url_field, "link");
     }
 
     #[test]

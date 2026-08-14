@@ -1815,7 +1815,7 @@ fn statica_search_input_emits_modal_runtime_and_index() {
     <meta name="description" content="Searchable test page" />
   </head>
   <body>
-    <input type="statica/search" placeholder="Find things" data-limit="7" data-filters="tags,categories" data-url-field="url" />
+    <input type="statica/search" placeholder="Find things" />
     <input type="statica/search" id="secondary-search" aria-label="Second search" />
     <main><h1>Home</h1><p>Needle content lives here.</p></main>
     <script>const hidden = "not searchable";</script>
@@ -1826,6 +1826,9 @@ fn statica_search_input_emits_modal_runtime_and_index() {
 
     let mut opts = BuildOptions::new(&dir);
     opts.out_dir = dir.join("dist");
+    opts.search.limit = 7;
+    opts.search.filters = vec!["tags".into(), "categories".into()];
+    opts.search.url_field = "url".into();
 
     let report = build(&opts).expect("build");
 
@@ -1879,6 +1882,7 @@ fn search_config_emits_index_without_search_input() {
     opts.search = statica::SearchOptions {
         enabled: true,
         output: "assets/site-search.json".into(),
+        ..statica::SearchOptions::default()
     };
 
     build(&opts).expect("build");

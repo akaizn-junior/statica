@@ -19,17 +19,9 @@ pub(super) fn ensure_default_404(out_dir: &Path) -> Result<()> {
 }
 
 pub(super) fn write_rendered_html(opts: &BuildOptions, path: &Path, html: &str) -> Result<()> {
-    let default_index = search_index_href(&opts.search.output);
-    let (html, _) = search::rewrite_controls(html, &default_index)?;
+    let (html, _) = search::rewrite_controls(html, &opts.search)?;
     emit::write_html(path, &html)?;
     Ok(())
-}
-
-fn search_index_href(output: &str) -> String {
-    match output.strip_prefix('/') {
-        Some(_) => output.into(),
-        None => format!("/{output}"),
-    }
 }
 
 fn default_404_html() -> &'static str {

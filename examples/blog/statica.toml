@@ -36,6 +36,11 @@ endpoint = "https://formspree.io/f/{id}"
 [forms.ids]
 contact = "example"
 
+[search]
+limit = 10
+filters = ["tags", "categories"]
+url_field = "url"
+
 [i18n]
 enabled = true
 default = "en"

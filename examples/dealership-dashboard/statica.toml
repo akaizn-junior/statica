@@ -21,6 +21,9 @@ limit = 40
 
 [search]
 enabled = true
+limit = 10
+filters = ["make", "status", "condition", "location"]
+url_field = "url"
 
 [[pagination]]
 route = "inventory/[page]"

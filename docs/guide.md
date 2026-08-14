@@ -363,25 +363,22 @@ button and `<dialog>` search modal, emits `/search.json`, and writes the small
 runtime files at `/statica/search.js` and `/statica/search.css`. Search runs in
 the browser against the generated JSON index.
 
-Optional attributes:
+Search behavior is configured at build time:
 
-```html
-<input
-  type="statica/search"
-  placeholder="Search posts"
-  aria-label="Search posts"
-  data-index="/search.json"
-  data-limit="10"
-  data-filters="tags,categories"
-  data-url-field="url"
-/>
+```toml
+[search]
+enabled = true
+output = "search.json"
+limit = 10
+filters = ["tags", "categories"]
+url_field = "url"
 ```
 
-`data-index` defaults to `/search.json`. `data-limit` defaults to `10`.
-`data-filters` declares comma-separated result filters such as `tags,categories`
-or `make,status,condition,location`; the generated modal renders them as
-clickable filter controls. `data-url-field` sets which search result field is
-used for result links and defaults to `url`.
+`output` defaults to `search.json`. `limit` defaults to `10`. `filters`
+declares result filters such as `tags,categories` or
+`make,status,condition,location`; the generated modal renders them as clickable
+filter controls. `url_field` sets which search result field is used for result
+links and defaults to `url`.
 
 To emit an index for a custom search UI without using the generated modal:
 

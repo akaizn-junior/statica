@@ -17,6 +17,9 @@ const RUNTIME_CSS: &str = include_str!("runtime/search.css");
 pub struct SearchOptions {
     pub enabled: bool,
     pub output: String,
+    pub limit: usize,
+    pub filters: Vec<String>,
+    pub url_field: String,
 }
 
 impl Default for SearchOptions {
@@ -24,6 +27,9 @@ impl Default for SearchOptions {
         Self {
             enabled: false,
             output: "search.json".into(),
+            limit: 10,
+            filters: Vec::new(),
+            url_field: "url".into(),
         }
     }
 }
@@ -57,10 +63,10 @@ struct SearchMeta {
     value: String,
 }
 
-pub fn rewrite_controls(html: &str, default_index: &str) -> Result<(String, usize)> {
+pub fn rewrite_controls(html: &str, options: &SearchOptions) -> Result<(String, usize)> {
     let mut doc = parse::parse_document(html)?;
     let mut next = 0_usize;
-    rewrite_nodes(&mut doc.children, &mut next, default_index);
+    rewrite_nodes(&mut doc.children, &mut next, options);
     if next == 0 {
         return Ok((html.to_string(), 0));
     }
@@ -321,14 +327,14 @@ fn strip_html(raw: &str) -> String {
     out
 }
 
-fn rewrite_nodes(nodes: &mut Vec<Node>, next: &mut usize, default_index: &str) {
+fn rewrite_nodes(nodes: &mut Vec<Node>, next: &mut usize, options: &SearchOptions) {
     for node in nodes {
         if let Node::Element(el) = node {
             if is_search_input(el) {
                 *next += 1;
-                *node = Node::Element(search_control(el, *next, default_index));
+                *node = Node::Element(search_control(el, *next, options));
             } else {
-                rewrite_nodes(&mut el.children, next, default_index);
+                rewrite_nodes(&mut el.children, next, options);
             }
         }
     }
@@ -381,16 +387,15 @@ fn is_search_input(el: &Element) -> bool {
         && el.attr("type").is_some_and(|ty| ty == "statica/search")
 }
 
-fn search_control(input: &Element, seq: usize, default_index: &str) -> Element {
+fn search_control(input: &Element, seq: usize, options: &SearchOptions) -> Element {
     let id = input
         .attr("id")
         .map_or_else(|| format!("statica-search-{seq}"), ToOwned::to_owned);
     let placeholder = input.attr("placeholder").unwrap_or("Search");
-    let index = input.attr("data-index").unwrap_or(default_index);
-    let limit = input.attr("data-limit").unwrap_or("10");
     let label = input.attr("aria-label").unwrap_or("Search site");
-    let filters = input.attr("data-filters").unwrap_or("");
-    let url_field = input.attr("data-url-field").unwrap_or("url");
+    let index = index_href(&options.output);
+    let limit = options.limit.max(1).to_string();
+    let filters = options.filters.join(",");
     Element {
         name: "div".into(),
         attrs: attrs(&[("class", "statica-search")]),
@@ -420,10 +425,10 @@ fn search_control(input: &Element, seq: usize, default_index: &str) -> Element {
                     ("id", &id),
                     ("class", "statica-search-modal"),
                     ("data-statica-search", ""),
-                    ("data-index", index),
-                    ("data-limit", limit),
-                    ("data-filters", filters),
-                    ("data-url-field", url_field),
+                    ("data-index", &index),
+                    ("data-limit", &limit),
+                    ("data-filters", &filters),
+                    ("data-url-field", &options.url_field),
                 ]),
                 void: false,
                 children: vec![
@@ -501,6 +506,14 @@ fn search_control(input: &Element, seq: usize, default_index: &str) -> Element {
                 ],
             }),
         ],
+    }
+}
+
+fn index_href(output: &str) -> String {
+    if output.starts_with('/') {
+        output.to_string()
+    } else {
+        format!("/{output}")
     }
 }
 

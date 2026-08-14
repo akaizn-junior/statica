@@ -181,10 +181,10 @@ Examples:\n\
         global = true,
         help = "Enable search index; optional key=value SPEC",
         long_help = "Enable [search]. Optional SPEC:\n\
-  enabled, output\n\
+  enabled, output, limit, filters, url_field\n\
 Examples:\n\
   --search\n\
-  --search output=assets/search.json"
+  --search output=assets/search.json,limit=8,filters=tags|categories"
     )]
     pub search: Option<String>,
     #[arg(long = "no-search", action = ArgAction::SetTrue, global = true, help = "Disable search index generation")]
