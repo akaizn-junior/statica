@@ -49,7 +49,7 @@
         <time data-t="${item.published_at}"></time>
         </header>
         <p class="lede" data-t="${item.summary}"></p>
-        <div class="article-body"><slot name="item.html"></slot></div>
+        <div class="article-body" data-t="${item.html}"></div>
         <slot id="post-card"></slot>
         <aside class="related">
           <h2 class="related__title">More from the archive</h2>

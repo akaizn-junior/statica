@@ -115,8 +115,8 @@ More **content** here.
     <title>Post</title>
   </head>
   <body>
-    <h1><slot name="item.headline"></slot></h1>
-    <div><slot name="item.html"></slot></div>
+    <h1 data-t="${item.headline}">Post</h1>
+    <div data-t="${item.html}"></div>
   </body>
 </html>"#,
     )
@@ -231,8 +231,8 @@ Glob **works**.
     <title>Post</title>
   </head>
   <body>
-    <h1><slot name="item.headline"></slot></h1>
-    <div><slot name="item.html"></slot></div>
+    <h1 data-t="${item.headline}">Post</h1>
+    <div data-t="${item.html}"></div>
   </body>
 </html>"#,
     )
@@ -265,7 +265,7 @@ fn duplicate_slug_errors() {
     <link rel="statica/data" href="../../content.json" id="posts" />
     <title>Post</title>
   </head>
-  <body><h1><slot name="item.headline"></slot></h1></body>
+  <body><h1 data-t="${item.headline}">Post</h1></body>
 </html>"#,
     )
     .unwrap();
@@ -295,8 +295,8 @@ fn page_data_bind_can_narrow_to_item_context() {
     <link rel="statica/data" href="../../content.json" id="posts" />
   </head>
   <body>
-    <h1><slot name="item.headline"></slot></h1>
-    <div><slot name="item.html"></slot></div>
+    <h1 data-t="${item.headline}">Post</h1>
+    <div data-t="${item.html}"></div>
   </body>
 </html>"#,
     )
@@ -326,7 +326,7 @@ fn fragment_mount_receives_current_item_without_data_bind() {
     std::fs::write(
         dir.join("ui/post-card.html"),
         r#"<template id="post-card" data-bind="{slug, headline}">
-  <article><a href="/posts/${slug}/"><slot name="headline"></slot></a></article>
+  <article><a href="/posts/${slug}/" data-t="${headline}">Post</a></article>
 </template>"#,
     )
     .unwrap();
@@ -447,7 +447,7 @@ fn data_bind_on_fragment_mount_errors() {
     std::fs::write(
         dir.join("ui/post-card.html"),
         r#"<template id="post-card" data-bind="{slug, headline}">
-  <article><slot name="headline"></slot></article>
+  <article data-t="${headline}">Post</article>
 </template>"#,
     )
     .unwrap();
@@ -487,8 +487,8 @@ fn page_undeclared_bind_field_errors() {
     <title>Post</title>
   </head>
   <body>
-    <h1><slot name="item.headline"></slot></h1>
-    <p><slot name="summary"></slot></p>
+    <h1 data-t="${item.headline}">Post</h1>
+    <p data-t="${summary}">Summary</p>
   </body>
 </html>"#,
     )
@@ -510,7 +510,7 @@ fn page_undeclared_attr_field_errors() {
   <head>
     <link rel="statica/data" href="../../content.json" id="posts" />
   </head>
-  <body><a href="/posts/${slug}/"><slot name="item.headline"></slot></a></body>
+  <body><a href="/posts/${slug}/" data-t="${item.headline}">Post</a></body>
 </html>"#,
     )
     .unwrap();
@@ -656,7 +656,7 @@ fn page_linked_each_source_is_bound() {
     std::fs::write(
         dir.join("ui/post-card.html"),
         r#"<template id="post-card" data-bind="{slug, headline}">
-  <article><a href="/posts/${slug}/"><slot name="headline"></slot></a></article>
+  <article><a href="/posts/${slug}/" data-t="${headline}">Post</a></article>
 </template>"#,
     )
     .unwrap();
@@ -848,6 +848,192 @@ fn fragment_mount_forwards_class_inside_each_loop() {
 }
 
 #[test]
+fn fragment_mount_projects_children_into_default_slot() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("ui/card.html"),
+        r#"<template id="card">
+  <article class="card"><slot>Fallback content</slot></article>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="./ui/card.html" id="card" />
+  </head>
+  <body>
+    <slot id="card"><h2>Projected title</h2><p>Projected body</p></slot>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("<h2>Projected title</h2>"), "{html}");
+    assert!(html.contains("<p>Projected body</p>"), "{html}");
+    assert!(!html.contains("Fallback content"));
+}
+
+#[test]
+fn fragment_default_slot_keeps_fallback_without_projected_children() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("ui/card.html"),
+        r#"<template id="card">
+  <article class="card"><slot><p>Fallback content</p></slot></article>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="./ui/card.html" id="card" />
+  </head>
+  <body><slot id="card"></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains(">Fallback content</p>"), "{html}");
+}
+
+#[test]
+fn fragment_mount_projects_children_inside_each_loop() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(dir.join("posts.json"), r#"[{"title":"A"},{"title":"B"}]"#).unwrap();
+    std::fs::write(
+        dir.join("ui/card.html"),
+        r#"<template id="card" data-bind="{title}">
+  <article class="card"><h2 data-t="${title}">Title</h2><slot><p>Fallback</p></slot></article>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/data" href="./posts.json" id="posts" />
+    <link rel="statica/fragment" type="text/html" href="./ui/card.html" id="card" />
+  </head>
+  <body><slot id="card" data-each="posts"><p>Projected shared body</p></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert_eq!(
+        html.matches("<p>Projected shared body</p>").count(),
+        2,
+        "{html}"
+    );
+    assert!(html.contains(">A</h2>"), "{html}");
+    assert!(html.contains(">B</h2>"), "{html}");
+    assert!(!html.contains("<p>Fallback</p>"));
+}
+
+#[test]
+fn fragment_mount_projects_named_and_default_slots() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("ui/card.html"),
+        r#"<template id="card">
+  <article class="card">
+    <header><slot name="header">Fallback header</slot></header>
+    <main><slot><p>Fallback body</p></slot></main>
+  </article>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="./ui/card.html" id="card" />
+  </head>
+  <body>
+    <slot id="card">
+      <h2 slot="header">Projected header</h2>
+      <p>Projected body</p>
+    </slot>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("<h2>Projected header</h2>"), "{html}");
+    assert!(html.contains("<p>Projected body</p>"), "{html}");
+    assert!(!html.contains(r#"slot="header""#), "{html}");
+    assert!(!html.contains("Fallback header"), "{html}");
+    assert!(!html.contains("Fallback body"), "{html}");
+}
+
+#[test]
+fn fragment_projection_slot_channels_must_be_unique() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("ui")).unwrap();
+    std::fs::write(
+        dir.join("ui/card.html"),
+        r#"<template id="card">
+  <article>
+    <slot name="header">First</slot>
+    <slot name="header">Second</slot>
+  </article>
+</template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="./ui/card.html" id="card" />
+  </head>
+  <body><slot id="card"></slot></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let err = build(&BuildOptions::new(&dir)).unwrap_err().to_string();
+    assert!(
+        err.contains("declares the named `header` projection slot more than once"),
+        "{err}"
+    );
+    assert!(
+        err.contains("one <slot name=\"...\"> for each named content area"),
+        "{err}"
+    );
+}
+
+#[test]
 fn page_undeclared_each_source_errors() {
     let dir = tempfile_dir();
     std::fs::create_dir_all(dir.join("ui")).unwrap();
@@ -855,7 +1041,7 @@ fn page_undeclared_each_source_errors() {
     std::fs::write(
         dir.join("ui/post-card.html"),
         r#"<template id="post-card" data-bind="{slug, headline}">
-  <article><a href="/posts/${slug}/"><slot name="headline"></slot></a></article>
+  <article><a href="/posts/${slug}/" data-t="${headline}">Post</a></article>
 </template>"#,
     )
     .unwrap();
@@ -902,7 +1088,7 @@ fn select_slot_expands_to_options() {
     std::fs::write(
         dir.join("ui/select-option.html"),
         r#"<template id="select-option" data-bind="{value, label}">
-  <option value="${value}"><slot name="label"></slot></option>
+  <option value="${value}" data-t="${label}">Label</option>
 </template>"#,
     )
     .unwrap();
@@ -1260,7 +1446,7 @@ fn i18n_loads_locale_specific_funnel_data() {
     <title data-t="${i18n.title}">Posts</title>
   </head>
   <body>
-    <h1><slot name="item.headline"></slot></h1>
+    <h1 data-t="${item.headline}">Post</h1>
   </body>
 </html>"#,
     )
@@ -1680,7 +1866,7 @@ fn i18n_pagination_chunks_once_for_shared_data() {
   </head>
   <body>
     <h1 data-t="${i18n.blog_title}">Blog</h1>
-    <p>Page <slot name="page.pagination.page"></slot> of <slot name="page.pagination.total_pages"></slot></p>
+    <p>Page <span data-t="${page.pagination.page}">1</span> of <span data-t="${page.pagination.total_pages}">1</span></p>
   </body>
 </html>"#,
     )
@@ -1706,11 +1892,13 @@ fn i18n_pagination_chunks_once_for_shared_data() {
 
     let en_p1 = std::fs::read_to_string(dir.join("dist/en/blog/1/index.html")).unwrap();
     assert!(en_p1.contains("<title>Blog</title>"));
-    assert!(en_p1.contains("Page 1 of 2"));
+    assert!(en_p1.contains(">1</span> of <span"));
+    assert!(en_p1.contains(">2</span>"));
 
     let pt_p2 = std::fs::read_to_string(dir.join("dist/pt/blog/2/index.html")).unwrap();
     assert!(pt_p2.contains("<title>Blogue</title>"));
-    assert!(pt_p2.contains("Page 2 of 2"));
+    assert!(pt_p2.contains(">2</span> of <span"));
+    assert!(pt_p2.contains(">2</span>"));
 
     assert!(dir.join("dist/en/blog/2/index.html").exists());
     assert!(dir.join("dist/pt/blog/1/index.html").exists());

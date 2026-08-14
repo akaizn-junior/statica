@@ -189,7 +189,7 @@ posts/[slug]/index.html
   </head>
   <body>
     <h1 data-t="${item.headline}">Post</h1>
-    <slot name="item.html"></slot>
+    <div data-t="${item.html}"></div>
   </body>
 </html>
 ```
@@ -293,6 +293,35 @@ with `+`.
 The emitted class is `class="btn hero-cta"`. A bare `class="+"` forwards the
 mount class without keeping a base class. Only `class` forwarding is supported;
 other mount attributes stay on the mount and are not forwarded.
+
+Project mount children into fragment slots. Children without a `slot` attribute
+go to the unnamed default slot. Children with `slot="name"` go to
+`<slot name="name">`.
+
+```html
+<!-- page -->
+<slot id="card">
+  <h2 slot="header">Projected title</h2>
+  <p>Projected body</p>
+</slot>
+```
+
+```html
+<!-- ui/card.html -->
+<template id="card">
+  <article class="card">
+    <header>
+      <slot name="header">Fallback title</slot>
+    </header>
+    <slot><p>Fallback content</p></slot>
+  </article>
+</template>
+```
+
+When projected children are present for a slot, they replace that slot. When no
+children are passed for a slot, the fallback content inside the fragment slot is
+kept. Each fragment template may declare one default slot and one slot for each
+name; duplicate projection slots fail the build.
 
 Fragment paths are relative to the file that declares them. Fragments may import their own data and other fragments.
 
