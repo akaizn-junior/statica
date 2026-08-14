@@ -243,7 +243,7 @@ pub fn bind_context(decl: &BindDecl, value: &Value) -> Value {
     }
 }
 
-/// Fail the build if `${…}` / named slots reference names not declared in `data-bind`.
+/// Fail the build if `${…}` references names not declared in `data-bind`.
 #[cfg(test)]
 pub fn validate_template_binds(
     fragment_id: &str,
@@ -254,7 +254,7 @@ pub fn validate_template_binds(
     validate_template_binds_with_roots(fragment_id, decl, nodes, source, &[])
 }
 
-/// Fail the build if `${…}` / named slots reference names not declared in `data-bind`
+/// Fail the build if `${…}` references names not declared in `data-bind`
 /// or provided by an explicit external build-time context.
 pub fn validate_template_binds_with_roots(
     fragment_id: &str,
@@ -352,19 +352,6 @@ fn validate_element(
             &[&dq, &sq],
             "data-bind is only valid on <html> and fragment <template>",
         ));
-    }
-    if let Some(SlotKind::Named(name)) = el.slot_kind() {
-        let name = name.trim();
-        if !name.is_empty() {
-            let dq = format!("name=\"{name}\"");
-            let sq = format!("name='{name}'");
-            match DottedPath::parse(name) {
-                Some(path) => {
-                    ensure_bound(fragment_id, scope, name, path.root(), source, &[&dq, &sq])?;
-                }
-                None => return Err(invalid_path_error(source, name, &[&dq, &sq])),
-            }
-        }
     }
     if !el.is_script() && !el.is_style() && !is_statica_link(el) {
         for (_k, v) in &el.attrs {
@@ -601,7 +588,7 @@ mod tests {
     }
 
     #[test]
-    fn named_slot_must_be_bound() {
+    fn named_slots_are_projection_channels() {
         let html = r#"<a class="button ${variant}" href="${href}"><slot name="label"></slot></a>"#;
         let decl = BindDecl::destructure_flat(["variant", "href"]);
         let nodes = vec![el(
@@ -609,15 +596,7 @@ mod tests {
             &[("class", "button ${variant}"), ("href", "${href}")],
             vec![el("slot", &[("name", "label")], vec![])],
         )];
-        let err = validate_template_binds("button", &decl, &nodes, src(html)).unwrap_err();
-        match err {
-            Error::Diag(d) => {
-                assert!(d.message.contains("`label` is not bound"));
-                assert_eq!((d.line, d.column), (1, 51));
-                assert!(d.snippet.contains("name=\"label\""));
-            }
-            other => panic!("unexpected: {other}"),
-        }
+        validate_template_binds("button", &decl, &nodes, src(html)).unwrap();
     }
 
     #[test]

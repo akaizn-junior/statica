@@ -1,6 +1,6 @@
 //! Fragment registry — templates discovered via `rel="statica/fragment"`.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use crate::aliases::{self, AliasOptions};
 use crate::error::{Error, Result};
 use crate::funnel::{self, BindDecl, DataSource};
-use crate::parse::{self, Document, Element, Node};
+use crate::parse::{self, Document, Element, Node, SlotKind};
 use crate::render::RenderPlan;
 use crate::scope;
 use crate::tokens::DATA_BIND;
@@ -183,6 +183,7 @@ impl FragmentRegistry {
             bind_source,
             &bind_roots,
         )?;
+        validate_unique_projection_slots(id, &template_el.children, &file, &raw)?;
         let hash = short_hash(&raw);
         let scope_id = format!("{id}-{hash}");
         let has_dynamic_data = funnel::document_has_dynamic_data(&file_doc);
@@ -255,6 +256,49 @@ impl FragmentRegistry {
         }
         Ok(data)
     }
+}
+
+fn validate_unique_projection_slots(
+    fragment_id: &str,
+    nodes: &[Node],
+    file: &str,
+    source: &str,
+) -> Result<()> {
+    let mut seen = HashSet::new();
+    validate_unique_projection_slots_in_nodes(fragment_id, nodes, file, source, &mut seen)
+}
+
+fn validate_unique_projection_slots_in_nodes(
+    fragment_id: &str,
+    nodes: &[Node],
+    file: &str,
+    source: &str,
+    seen: &mut HashSet<String>,
+) -> Result<()> {
+    for node in nodes {
+        let Node::Element(el) = node else {
+            continue;
+        };
+        let channel = match el.slot_kind() {
+            Some(SlotKind::Default) => Some("default".to_string()),
+            Some(SlotKind::Named(name)) => Some(format!("named `{}`", name.trim())),
+            Some(SlotKind::FragmentMount(_)) | None => None,
+        };
+        if let Some(channel) = channel {
+            if !seen.insert(channel.clone()) {
+                return Err(Error::at(
+                    file,
+                    source,
+                    &["<slot"],
+                    format!(
+                        "fragment `{fragment_id}` declares the {channel} projection slot more than once; keep one <slot> for default content and one <slot name=\"...\"> for each named content area"
+                    ),
+                ));
+            }
+        }
+        validate_unique_projection_slots_in_nodes(fragment_id, &el.children, file, source, seen)?;
+    }
+    Ok(())
 }
 
 impl Default for FragmentRegistry {

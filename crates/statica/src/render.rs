@@ -7,7 +7,7 @@ use crate::context::CanonicalRoot;
 use crate::fragment::FragmentRegistry;
 use crate::funnel::{self, TemplatePlaceholder, TemplateToken};
 use crate::parse::{Document, Element, Node, SlotKind};
-use crate::tokens::{ATTR_CLASS, DATA_BIND};
+use crate::tokens::{ATTR_CLASS, ATTR_SLOT, DATA_BIND};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PageRenderer {
@@ -82,8 +82,15 @@ pub enum Op {
     Static(String),
     AttrTemplate(String),
     TextTemplate(String),
-    NamedSlot(String),
+    NamedSlot {
+        name: String,
+        fallback: Vec<Op>,
+    },
     DefaultSlot(Vec<Op>),
+    SlottedChild {
+        name: String,
+        children: Vec<Op>,
+    },
     Mount {
         id: String,
         each: Option<String>,
@@ -147,8 +154,9 @@ fn collect_linked_roots(ops: &[Op], roots: &mut HashSet<String>) {
             Op::AttrTemplate(template) | Op::TextTemplate(template) => {
                 collect_template_roots(template, roots);
             }
-            Op::NamedSlot(name) => collect_path_root(name, roots),
+            Op::NamedSlot { fallback, .. } => collect_linked_roots(fallback, roots),
             Op::DefaultSlot(children) => collect_linked_roots(children, roots),
+            Op::SlottedChild { children, .. } => collect_linked_roots(children, roots),
             Op::Mount { each, children, .. } => {
                 if let Some(each) = each {
                     collect_path_root(each, roots);
@@ -191,6 +199,17 @@ fn compile_node(node: &Node, ops: &mut Vec<Op>) {
         Node::Text(text) => push_static(ops, text),
         Node::Comment(comment) => push_static(ops, &format!("<!--{comment}-->")),
         Node::Element(el) if is_authoring_link(el) => {}
+        Node::Element(el)
+            if el
+                .attr(ATTR_SLOT)
+                .map(str::trim)
+                .is_some_and(|name| !name.is_empty()) =>
+        {
+            ops.push(Op::SlottedChild {
+                name: el.attr(ATTR_SLOT).unwrap_or("").trim().to_string(),
+                children: compile_slotted_child(el),
+            });
+        }
         Node::Element(el) => match el.slot_kind() {
             Some(SlotKind::FragmentMount(id)) => {
                 ops.push(Op::Mount {
@@ -200,11 +219,22 @@ fn compile_node(node: &Node, ops: &mut Vec<Op>) {
                     children: compile_nodes(&el.children),
                 });
             }
-            Some(SlotKind::Named(name)) => ops.push(Op::NamedSlot(name)),
+            Some(SlotKind::Named(name)) => ops.push(Op::NamedSlot {
+                name,
+                fallback: compile_nodes(&el.children),
+            }),
             Some(SlotKind::Default) => ops.push(Op::DefaultSlot(compile_nodes(&el.children))),
             None => compile_element(el, ops),
         },
     }
+}
+
+fn compile_slotted_child(el: &Element) -> Vec<Op> {
+    let mut clone = el.clone();
+    clone.attrs.shift_remove(ATTR_SLOT);
+    let mut ops = Vec::new();
+    compile_element(&clone, &mut ops);
+    ops
 }
 
 fn compile_element(el: &Element, ops: &mut Vec<Op>) {

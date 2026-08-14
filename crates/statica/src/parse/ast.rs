@@ -32,7 +32,7 @@ pub struct Element {
 /// Authoring role of a `<slot>` element.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SlotKind {
-    /// `<slot name="field">` fills scalar/content values from context.
+    /// `<slot name="field">` receives projected children with `slot="field"`.
     Named(String),
     /// `<slot>` receives children passed by the fragment mount.
     Default,

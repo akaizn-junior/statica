@@ -10,6 +10,7 @@ use crate::aliases::{self, AliasOptions};
 use crate::content;
 use crate::context::CanonicalRoot;
 use crate::error::{Error, Result};
+#[cfg(test)]
 use crate::parse::escape_text;
 use crate::parse::{Document, Element, Node, StaticaLinkRel};
 use crate::tokens::{
@@ -423,7 +424,8 @@ pub fn path_as_str(value: &Value, path: &str) -> String {
     }
 }
 
-pub fn value_to_html(value: &Value) -> String {
+#[cfg(test)]
+fn value_to_html(value: &Value) -> String {
     match value {
         Value::String(s) => {
             if s.contains('<') && s.contains('>') {

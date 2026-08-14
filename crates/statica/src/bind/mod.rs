@@ -27,7 +27,7 @@ use crate::{AliasOptions, FormsOptions};
 
 pub(crate) use attrs::expand_template;
 pub use attrs::fill_attr_templates_in_nodes;
-pub use slots::{clear_remaining_named_slots, fill_default_slots, fill_named_slots};
+pub use slots::{clear_remaining_named_slots, fill_projection_slots, SlotProjection};
 
 #[derive(Debug, Clone)]
 struct FragmentMount {
@@ -218,7 +218,6 @@ fn render_with_ast_mutation(
     let mut doc = doc.clone();
     let ctx = context_tree.render_context();
     fill_attr_templates_in_nodes(&mut doc.children, &ctx);
-    fill_named_slots(&mut doc.children, &ctx);
     expand_usage_slots_in_nodes(
         registry,
         &mut doc.children,
@@ -267,7 +266,7 @@ fn render_with_compiled_plan(
         data_cache,
         aliases,
         site,
-        &[],
+        &OpSlotProjection::default(),
         &mut out,
     )?;
     Ok(out)
@@ -286,7 +285,7 @@ fn render_plan_ops(
     data_cache: &mut HashMap<PathBuf, std::sync::Arc<crate::content::DataSet>>,
     aliases: &AliasOptions,
     site: Option<(&str, &str)>,
-    default_children: &[Op],
+    projected_slots: &OpSlotProjection,
     out: &mut String,
 ) -> Result<()> {
     for op in ops {
@@ -296,12 +295,43 @@ fn render_plan_ops(
                 out.push_str(&escape_attr(&expand_template(template, attr_context)));
             }
             Op::TextTemplate(template) => out.push_str(&expand_template(template, text_context)),
-            Op::NamedSlot(name) => {
-                if let Some(value) = funnel::path_value(attr_context, name) {
-                    out.push_str(&funnel::value_to_html(value));
+            Op::NamedSlot { name, fallback } => {
+                if let Some(children) = projected_slots.named_children(name) {
+                    render_plan_ops(
+                        registry,
+                        children,
+                        current,
+                        data_map,
+                        attr_context,
+                        text_context,
+                        locale,
+                        i18n_catalog,
+                        data_cache,
+                        aliases,
+                        site,
+                        projected_slots,
+                        out,
+                    )?;
+                } else {
+                    render_plan_ops(
+                        registry,
+                        fallback,
+                        current,
+                        data_map,
+                        attr_context,
+                        text_context,
+                        locale,
+                        i18n_catalog,
+                        data_cache,
+                        aliases,
+                        site,
+                        projected_slots,
+                        out,
+                    )?;
                 }
             }
             Op::DefaultSlot(fallback) => {
+                let default_children = projected_slots.default_children();
                 let children = if default_children.is_empty() {
                     fallback.as_slice()
                 } else {
@@ -319,7 +349,24 @@ fn render_plan_ops(
                     data_cache,
                     aliases,
                     site,
-                    default_children,
+                    projected_slots,
+                    out,
+                )?;
+            }
+            Op::SlottedChild { children, .. } => {
+                render_plan_ops(
+                    registry,
+                    children,
+                    current,
+                    data_map,
+                    attr_context,
+                    text_context,
+                    locale,
+                    i18n_catalog,
+                    data_cache,
+                    aliases,
+                    site,
+                    projected_slots,
                     out,
                 )?;
             }
@@ -456,9 +503,42 @@ fn render_plan_fragment(
         data_cache,
         aliases,
         site,
-        children,
+        &OpSlotProjection::from_mount_children(children),
         out,
     )
+}
+
+#[derive(Debug, Clone, Default)]
+struct OpSlotProjection {
+    default: Vec<Op>,
+    named: HashMap<String, Vec<Op>>,
+}
+
+impl OpSlotProjection {
+    fn from_mount_children(children: &[Op]) -> Self {
+        let mut projection = Self::default();
+        for child in children {
+            match child {
+                Op::SlottedChild { name, children } => {
+                    projection
+                        .named
+                        .entry(name.clone())
+                        .or_default()
+                        .extend(children.iter().cloned());
+                }
+                _ => projection.default.push(child.clone()),
+            }
+        }
+        projection
+    }
+
+    fn default_children(&self) -> &[Op] {
+        &self.default
+    }
+
+    fn named_children(&self, name: &str) -> Option<&[Op]> {
+        self.named.get(name).map(Vec::as_slice)
+    }
 }
 
 fn forward_mount_class_to_ops(ops: &[Op], mount_class: Option<&str>) -> Vec<Op> {
@@ -479,6 +559,14 @@ fn forward_mount_class_to_op(op: Op, mount_class: &str) -> Op {
         Op::DefaultSlot(children) => {
             Op::DefaultSlot(forward_mount_class_to_ops(&children, Some(mount_class)))
         }
+        Op::NamedSlot { name, fallback } => Op::NamedSlot {
+            name,
+            fallback: forward_mount_class_to_ops(&fallback, Some(mount_class)),
+        },
+        Op::SlottedChild { name, children } => Op::SlottedChild {
+            name,
+            children: forward_mount_class_to_ops(&children, Some(mount_class)),
+        },
         Op::Mount {
             id,
             each,
@@ -852,8 +940,8 @@ fn render_fragment_nodes(
     let mut nodes = fragment::template_children(frag);
     forward_mount_class_to_nodes(&mut nodes, mount_class);
     fill_attr_templates_in_nodes(&mut nodes, &ctx);
-    fill_named_slots(&mut nodes, &ctx);
-    fill_default_slots(&mut nodes, children);
+    let projection = SlotProjection::from_mount_children(children);
+    fill_projection_slots(&mut nodes, &projection);
     expand_usage_slots_in_nodes(
         registry,
         &mut nodes,

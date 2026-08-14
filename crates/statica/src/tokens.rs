@@ -16,6 +16,7 @@ pub(crate) const DATA_SCRIPT_SCOPE: &str = "data-s-scope";
 pub(crate) const DATA_IMAGE: &str = "data-s-img";
 pub(crate) const DATA_IMAGE_SIZES: &str = "data-s-img-sizes";
 pub(crate) const ATTR_CLASS: &str = "class";
+pub(crate) const ATTR_SLOT: &str = "slot";
 pub(crate) const SEARCH_RUNTIME_DIR: &str = "statica";
 pub(crate) const SEARCH_JS_PATH: &str = "/statica/search.js";
 pub(crate) const SEARCH_CSS_PATH: &str = "/statica/search.css";
