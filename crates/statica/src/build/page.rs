@@ -17,6 +17,7 @@ use crate::loc::Diagnostic;
 use crate::manifest::ManifestMeta;
 use crate::parse::Document;
 use crate::render::RenderPlan;
+use crate::tokens::{missing_data_source_message, rel_double_quoted_data};
 use crate::FormsOptions;
 
 use super::{BuildRouteKind, BuildRouteRow};
@@ -63,8 +64,9 @@ impl PreparedPage {
     ) -> Result<HashMap<String, DataSource>> {
         let active_locale = Self::active_locale(locale, i18n);
         if funnel::document_has_dynamic_data(&self.doc) && active_locale.is_none() {
+            let data_rel = rel_double_quoted_data();
             return Err(self.at(
-                &["rel=\"statica/data\"", "href=", "${"],
+                &[data_rel.as_str(), "href=", "${"],
                 "funnel href contains dynamic placeholders but no dynamic data context is available",
             ));
         }
@@ -182,14 +184,10 @@ impl PreparedPage {
         collection_id: &str,
         needle_refs: &[&str],
     ) -> Result<Vec<Value>> {
-        let list = self.data.get(collection_id).ok_or_else(|| {
-            self.at(
-                needle_refs,
-                format!(
-                    "missing data source id `{collection_id}` (no <link rel=\"statica/data\" id=\"{collection_id}\">)"
-                ),
-            )
-        })?;
+        let list = self
+            .data
+            .get(collection_id)
+            .ok_or_else(|| self.at(needle_refs, missing_data_source_message(collection_id)))?;
         list.array().ok_or_else(|| {
             let value = list.value();
             self.at(

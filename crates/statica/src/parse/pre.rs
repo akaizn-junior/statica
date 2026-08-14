@@ -4,6 +4,7 @@
 //! browsers reject (e.g. `<slot>` inside `<select>`).
 
 use crate::error::{Error, Result};
+use crate::tokens::TYPE_SLOT;
 
 /// Normalize authoring HTML before html5ever parsing.
 pub fn preprocess(input: &str) -> Result<String> {
@@ -111,9 +112,9 @@ fn slot_to_script(slot_html: &str) -> Result<String> {
     };
 
     Ok(if attrs.is_empty() {
-        format!("<script type=\"statica/slot\">{inner}</script>")
+        format!("<script type=\"{TYPE_SLOT}\">{inner}</script>")
     } else {
-        format!("<script type=\"statica/slot\" {attrs}>{inner}</script>")
+        format!("<script type=\"{TYPE_SLOT}\" {attrs}>{inner}</script>")
     })
 }
 

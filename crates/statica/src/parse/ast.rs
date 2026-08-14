@@ -1,5 +1,7 @@
 use indexmap::IndexMap;
 
+use crate::tokens::{REL_DATA, REL_FONT, REL_FRAGMENT};
+
 /// Ordered element attributes.
 pub type AttrMap = IndexMap<String, String>;
 
@@ -160,16 +162,13 @@ impl Element {
             return None;
         }
         let rel = self.attr("rel")?;
-        if rel.split_whitespace().any(|part| part == "statica/data") {
+        if rel.split_whitespace().any(|part| part == REL_DATA) {
             return Some(StaticaLinkRel::Data);
         }
-        if rel
-            .split_whitespace()
-            .any(|part| part == "statica/fragment")
-        {
+        if rel.split_whitespace().any(|part| part == REL_FRAGMENT) {
             return Some(StaticaLinkRel::Fragment);
         }
-        if rel.split_whitespace().any(|part| part == "statica/font") {
+        if rel.split_whitespace().any(|part| part == REL_FONT) {
             return Some(StaticaLinkRel::Font);
         }
         None

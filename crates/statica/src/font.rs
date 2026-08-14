@@ -6,6 +6,7 @@ use indexmap::IndexMap;
 
 use crate::error::{Error, Result};
 use crate::parse::{Document, Element, Node, StaticaLinkRel};
+use crate::tokens::{rel_double_quoted, rel_single_quoted, REL_FONT};
 
 const GOOGLE_FONTS_STYLESHEET_ORIGIN: &str = "https://fonts.googleapis.com";
 const GOOGLE_FONTS_STATIC_ORIGIN: &str = "https://fonts.gstatic.com";
@@ -55,7 +56,11 @@ fn expand_font_link(
 ) -> Result<Vec<Node>> {
     let href = el.attr("href").unwrap_or("").trim();
     if href.is_empty() {
-        return Err(font_err(site, &["href"], "statica/font link missing href"));
+        return Err(font_err(
+            site,
+            &["href"],
+            format!("{REL_FONT} link missing href"),
+        ));
     }
 
     let mut out = Vec::new();
@@ -167,7 +172,9 @@ pub fn is_font_link(el: &Element) -> bool {
 }
 
 fn font_err(site: Option<(&str, &str)>, extra: &[&str], message: impl Into<String>) -> Error {
-    let mut needles = vec!["rel=\"statica/font\"", "rel='statica/font'"];
+    let rel_dq = rel_double_quoted(REL_FONT);
+    let rel_sq = rel_single_quoted(REL_FONT);
+    let mut needles = vec![rel_dq.as_str(), rel_sq.as_str()];
     needles.extend_from_slice(extra);
     match site {
         Some((file, source)) => Error::at(file, source, &needles, message),

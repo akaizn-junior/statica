@@ -20,6 +20,7 @@ use crate::manifest::ManifestMeta;
 use crate::paginate::{self, PaginationRule};
 use crate::parse::Document;
 use crate::search;
+use crate::tokens::missing_data_source_message;
 
 use super::output::write_rendered_html;
 use super::page::PreparedPage;
@@ -323,14 +324,9 @@ fn pagination_items_for_locale(
 ) -> Result<Vec<Value>> {
     let page_data =
         page.resolve_page_data(site_root, data_cache, aliases, locale, i18n_catalogs, i18n)?;
-    let list = page_data.get(collection_id).ok_or_else(|| {
-        page.at(
-            needle_refs,
-            format!(
-                "missing data source id `{collection_id}` (no <link rel=\"statica/data\" id=\"{collection_id}\">)"
-            ),
-        )
-    })?;
+    let list = page_data
+        .get(collection_id)
+        .ok_or_else(|| page.at(needle_refs, missing_data_source_message(collection_id)))?;
     list.array().ok_or_else(|| {
         let value = list.value();
         page.at(
@@ -828,14 +824,9 @@ fn emit_collection(
         i18n_catalogs,
         &opts.i18n,
     )?;
-    let list = page_data.get(&collection_id).ok_or_else(|| {
-        page.at(
-            &needle_refs,
-            format!(
-                "missing data source id `{collection_id}` (no <link rel=\"statica/data\" id=\"{collection_id}\">)"
-            ),
-        )
-    })?;
+    let list = page_data
+        .get(&collection_id)
+        .ok_or_else(|| page.at(&needle_refs, missing_data_source_message(&collection_id)))?;
 
     let items = list.array().ok_or_else(|| {
         let value = list.value();
@@ -938,12 +929,7 @@ fn emit_locale_collection(
                 &opts.i18n,
             )?;
             let list = page_data.get(&collection_id).ok_or_else(|| {
-                page.at(
-                    &needle_refs,
-                    format!(
-                        "missing data source id `{collection_id}` (no <link rel=\"statica/data\" id=\"{collection_id}\">)"
-                    ),
-                )
+                page.at(&needle_refs, missing_data_source_message(&collection_id))
             })?;
             let items = list.array().ok_or_else(|| {
                 let value = list.value();

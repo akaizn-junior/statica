@@ -9,6 +9,7 @@ use serde_json::Value;
 
 use crate::error::Result;
 use crate::parse::{self, AttrMap, Element, Node};
+use crate::tokens::{META_PREFIX, TYPE_SEARCH};
 
 const RUNTIME_JS: &str = include_str!("runtime/search.js");
 const RUNTIME_CSS: &str = include_str!("runtime/search.css");
@@ -383,8 +384,7 @@ fn contains_search_runtime(nodes: &[Node]) -> bool {
 }
 
 fn is_search_input(el: &Element) -> bool {
-    el.name.eq_ignore_ascii_case("input")
-        && el.attr("type").is_some_and(|ty| ty == "statica/search")
+    el.name.eq_ignore_ascii_case("input") && el.attr("type").is_some_and(|ty| ty == TYPE_SEARCH)
 }
 
 fn search_control(input: &Element, seq: usize, options: &SearchOptions) -> Element {
@@ -661,7 +661,7 @@ fn searchable_meta(name: &str) -> bool {
             | "tags"
             | "article:tag"
             | "article:section"
-    ) || name.starts_with("statica:")
+    ) || name.starts_with(META_PREFIX)
 }
 
 fn title_text(nodes: &[Node]) -> String {

@@ -69,6 +69,7 @@ mod render;
 mod runtime;
 mod scope;
 mod search;
+mod tokens;
 
 pub use aliases::{
     join_alias, resolve_local_href, resolve_path, resolve_paths_in_document, AliasOptions,

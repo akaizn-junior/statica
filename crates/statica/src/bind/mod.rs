@@ -19,6 +19,7 @@ use crate::manifest::ManifestMeta;
 use crate::parse::{Document, EachDirective, Element, Node, SlotKind};
 use crate::render::{Op, PageRenderer, RenderPlan};
 use crate::scope;
+use crate::tokens::missing_fragment_message;
 use crate::{AliasOptions, FormsOptions};
 
 pub(crate) use attrs::expand_template;
@@ -408,8 +409,7 @@ fn render_plan_fragment(
     out: &mut String,
 ) -> Result<()> {
     let frag = registry.get(id).ok_or_else(|| {
-        let msg =
-            format!("missing fragment id `{id}` (no <link rel=\"statica/fragment\" id=\"{id}\">)");
+        let msg = missing_fragment_message(id);
         match site {
             Some((file, source)) => {
                 let dq = format!("id=\"{id}\"");
@@ -694,8 +694,7 @@ fn render_fragment_nodes(
     site: Option<(&str, &str)>,
 ) -> Result<Vec<Node>> {
     let frag = registry.get(id).ok_or_else(|| {
-        let msg =
-            format!("missing fragment id `{id}` (no <link rel=\"statica/fragment\" id=\"{id}\">)");
+        let msg = missing_fragment_message(id);
         match site {
             Some((file, source)) => {
                 let dq = format!("id=\"{id}\"");

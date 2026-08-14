@@ -12,6 +12,7 @@ use crate::context::CanonicalRoot;
 use crate::error::{Error, Result};
 use crate::parse::escape_text;
 use crate::parse::{Document, Element, Node, StaticaLinkRel};
+use crate::tokens::{missing_data_source_message, rel_double_quoted, rel_single_quoted, REL_DATA};
 
 use std::path::Component;
 
@@ -154,13 +155,15 @@ fn load_data_links(
     let links = data_links_for_filter(doc, filter);
     for link in links {
         let el = link.el;
+        let rel_dq = rel_double_quoted(REL_DATA);
+        let rel_sq = rel_single_quoted(REL_DATA);
         let id = match el.attr("id").map(str::trim).filter(|s| !s.is_empty()) {
             Some(id) => id.to_string(),
             None => {
                 return Err(site_err(
                     site,
-                    &["rel=\"statica/data\"", "rel='statica/data'"],
-                    "statica/data link missing id",
+                    &[&rel_dq, &rel_sq],
+                    format!("{REL_DATA} link missing id"),
                 ));
             }
         };
@@ -171,7 +174,7 @@ fn load_data_links(
                 site,
                 &[&id_dq, &id_sq],
                 format!(
-                    "statica/data id `{id}` conflicts with canonical page context — rename this data source"
+                    "{REL_DATA} id `{id}` conflicts with canonical page context — rename this data source"
                 ),
             ));
         }
@@ -179,8 +182,8 @@ fn load_data_links(
             let id_dq = format!("id=\"{id}\"");
             return Err(site_err(
                 site,
-                &["rel=\"statica/data\"", id_dq.as_str()],
-                format!("statica/data#{id} missing href"),
+                &[&rel_dq, id_dq.as_str()],
+                format!("{REL_DATA}#{id} missing href"),
             ));
         };
         let href = aliases::resolve_path(href, aliases, site, "href")?;
@@ -206,7 +209,7 @@ fn load_data_links(
                 site_err(
                     site,
                     &[&type_dq, &type_sq, raw],
-                    format!("unsupported statica/data type `{raw}`"),
+                    format!("unsupported {REL_DATA} type `{raw}`"),
                 )
             })?),
             None => None,
@@ -454,22 +457,10 @@ pub fn resolve_expr(
     } else if let Some(cur) = current {
         match read_field(cur, first) {
             Some(v) => v.clone(),
-            None => {
-                return Err(Error::at_file(
-                    "<data>",
-                    format!(
-                        "missing data source id `{first}` (no <link rel=\"statica/data\" id=\"{first}\">)"
-                    ),
-                ))
-            }
+            None => return Err(Error::at_file("<data>", missing_data_source_message(first))),
         }
     } else {
-        return Err(Error::at_file(
-            "<data>",
-            format!(
-                "missing data source id `{first}` (no <link rel=\"statica/data\" id=\"{first}\">)"
-            ),
-        ));
+        return Err(Error::at_file("<data>", missing_data_source_message(first)));
     };
 
     for part in parts {
