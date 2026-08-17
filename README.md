@@ -2,20 +2,24 @@
 
 **Just HTML.** A blazingly fast static site generator that builds on just HTML
 
-Full reference: [docs/guide.md](docs/guide.md) · Man pages: [docs/man/](docs/man/)
+Full reference: [docs/guide.md](docs/guide.md)
 
 ## Install
 
-**Rust (crates.io):**
+**Homebrew:**
 
 ```bash
-cargo install statica-cli --locked
+brew tap akaizn-junior/statica
+brew install statica
 ```
+
+See [homebrew/README.md](homebrew/README.md) for tap setup.
 
 **JavaScript (npm):**
 
 ```bash
 npm i -D @statica/cli
+npx statica
 ```
 
 Create a new site directly from npm:
@@ -26,18 +30,10 @@ cd my-site
 statica
 ```
 
-**Homebrew:**
+**Rust (crates.io):**
 
 ```bash
-brew tap akaizn-junior/statica
-brew install statica
-```
-
-Prebuilt macOS and Linux binaries from GitHub releases. See [homebrew/README.md](homebrew/README.md) for tap setup.
-
-```bash
-npx statica build .
-# package.json scripts: "build": "statica build ."
+cargo install statica-cli --locked
 ```
 
 From this repo (dev):
@@ -48,47 +44,27 @@ cargo install --path crates/statica-cli --force
 
 ## Quick start
 
+`statica new` creates a small feature rich starter.
+
 ```bash
 npm create statica@latest my-site
 cd my-site
 statica                 # build, watch, and serve cwd
 ```
 
-Or use the installed CLI:
-
-```bash
-statica new my-site
-cd my-site
-statica                 # build, watch, and serve cwd
-statica build           # one-off build
-```
-
-`statica new` creates a small localized starter with a centered logo, Guide and GitHub links, and English/French/Portuguese catalogs.
-
-```bash
-statica examples/blog
-cd examples/blog/content && statica   # watches the project found via ../statica.toml
-statica -h
-statica -v
-```
-
-The example sites follow the scaffold style guide: logo-led statica branding, the two green brand colors, daisyUI-friendly HTML classes for interactive surfaces, and public assets copied from `public/`.
-
 ## CLI
 
 ```text
 statica [PATH]              build + watch + serve (default)
 statica build [PATH]        one-off build
-statica serve [PATH]        preview out_dir with 404 fallback
-statica watch [PATH]        watch + rebuild + serve
+statica serve [PATH]        preview latest build
+statica watch [PATH]        watch mode
 statica new <NAME>          scaffold
 statica -h / --help
 statica -v / --version
 ```
 
-**Project location:** `PATH` (default `.`) → resolve against process **cwd** → walk up for `statica.toml` → site root is that dir, or `project` / `--project` under it.
-
-Nested config tables use compact SPECs (CLI wins over the file):
+### Options
 
 ```bash
 statica build --rss 'title=Blog,limit=20,collections=posts'
@@ -101,16 +77,6 @@ statica build --i18n 'locales=en|pt,default=en'
 statica build --render-mode serial
 statica build --report-json report.json
 statica watch --preview host=127.0.0.1,port=9000
-```
-
-### Man pages
-
-```bash
-man docs/man/statica.1
-man docs/man/statica-build.1
-man docs/man/statica-serve.1
-man docs/man/statica-watch.1
-man docs/man/statica-new.1
 ```
 
 ## Config (`statica.toml`)
@@ -186,17 +152,37 @@ posts/[slug]/index.html    → .website/posts/{item.slug}/index.html
 blog/[page]/index.html     → .website/blog/1/, blog/2/, …  ([[pagination]])
 ```
 
+### 404
+
 If the site does not define `404.html` or `404/index.html`, statica writes a default `.website/404/index.html`. Custom 404 pages are normal source pages and always win. `statica serve` returns the 404 page with HTTP status `404` for missing paths.
 
-```html
-<link rel="statica/data" href="../content/posts.json" id="posts" />
-<link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
-<link rel="statica/font" href="@Google/?family=Outfit:wght@100..900&display=swap" />
-<input type="statica/search" placeholder="Search" />
-<slot id="post-card"></slot>
+### Aliases
+
+Aliases allow the usage of short prefixes instead of repeating long local paths or URLs. They are configured in `statica.toml`, and the default leading symbol is `@`.
+
+```toml
+[aliases]
+symbol = "@"
+
+[aliases.urls]
+Google = "https://fonts.googleapis.com/css2"
+
+[aliases.paths]
+static = "./static"
+fonts = "./assets/fonts"
 ```
 
-`@Google` is a normal URL alias from `[aliases.urls]`; the Google Fonts preconnect behavior is handled by a built-in font recipe after alias resolution.
+Use aliases anywhere statica resolves authoring paths, such as fonts, scripts, styles, fragments, data funnels, and assets.
+
+```html
+<link rel="statica/font" href="@Google/?family=Outfit&display=swap" />
+<script type="module" src="@static/app.js"></script>
+<link rel="statica/fragment" href="@static/ui/post-card.html" id="post-card" />
+```
+
+`[aliases.urls]` entries resolve to absolute URLs. `[aliases.paths]` entries resolve to local paths relative to `statica.toml`. The text after the alias name is preserved as the tail, so `@static/app.js` resolves against the `static` alias base.
+
+### Binding basics
 
 - Scalar page text → `data-t="${item.field}"`, or literal text with `data-t="Plain text"`
 - Attributes → `${item.slug}` / `${page.pagination.next_href}` / `${i18n.locale}`
@@ -211,15 +197,6 @@ If the site does not define `404.html` or `404/index.html`, statica writes a def
 - Fragments never receive canonical page context; pass values through the mount context or link fragment-local data
 
 Keep content funnels build-time. Production output should not fetch site data at runtime unless you are intentionally adding unrelated client behavior.
-
-## Crate layout
-
-- `crates/statica-cli` — CLI (cwd/project resolve, config, SPECs, watch/serve, man pages)
-- `crates/statica` — discover → funnel → bind → scope → emit
-- `examples/blog` — dogfood fixture and canonical styled example with generated search
-- `examples/dealership-dashboard` — CSV/dashboard example using daisyUI, statica branding, and generated search
-- `examples/bench-*` — stress fixtures with lightweight scaffold-style pages
-- `docs/` — guide + man pages
 
 ## License
 
