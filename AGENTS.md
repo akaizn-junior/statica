@@ -6,7 +6,7 @@ Instructions for AI coding agents working in this repository.
 
 ## What this is
 
-**statica** is **Just HTML.** A blazingly fast static site generator that builds on just HTML Authors write valid HTML files. statica reads those files at build time, loads declared data, expands pages, resolves fragments, binds values into attributes/text, scopes fragment CSS/JS, and emits plain static files.
+**statica** is **Just HTML.** A blazingly fast static site generator for valid HTML. Authors write valid HTML files. statica reads those files at build time, loads declared data, expands pages, resolves fragments, binds values into attributes/text, scopes fragment CSS/JS, processes assets, and emits plain static files.
 
 | Concept | Role |
 | ------- | ---- |
@@ -15,6 +15,8 @@ Instructions for AI coding agents working in this repository.
 | **Funnels** | Build-time data linked with `<link rel="statica/data" href="..." id="...">` |
 | **Fragments** | Build-time HTML components imported with `<link rel="statica/fragment" ...>` |
 | **Binding** | Static replacement through `data-bind`, `data-t`, attributes, slots, and `data-each` |
+| **Aliases** | Short authoring prefixes such as `@ui/post-card.html` and `@static/app.js` |
+| **Assets** | Copied assets, CSS/JS transforms, responsive raster image variants, and optional minification |
 
 Pipeline: **discover → pre → parse → funnel → expand → bind → scope → emit → minify** (default output: `.website/`)
 
@@ -24,6 +26,8 @@ This repo contains two things:
 2. **Example sites** — `examples/blog` (dogfood fixture), bench fixtures
 
 Do not treat statica like React, Vue, Svelte, Astro, or Next.js. There is no client-side component runtime, no JSX, no virtual DOM, and no runtime content fetch for site data. HTML + statica attributes **are** the template language.
+
+This AGENTS.md is the operating source of truth for agents. `docs/guide.md` is the complete user-facing authoring guide and config reference. Keep them aligned: if agent guidance and the guide disagree, resolve the mismatch instead of copying stale patterns.
 
 ## Quick commands
 
@@ -50,17 +54,19 @@ CI runs `cargo build -p statica-cli --release` and `cargo test` on push/PR. Push
 
 ## Change checklist
 
-- Engine behavior: update tests in `crates/statica`, then `docs/guide.md`; update `examples/blog` when the feature needs a dogfood example.
+- Engine behavior: update tests in `crates/statica`, then `docs/guide.md`; update `README.md` when the quick-start story changes; update `examples/blog` when the feature needs a dogfood example.
 - CLI behavior: update clap help, `README.md`, `docs/guide.md`, and regenerate `docs/man/` with `cargo build -p statica-cli --release`.
 - Site authoring examples: keep `examples/blog` canonical and mention new patterns in `examples/blog/AGENTS.md` when future agents should copy them.
+- Documentation examples: make README/guide snippets copyable and buildable. If an example uses a fragment, include the import/mount/template relationship or point at an existing local file; if it uses aliases, define the alias.
 - User-facing copy: spell the product, binary, and crate names as lowercase `statica`.
 
 ## Documentation map
 
 | Need | Read |
 | ---- | ---- |
-| Direct authoring + config reference | [docs/guide.md](docs/guide.md) |
+| Complete authoring + config reference | [docs/guide.md](docs/guide.md) |
 | Install + new-site flow | [README.md](README.md) |
+| Docs index | [docs/README.md](docs/README.md) |
 | Working example site | [examples/blog/](examples/blog/) |
 | Pipeline architecture | [crates/statica/src/lib.rs](crates/statica/src/lib.rs) |
 | All config options | [crates/statica-cli/src/config.rs](crates/statica-cli/src/config.rs) |
@@ -78,6 +84,7 @@ CI runs `cargo build -p statica-cli --release` and `cargo test` on push/PR. Push
 - Resolve `PATH` against the process **cwd**, then walk up for `statica.toml`.
 - The site root is the config directory, or `project` / `--project` under it.
 - CLI SPEC strings override TOML for nested config (`--rss`, `--sitemap`, `--process`, `--minify`, `--pagination`, `--i18n`, `--preview`); scalar flags like `--render-mode` and `--render-threads` override their matching TOML keys.
+- Key config sections include top-level `project`, `out_dir`, `asset_dirs`, `site_url`, `manifest`; `[aliases]`; `[process]` and `[process.image]`; `[minify]`; `[preview]`; `[sitemap]`; `[rss]`; `[search]`; `[[pagination]]`; `[forms]`; `[i18n]`; `[env]`; and `[performance]`.
 - When changing CLI behavior, update clap help, docs/guide.md, README.md, and regenerate man pages with `cargo build -p statica-cli --release`.
 
 ## Writing statica sites (the statica way)
@@ -93,6 +100,10 @@ When creating or editing HTML sites that statica builds — whether in `examples
 - **Data is build-time only.** Production output is static HTML/CSS/JS. Do not add runtime fetches for content that statica should funnel.
 - **Fragments are build-time components.** A fragment is a `<template id="...">` imported and mounted by matching `id`. Fragment CSS/JS is scoped at build time.
 - **Context is explicit.** Pages may use canonical roots only after `<html data-bind="...">` asks for them. Fragments never receive canonical page context.
+- **Aliases are explicit.** Define aliases under `[aliases.paths]` or `[aliases.urls]` before using `@Name/tail`. Use `@ui/...` for fragment templates when `ui = "./ui"` is configured; do not pretend `@static/ui/...` exists unless the project actually stores fragments there.
+- **Assets are static outputs.** `public/`, `assets/`, and `static/` are copied by default through `asset_dirs`. `[process.image]` controls responsive raster image variants and `<picture>` rewriting when image processing is enabled.
+- **Forms and env are build-time wiring.** Use `<form statica>` with `[forms]`; use `[env]`, `.env`, or `.dev.vars` for Formspree IDs/endpoints instead of committing secrets.
+- **Sitemap/RSS need origins.** Set `site_url` when `[sitemap]` or `[rss]` is enabled so generated URLs match deployment.
 - **Default dev command is short.** Prefer examples like `statica .` or `statica examples/blog` for the build + watch + serve loop; use `statica build …` when documenting the explicit one-off build subcommand.
 - **Page rendering mode is configurable.** `[performance].render_mode` / `--render-mode` controls page rendering (`auto`, `serial`, `parallel`); `[performance].render_threads` / `--render-threads` caps parallel page-render workers (`0` means auto).
 - **Verification follows the layer changed.** Core changes need core tests; CLI changes need CLI tests and regenerated man pages; authoring changes should build the fixture.
@@ -102,9 +113,10 @@ When creating or editing HTML sites that statica builds — whether in `examples
 Use `<link rel="statica/data">` in the page or fragment file that needs the data.
 
 ```html
-<link rel="statica/data" href="../../content/posts/*.md" id="posts" />
-<link rel="statica/data" href="../content/vehicles.csv" id="vehicles" />
-<link rel="statica/data" href="../content/notes.txt" id="notes" type="text/plain" />
+<!-- index.html -->
+<link rel="statica/data" href="content/posts/*.md" id="posts" />
+<link rel="statica/data" href="content/vehicles.csv" id="vehicles" />
+<link rel="statica/data" href="content/notes.txt" id="notes" type="text/plain" />
 ```
 
 Rules:
@@ -258,12 +270,20 @@ Fragment mounts pass the current render value by default. In a loop, each array 
 
 ```html
 <html lang="en" data-bind="{page}">
-  <slot id="post-list"></slot>
-  <a href="${page.pagination.prev_href}">Previous</a>
+  <head>
+    <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
+    <link rel="statica/fragment" type="text/html" href="../../ui/post-card.html" id="post-card" />
+  </head>
+  <body>
+    <slot id="post-card" data-each="page.pagination.items"></slot>
+    <a href="${page.pagination.prev_href}">Previous</a>
+  </body>
 </html>
 ```
 
 Page context roots are `data`, `item`, `page`, and `i18n`; pagination metadata lives at `page.pagination`. Pages must declare canonical roots with `<html data-bind="…">` before use. Data link ids are available by id, but cannot collide with canonical roots. See [docs/guide.md](docs/guide.md).
+
+`[[pagination]]` supports `route`, `page_size` / `per_page`, `limit`, `offset`, `sort_by`, `sort_desc`, `max_pages`, and `index`. `index = true` also emits page 1 at the parent route.
 
 Paginated roots may also contain nested item pages:
 
@@ -275,7 +295,7 @@ blog/[page]/[slug]/index.html
 
 Nested item pages bind `{page, item}`. The `[page]` segment comes from pagination; `[slug]` comes from the item inside that page chunk.
 
-**i18n page** — `[locale]/` segment + `[i18n]` config. Use `data-t="${i18n.section.key}"` for catalog text; `${i18n.locale}` works in attributes and `data-t`, not text nodes.
+**i18n page** — `[locale]/` segment + `[i18n]` config. Catalogs live under `content/i18n/{locale}.json` by default. Use `data-t="${i18n.section.key}"` for catalog text; `${i18n.locale}` works in attributes and `data-t`, not text nodes. `[i18n].fallback` names the fallback catalog; empty fallback uses the default locale.
 
 ### CSS and JS in fragments
 
@@ -284,6 +304,14 @@ Nested item pages bind `{page, item}`. The `[page]` segment comes from paginatio
 - Inline `<style>` in pages and fragments is always transformed.
 - Linked `.css` under asset dirs is transformed only when `[process].css` / `--process css=true` is enabled.
 - Final output minification is controlled by `[minify]` / `--minify` for emitted HTML, CSS, and linked JS. Inline scripts are preserved so scoped fragment behavior stays exact.
+
+### Assets and image processing
+
+- `asset_dirs = ["public", "assets", "static"]` by default; copied assets keep their public paths.
+- `[process]` handles copied CSS, JS, images, and fonts when enabled.
+- `[process.image]` controls responsive raster image output: `widths`, `formats` such as `["webp"]`, JPEG `quality`, default `sizes`, and `responsive` `<picture>` rewriting.
+- Responsive image processing applies to local raster assets copied through `asset_dirs`; SVGs and remote images stay as authored.
+- Keep examples honest: if an HTML snippet shows `<img src="/images/hero.jpg">`, the source file should live under an asset dir such as `public/images/hero.jpg`.
 
 ### Styling statica sites with daisyUI
 
@@ -302,7 +330,15 @@ Prefer Formspree for statica forms unless the user or existing project specifies
 
 - Use `<form statica>` with `[forms]` config for build-time form wiring; do not inject client-side JavaScript for normal submissions.
 - Keep Formspree IDs, endpoints, and secrets out of committed examples unless they are explicit placeholders.
+- Use `[env]`, `.env`, or `.dev.vars` for real `FORMS_ENDPOINT` / `FORMS_{NAME}_ID` values. Existing process env vars win over config/file values.
 - Style forms with daisyUI form controls (`form-control`, `label`, `input`, `textarea`, `select`, `checkbox`, `radio`, `btn`) so contact, signup, survey, and feedback flows feel complete and polished.
+
+### Search, feeds, and manifest
+
+- Generated search uses `<input type="statica/search" placeholder="Search">`, emits `/search.json`, and writes `/statica/search.js` plus `/statica/search.css`.
+- `[search]` supports `enabled`, `output`, `limit`, `filters`, and `url_field`.
+- `[sitemap]` and `[rss]` require `site_url` for correct absolute URLs. RSS maps collection fields with `title_field`, `description_field`, and `date_field`; `collections = []` means every collection.
+- `manifest = true` / `--manifest` scaffolds `public/manifest.webmanifest` if missing, copies it, and injects manifest/theme/apple-touch tags unless already present.
 
 ### Asset pipeline
 
@@ -318,6 +354,8 @@ Prefer Formspree for statica forms unless the user or existing project specifies
 
 - Funnel `href`, fragment `href`, and asset paths are **relative to the HTML file** that declares them.
 - Aliases in `statica.toml` use `@Name/tail` syntax (e.g. `@Google/?family=…`, `@static/app.js`).
+- Put reusable fragment templates in `ui/` and configure `ui = "./ui"` if examples use `@ui/post-card.html`.
+- `[aliases.urls]` entries must be absolute URLs. `[aliases.paths]` entries must be local paths relative to `statica.toml`.
 
 ### Site layout convention
 
@@ -325,7 +363,9 @@ Prefer Formspree for statica forms unless the user or existing project specifies
 my-site/
 ├── statica.toml
 ├── index.html
+├── 404/index.html
 ├── content/           # funnel sources (JSON, JSONL, CSV, text, Markdown)
+│   ├── posts/
 │   └── i18n/{locale}.json
 ├── ui/                # fragment templates
 ├── posts/[slug]/index.html
