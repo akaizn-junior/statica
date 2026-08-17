@@ -321,7 +321,7 @@ Prefer Formspree for statica forms unless the user or existing project specifies
 
 ### Site layout convention
 
-```
+```bash
 my-site/
 ├── statica.toml
 ├── index.html
