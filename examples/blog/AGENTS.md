@@ -4,7 +4,7 @@ Dogfood statica site. Canonical reference for authoring. Read [../../AGENTS.md](
 
 ## Purpose
 
-This directory demonstrates every major statica feature: Markdown funnel, collections, pagination, fragments, fonts, forms, i18n, RSS, sitemap, search. Integration tests in `crates/statica/tests/build_fixture.rs` build this fixture.
+This directory demonstrates every major statica feature: Markdown funnel, layouts, collections, pagination, fragments, fonts, forms, i18n, RSS, sitemap, search. Integration tests in `crates/statica/tests/build_fixture.rs` build this fixture.
 
 When unsure how to author something, **copy from here** before inventing patterns.
 
@@ -26,10 +26,12 @@ Output: `.website/` (gitignored). Tests use `dist-test/`.
 examples/blog/
 ├── statica.toml          # pagination, i18n, forms, rss, sitemap
 ├── index.html            # home page
-├── site.css              # global styles
+├── public/site.css       # global styles
 ├── content/
 │   ├── posts/            # Markdown files loaded by glob
 │   └── i18n/en.json, pt.json
+├── layouts/
+│   └── base.html         # shared document shell
 ├── ui/                   # fragment templates
 │   ├── post-card.html
 │   ├── post-list.html
@@ -50,6 +52,16 @@ examples/blog/
 ```
 
 Points at an explicit `.md` glob with YAML front matter — see `content/posts/*.md`.
+
+### Layout shell
+
+[`layouts/base.html`](layouts/base.html) owns the shared `<html>`, `<head>`, nav, search input, footer, global styles, and default page slot. Route pages import it with a relative layout link:
+
+```html
+<link rel="statica/layout" href="../../layouts/base.html" />
+```
+
+Keep repeated whole-page structure in layouts. Keep reusable component pieces in `ui/` fragments.
 
 ### Collection page
 
@@ -110,5 +122,5 @@ index = true
 - Keep the scaffold-style statica logo/green visual language unless the example specifically demonstrates another brand
 - Run `cargo test -p statica builds_blog_fixture` after changes
 - Update `docs/guide.md` if you introduce a new authoring pattern
-- Keep funnel data in `content/`, fragments in `ui/`, and route pages as `**/index.html`
+- Keep funnel data in `content/`, page shells in `layouts/`, fragments in `ui/`, and route pages as `**/index.html`
 - Do not add JavaScript frameworks or build tools — statica is the build tool

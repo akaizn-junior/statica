@@ -1,58 +1,31 @@
 <!doctype html>
 <html lang="en" data-bind="{i18n}">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="/public/statica-logo.png" type="image/png" />
+    <link rel="statica/layout" href="../../layouts/base.html" />
     <title data-t="${i18n.about.title}">About</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css"
-      rel="stylesheet"
-      type="text/css"
-    />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/public/site.css" />
-    <link
-      rel="statica/font"
-      href="@Google/?family=Outfit:wght@400;600&display=swap"
-    />
   </head>
-  <body data-theme="light">
-    <main id="main" class="site-shell">
-      <nav class="site-nav" aria-label="Primary">
-        <a class="brand" href="/">
-          <img src="/public/statica-logo.png" alt="statica logo" />
-          <span>statica</span>
-        </a>
-        <div class="locales">
-          <a href="/en/about/" data-t="${i18n.about.nav_en}">English</a>
-          <a href="/pt/about/" data-t="${i18n.about.nav_pt}">Português</a>
-          <a href="/" data-t="${i18n.about.nav_home}">Home</a>
-        </div>
-      </nav>
-
-      <section class="content-panel">
-        <h1 data-t="${i18n.about.title}">About</h1>
-        <p class="lede" data-t="${i18n.about.intro}">
-          Just HTML. A blazingly fast static site generator that builds on just
-          HTML.
-        </p>
-        <p>
-          <a
-            href="#main"
-            aria-label="Skip to main content"
-            data-t-aria-label="${i18n.about.nav_skip}"
-            >Skip</a
-          >
-        </p>
-        <form class="form-control" name="contact" statica>
-          <label class="label">
-            <span class="label-text" data-t="${i18n.about.form_email}">Email</span>
-          </label>
-          <input class="input input-bordered" type="email" name="email" required />
-          <button class="btn btn-neutral" type="submit" data-t="${i18n.about.form_send}">Send</button>
-        </form>
-      </section>
-    </main>
+  <body>
+    <section class="content-panel">
+      <h1 data-t="${i18n.about.title}">About</h1>
+      <p class="lede" data-t="${i18n.about.intro}">
+        Just HTML. A blazingly fast static site generator that builds on just
+        HTML.
+      </p>
+      <p>
+        <a
+          href="#main"
+          aria-label="Skip to main content"
+          data-t-aria-label="${i18n.about.nav_skip}"
+          >Skip</a
+        >
+      </p>
+      <form class="form-control" name="contact" statica>
+        <label class="label">
+          <span class="label-text" data-t="${i18n.about.form_email}">Email</span>
+        </label>
+        <input class="input input-bordered" type="email" name="email" required />
+        <button class="btn btn-neutral" type="submit" data-t="${i18n.about.form_send}">Send</button>
+      </form>
+    </section>
   </body>
 </html>

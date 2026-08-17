@@ -1,21 +1,8 @@
 <!doctype html>
 <html lang="en" data-bind="{page}">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="/public/statica-logo.png" type="image/png" />
+    <link rel="statica/layout" href="../../layouts/base.html" />
     <title>Blog</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css"
-      rel="stylesheet"
-      type="text/css"
-    />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/public/site.css" />
-    <link
-      rel="statica/font"
-      href="@Google/?family=Outfit:wght@400;600&display=swap"
-    />
     <link
       rel="statica/fragment"
       type="text/html"
@@ -36,38 +23,25 @@
     />
     <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
   </head>
-  <body data-theme="light">
-    <main class="site-shell">
-      <nav class="site-nav" aria-label="Primary">
-        <a class="brand" href="/">
-          <img src="/public/statica-logo.png" alt="statica logo" />
-          <span>statica</span>
-        </a>
-        <div class="link-row">
-          <a href="/">Home</a>
-          <a href="/en/about/">About</a>
-        </div>
-      </nav>
+  <body>
+    <header class="content-panel">
+      <h1>All posts</h1>
+      <p class="muted">
+        Page <span data-t="${page.pagination.page}"></span> of
+        <span data-t="${page.pagination.total_pages}"></span>
+      </p>
+    </header>
 
-      <header class="content-panel">
-        <h1>All posts</h1>
-        <p class="muted">
-          Page <span data-t="${page.pagination.page}"></span> of
-          <span data-t="${page.pagination.total_pages}"></span>
-        </p>
-      </header>
+    <section class="content-panel" aria-label="Posts">
+      <slot id="post-list"></slot>
+    </section>
 
-      <section class="content-panel" aria-label="Posts">
-        <slot id="post-list"></slot>
-      </section>
-
-      <nav class="pagination link-row" aria-label="Blog pages">
-        <a href="${page.pagination.first_href}">First</a>
-        <a href="${page.pagination.prev_href}">Previous</a>
-        <slot id="page-link" data-each="page.pagination.pages"></slot>
-        <a href="${page.pagination.next_href}">Next</a>
-        <a href="${page.pagination.last_href}">Last</a>
-      </nav>
-    </main>
+    <nav class="pagination link-row" aria-label="Blog pages">
+      <a href="${page.pagination.first_href}">First</a>
+      <a href="${page.pagination.prev_href}">Previous</a>
+      <slot id="page-link" data-each="page.pagination.pages"></slot>
+      <a href="${page.pagination.next_href}">Next</a>
+      <a href="${page.pagination.last_href}">Last</a>
+    </nav>
   </body>
 </html>

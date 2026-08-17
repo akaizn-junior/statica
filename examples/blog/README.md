@@ -15,6 +15,7 @@ Demonstrates:
 
 - Scaffold-style statica branding with the real logo asset copied from `public/statica-logo.png`
 - daisyUI-friendly page structure and form controls, with small custom CSS in `public/site.css`
+- Shared page shell in `layouts/base.html` mounted by route pages with `<link rel="statica/layout">`
 - Markdown funnel content (`content/posts/*.md` via `<link rel="statica/data" href="…/posts/*.md">`)
 - Home page with a default-scoped button fragment script
 - Paginated listing (`blog/[page]/` → `blog/1/`, `blog/2/`, … via `[[pagination]]`)

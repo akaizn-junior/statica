@@ -28,6 +28,7 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
     for dir in [
         root.join("content").join("i18n"),
         root.join("[locale]"),
+        root.join("layouts"),
         root.join("public"),
     ] {
         fs::create_dir_all(&dir).with_context(|| format!("create {}", dir.display()))?;
@@ -85,14 +86,14 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
 "#,
     )?;
     write(
-        &root.join("[locale]/index.html"),
+        &root.join("layouts/base.html"),
         r##"<!doctype html>
-<html lang="${i18n.locale}" data-bind="{i18n}">
+<html lang="${i18n.locale}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="../public/statica-logo.png" type="image/png" />
-    <title data-t="${i18n.home.title}">statica starter</title>
+    <slot name="head"></slot>
     <style>
       :root {
         color-scheme: light;
@@ -134,7 +135,7 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
         margin: 0;
         font-size: clamp(2rem, 8vw, 4.5rem);
         line-height: 1;
-        letter-spacing: -0.06em;
+        letter-spacing: 0;
         font-weight: 950;
       }
       nav {
@@ -161,24 +162,38 @@ fn scaffold(root: &Path, name: &str) -> Result<()> {
   </head>
   <body>
     <main>
-      <div class="logo" aria-label="statica">
-        <img class="logo-mark" src="../public/statica-logo.png" alt="statica logo" />
-        <h1 data-t="${i18n.home.title}">statica starter</h1>
-      </div>
-
-      <nav aria-label="Project links">
-        <a href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md" data-t="${i18n.home.guide}">Guide</a>
-        <a href="https://github.com/akaizn-junior/statica" data-t="${i18n.home.github}">Star on GitHub</a>
-      </nav>
-
-      <nav class="locales" aria-label="Languages">
-        <a href="../en/">English</a>
-        <a href="../fr/">Français</a>
-        <a href="../pt/">Português</a>
-      </nav>
-
-      <footer data-t="${i18n.home.copyright}">© 2026 statica. Just HTML.</footer>
+      <slot></slot>
     </main>
+  </body>
+</html>
+"##,
+    )?;
+    write(
+        &root.join("[locale]/index.html"),
+        r##"<!doctype html>
+<html lang="${i18n.locale}" data-bind="{i18n}">
+  <head>
+    <link rel="statica/layout" href="../layouts/base.html" />
+    <title data-t="${i18n.home.title}">statica starter</title>
+  </head>
+  <body>
+    <div class="logo" aria-label="statica">
+      <img class="logo-mark" src="../public/statica-logo.png" alt="statica logo" />
+      <h1 data-t="${i18n.home.title}">statica starter</h1>
+    </div>
+
+    <nav aria-label="Project links">
+      <a href="https://github.com/akaizn-junior/statica/blob/main/docs/guide.md" data-t="${i18n.home.guide}">Guide</a>
+      <a href="https://github.com/akaizn-junior/statica" data-t="${i18n.home.github}">Star on GitHub</a>
+    </nav>
+
+    <nav class="locales" aria-label="Languages">
+      <a href="../en/">English</a>
+      <a href="../fr/">Français</a>
+      <a href="../pt/">Português</a>
+    </nav>
+
+    <footer data-t="${i18n.home.copyright}">© 2026 statica. Just HTML.</footer>
   </body>
 </html>
 "##,
@@ -200,6 +215,7 @@ statica build
 Settings live in `statica.toml` (optional; defaults apply if missing).
 
 - Pages are every `**/index.html` (folder = route).
+- Shared page structure lives in `layouts/base.html` and is mounted with `<link rel="statica/layout">`.
 - `[locale]/index.html` emits localized pages for English, French, and Portuguese.
 - Translation catalogs live in `content/i18n/{{locale}}.json`.
 - Pages bind canonical roots such as `{{i18n}}` before use.

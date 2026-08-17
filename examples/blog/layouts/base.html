@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/public/statica-logo.png" type="image/png" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/public/site.css" />
+    <link
+      rel="statica/font"
+      href="@Google/?family=Outfit:wght@400;600&display=swap"
+    />
+    <slot name="head">
+      <title>statica blog</title>
+    </slot>
+  </head>
+  <body data-theme="light">
+    <main id="main" class="site-shell">
+      <nav class="site-nav" aria-label="Primary">
+        <a class="brand" href="/">
+          <img src="/public/statica-logo.png" alt="statica logo" />
+          <span>statica</span>
+        </a>
+        <div class="link-row">
+          <input
+            type="statica/search"
+            placeholder="Search"
+            aria-label="Search posts"
+          />
+          <a href="/">Home</a>
+          <a href="/blog/">Posts</a>
+          <a href="/en/about/">About</a>
+          <a href="/pt/about/">Sobre</a>
+        </div>
+      </nav>
+
+      <slot></slot>
+
+      <footer class="site-footer">
+        <span class="muted">© 2026 statica. Just HTML.</span>
+        <a href="https://github.com/akaizn-junior/statica">GitHub</a>
+      </footer>
+    </main>
+  </body>
+</html>

@@ -19,7 +19,7 @@ npm create statica@latest <NAME>
 
 `PATH` defaults to `.`. statica resolves it against the process cwd, walks up for `statica.toml`, then uses that directory as the site root. If `project` or `--project` is set, the site root is that subdirectory under the config directory.
 
-`statica new` creates a small localized starter site with a centered logo, Guide and GitHub links, and English/French/Portuguese catalogs under `content/i18n/`. The npm create flow runs the same scaffold.
+`statica new` creates a small localized starter site with a centered logo, Guide and GitHub links, a shared `layouts/base.html` shell, and English/French/Portuguese catalogs under `content/i18n/`. The npm create flow runs the same scaffold.
 
 Repository examples use the same visual baseline as the scaffold: real statica logo assets in `public/`, statica green accents, daisyUI-friendly controls, and valid HTML fragments/data links. Copy from `examples/blog` when you need a complete authoring reference.
 
@@ -33,6 +33,8 @@ my-site/
 ├── content/
 │   ├── posts/
 │   └── i18n/en.json
+├── layouts/
+│   └── base.html
 ├── ui/
 │   └── post-card.html
 ├── posts/[slug]/index.html

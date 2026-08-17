@@ -54,7 +54,7 @@ statica                 # build, watch, and serve cwd
 
 ## Project layout
 
-statica routes are folders, content is linked at build time, and reusable HTML lives in fragments.
+statica routes are folders, content is linked at build time, layouts hold shared page shells, and fragments hold reusable components.
 
 ```text
 my-site/
@@ -64,6 +64,8 @@ my-site/
 ├── content/
 │   ├── posts/
 │   └── i18n/en.json
+├── layouts/
+│   └── base.html
 ├── ui/
 │   └── post-card.html
 ├── posts/[slug]/index.html
