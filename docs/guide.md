@@ -4,7 +4,7 @@
 
 For install and starting a new site, use [../README.md](../README.md).
 
-statica source files are valid HTML. Data, fragments, translations, forms, and pagination are resolved at build time; the generated site is plain static HTML/CSS/JS.
+statica source files are valid HTML. Data, layouts, fragments, translations, forms, and pagination are resolved at build time; the generated site is plain static HTML/CSS/JS.
 
 ## Commands
 
@@ -346,6 +346,69 @@ name; duplicate projection slots fail the build.
 Fragment paths are relative to the file that declares them. Fragments may import their own data and other fragments.
 
 Fragments do not inherit canonical page roots. A fragment can read only values passed through its render context and names introduced by its own data links. Use `data-each` on mount slots for loops; keep `data-bind` on the fragment `<template>`.
+
+## Layouts
+
+Layouts are build-time document shells for reusable page structure. A page declares one layout with `<link rel="statica/layout" href="...">`. statica loads the layout, projects page content into layout slots, and then runs the normal data, fragment, binding, scoping, forms, assets, manifest, search, and minify flow on the merged document.
+
+```html
+<!-- layouts/base.html -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <slot name="head"></slot>
+  </head>
+  <body>
+    <header><slot name="nav"><a href="/">Home</a></slot></header>
+    <main><slot></slot></main>
+    <aside><slot name="sidebar">Fallback sidebar</slot></aside>
+  </body>
+</html>
+```
+
+```html
+<!-- index.html -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/layout" href="layouts/base.html" />
+    <title>Home</title>
+    <link rel="statica/data" href="content/site.json" id="site" />
+  </head>
+  <body>
+    <nav slot="nav"><a href="/blog/">Blog</a></nav>
+    <h1>Hello layout</h1>
+    <template slot="sidebar"><p>Projected side</p></template>
+  </body>
+</html>
+```
+
+Projection rules:
+
+- Page `<head>` children except the layout link project into `<slot name="head">`.
+- Page body children without `slot` project into the default `<slot>`.
+- Page body elements with `slot="name"` project into `<slot name="name">`; statica removes the `slot` attribute from the projected element.
+- `<template slot="name">` projects its children into the named slot without keeping the `<template>` wrapper.
+- If no content is projected for a slot, the fallback children inside the layout slot are kept.
+
+Layout files may include their own statica data and fragment links. Relative `statica/data` and `statica/fragment` hrefs inside a layout resolve from the layout file before the merged page is prepared, so shared layout fragments can live beside the layout.
+
+```html
+<!-- layouts/base.html -->
+<html lang="en">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="./ui/banner.html" id="banner" />
+    <slot name="head"></slot>
+  </head>
+  <body>
+    <slot id="banner"></slot>
+    <main><slot></slot></main>
+  </body>
+</html>
+```
+
+Pages may still bind canonical roots such as `{data}`, `{item}`, `{page}`, and `{i18n}` on their `<html>` element. If the layout `<html>` has no `data-bind`, statica carries the page `<html data-bind>` onto the merged layout document. If the layout declares its own `data-bind`, that layout contract wins. Binding validation uses the merged document.
 
 ## CSS And JS
 

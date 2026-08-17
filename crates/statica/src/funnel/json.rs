@@ -541,6 +541,9 @@ fn strip_nodes(nodes: &mut Vec<Node>) {
             if matches!(el.statica_link_rel(), Some(StaticaLinkRel::Fragment)) {
                 return false;
             }
+            if matches!(el.statica_link_rel(), Some(StaticaLinkRel::Layout)) {
+                return false;
+            }
             true
         }
         _ => true,

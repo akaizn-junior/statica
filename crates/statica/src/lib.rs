@@ -1,16 +1,17 @@
-//! statica — discover → pre → parse → funnel → expand → bind → scope → emit
+//! statica — discover → pre → parse → layout → funnel → expand → bind → scope → emit
 //!
 //! # Pipeline
 //!
 //! 1. **Discover** — every `**/index.html` under the site root (`[param]` → collection).
 //! 2. **Pre** — authoring HTML normalization before html5ever (e.g. `<slot>` in `<select>`).
 //! 3. **Parse** — html5ever → owned AST; post-parse authoring lower (carriers → slots).
-//! 4. **Funnel** — load `<link rel="statica/data">` sources (JSON, JSONL/NDJSON, CSV, text, Markdown).
-//! 5. **Expand** — static (1:1), collection (1:N items), or pagination (1:N page chunks).
-//! 6. **Bind** — slots + `${…}` attrs + `data-t` / `data-t-{attr}` i18n + fragment/`data-each` expansion + form wiring.
-//! 7. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).
-//! 8. **Emit** — write HTML; transform CSS to browser-ready; optional asset process + responsive images; sitemap / RSS / web manifest.
-//! 9. **Minify** — optional final pass on HTML, CSS, and JS in `out_dir`.
+//! 4. **Layout** — project page head/body content into `rel="statica/layout"` shells.
+//! 5. **Funnel** — load `<link rel="statica/data">` sources (JSON, JSONL/NDJSON, CSV, text, Markdown).
+//! 6. **Expand** — static (1:1), collection (1:N items), or pagination (1:N page chunks).
+//! 7. **Bind** — slots + `${…}` attrs + `data-t` / `data-t-{attr}` i18n + fragment/`data-each` expansion + form wiring.
+//! 8. **Scope** — hash-scoped CSS/JS for fragments (CSS via lightningcss + `[data-s]`).
+//! 9. **Emit** — write HTML; transform CSS to browser-ready; optional asset process + responsive images; sitemap / RSS / web manifest.
+//! 10. **Minify** — optional final pass on HTML, CSS, and JS in `out_dir`.
 //!
 //! The `statica` CLI owns end-user config (`statica.toml`) and maps it into
 //! [`BuildOptions`]. This crate does not read config files.
@@ -60,6 +61,7 @@ mod fragment;
 mod funnel;
 mod i18n;
 mod images;
+mod layout;
 mod loc;
 mod manifest;
 mod minify;

@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 
 use crate::tokens::{
-    DATA_BIND, DATA_EACH, DATA_T, DATA_T_ATTR_PREFIX, REL_DATA, REL_FONT, REL_FRAGMENT,
+    DATA_BIND, DATA_EACH, DATA_T, DATA_T_ATTR_PREFIX, REL_DATA, REL_FONT, REL_FRAGMENT, REL_LAYOUT,
 };
 
 /// Ordered element attributes.
@@ -67,6 +67,7 @@ pub enum StaticaLinkRel {
     Data,
     Fragment,
     Font,
+    Layout,
 }
 
 impl Document {
@@ -172,6 +173,9 @@ impl Element {
         }
         if rel.split_whitespace().any(|part| part == REL_FONT) {
             return Some(StaticaLinkRel::Font);
+        }
+        if rel.split_whitespace().any(|part| part == REL_LAYOUT) {
+            return Some(StaticaLinkRel::Layout);
         }
         None
     }

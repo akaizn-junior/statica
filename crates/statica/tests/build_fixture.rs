@@ -2363,6 +2363,221 @@ fn search_duplicate_item_titles_fall_back_to_urls() {
     assert_eq!(entries[1]["title"], "/records/south-region-launch-plan/");
 }
 
+#[test]
+fn layout_wraps_page_default_and_named_slots() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("layouts")).unwrap();
+    std::fs::write(
+        dir.join("layouts/base.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <slot name="head"></slot>
+  </head>
+  <body>
+    <header><slot name="nav"><a href="/">Fallback nav</a></slot></header>
+    <main><slot></slot></main>
+    <aside><slot name="sidebar">Fallback sidebar</slot></aside>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/layout" href="layouts/base.html" />
+    <title>Home title</title>
+  </head>
+  <body>
+    <nav slot="nav"><a href="/blog/">Blog</a></nav>
+    <h1>Hello layout</h1>
+    <template slot="sidebar"><p>Projected side</p></template>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("<title>Home title</title>"), "{html}");
+    assert!(
+        html.contains("<header><nav><a href=\"/blog/\">Blog</a></nav></header>"),
+        "{html}"
+    );
+    assert!(html.contains("<main><h1>Hello layout</h1>"), "{html}");
+    assert!(
+        html.contains("<aside><p>Projected side</p></aside>"),
+        "{html}"
+    );
+    assert!(!html.contains("statica/layout"), "{html}");
+    assert!(!html.contains("slot=\"nav\""), "{html}");
+    assert!(!html.contains("<template"), "{html}");
+}
+
+#[test]
+fn layout_preserves_page_data_links_for_binding() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("layouts")).unwrap();
+    std::fs::create_dir_all(dir.join("content")).unwrap();
+    std::fs::write(dir.join("content/site.json"), r#"{"headline":"From data"}"#).unwrap();
+    std::fs::write(
+        dir.join("layouts/base.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{data}">
+  <head><slot name="head"></slot></head>
+  <body><main><slot></slot></main></body>
+</html>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{data}">
+  <head>
+    <link rel="statica/layout" href="layouts/base.html" />
+    <link rel="statica/data" href="content/site.json" id="site" />
+  </head>
+  <body><h1 data-t="${data.site.headline}">Fallback</h1></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("<h1>From data</h1>"), "{html}");
+    assert!(!html.contains("statica/data"), "{html}");
+}
+
+#[test]
+fn layout_fragment_imports_resolve_relative_to_layout_file() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("layouts/ui")).unwrap();
+    std::fs::write(
+        dir.join("layouts/base.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="statica/fragment" type="text/html" href="./ui/banner.html" id="banner" />
+    <slot name="head"></slot>
+  </head>
+  <body>
+    <slot id="banner"></slot>
+    <main><slot></slot></main>
+  </body>
+</html>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("layouts/ui/banner.html"),
+        r#"<template id="banner"><p class="banner">Layout banner</p></template>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head><link rel="statica/layout" href="layouts/base.html" /></head>
+  <body><h1>Home</h1></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("Layout banner"), "{html}");
+    assert!(html.contains("<main><h1>Home</h1>"), "{html}");
+}
+
+#[test]
+fn layout_allows_default_slot_fallback_without_page_body() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("layouts")).unwrap();
+    std::fs::write(
+        dir.join("layouts/base.html"),
+        r#"<!doctype html>
+<html lang="en"><body><main><slot><p>Fallback body</p></slot></main></body></html>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        r#"<!doctype html>
+<html lang="en"><head><link rel="statica/layout" href="layouts/base.html" /></head><body></body></html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/index.html")).unwrap();
+    assert!(html.contains("<main><p>Fallback body</p></main>"), "{html}");
+}
+
+#[test]
+fn layout_preserves_collection_page_html_bind() {
+    let dir = tempfile_dir();
+    std::fs::create_dir_all(dir.join("layouts")).unwrap();
+    std::fs::create_dir_all(dir.join("content/posts")).unwrap();
+    std::fs::create_dir_all(dir.join("posts/[slug]")).unwrap();
+    std::fs::write(
+        dir.join("layouts/base.html"),
+        r#"<!doctype html>
+<html lang="en">
+  <head><slot name="head"></slot></head>
+  <body><main><slot></slot></main></body>
+</html>"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("content/posts/hello.md"),
+        r#"---
+slug: hello
+headline: Hello layout post
+---
+
+Body.
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("posts/[slug]/index.html"),
+        r#"<!doctype html>
+<html lang="en" data-bind="{item}">
+  <head>
+    <link rel="statica/layout" href="../../layouts/base.html" />
+    <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
+    <title data-t="${item.headline}">Post</title>
+  </head>
+  <body><h1 data-t="${item.headline}">Post</h1></body>
+</html>"#,
+    )
+    .unwrap();
+
+    let mut opts = BuildOptions::new(&dir);
+    opts.out_dir = dir.join("dist");
+    build(&opts).expect("build");
+
+    let html = std::fs::read_to_string(dir.join("dist/posts/hello/index.html")).unwrap();
+    assert!(html.contains("<title>Hello layout post</title>"), "{html}");
+    assert!(html.contains("<h1>Hello layout post</h1>"), "{html}");
+    assert!(
+        html.contains("<main><h1>Hello layout post</h1></main>"),
+        "{html}"
+    );
+}
+
 fn tempfile_dir() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static N: AtomicU64 = AtomicU64::new(0);

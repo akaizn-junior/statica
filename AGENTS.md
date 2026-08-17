@@ -14,11 +14,12 @@ Instructions for AI coding agents working in this repository.
 | **Routes** | Static folders plus bracket params like `[slug]`, `[page]`, and `[locale]` |
 | **Funnels** | Build-time data linked with `<link rel="statica/data" href="..." id="...">` |
 | **Fragments** | Build-time HTML components imported with `<link rel="statica/fragment" ...>` |
+| **Layouts** | Build-time document shells imported with `<link rel="statica/layout" ...>` |
 | **Binding** | Static replacement through `data-bind`, `data-t`, attributes, slots, and `data-each` |
 | **Aliases** | Short authoring prefixes such as `@ui/post-card.html` and `@static/app.js` |
 | **Assets** | Copied assets, CSS/JS transforms, responsive raster image variants, and optional minification |
 
-Pipeline: **discover → pre → parse → funnel → expand → bind → scope → emit → minify** (default output: `.website/`)
+Pipeline: **discover → pre → parse → layout → funnel → expand → bind → scope → emit → minify** (default output: `.website/`)
 
 This repo contains two things:
 
@@ -99,6 +100,7 @@ When creating or editing HTML sites that statica builds — whether in `examples
 - **Data is linked, not guessed.** Funnel data comes from `<link rel="statica/data" href="..." id="...">`; `href` must point to a file or explicit glob, never a directory.
 - **Data is build-time only.** Production output is static HTML/CSS/JS. Do not add runtime fetches for content that statica should funnel.
 - **Fragments are build-time components.** A fragment is a `<template id="...">` imported and mounted by matching `id`. Fragment CSS/JS is scoped at build time.
+- **Layouts are build-time document shells.** A page may declare one `<link rel="statica/layout" href="...">`; the layout owns the final `<html>`, `<head>`, and `<body>` shell and receives page content through default and named slots.
 - **Context is explicit.** Pages may use canonical roots only after `<html data-bind="...">` asks for them. Fragments never receive canonical page context.
 - **Aliases are explicit.** Define aliases under `[aliases.paths]` or `[aliases.urls]` before using `@Name/tail`. Use `@ui/...` for fragment templates when `ui = "./ui"` is configured; do not pretend `@static/ui/...` exists unless the project actually stores fragments there.
 - **Assets are static outputs.** `public/`, `assets/`, and `static/` are copied by default through `asset_dirs`. `[process.image]` controls responsive raster image variants and `<picture>` rewriting when image processing is enabled.
@@ -251,6 +253,46 @@ Fragment mounts pass the current render value by default. In a loop, each array 
 
 `data-each` is valid on fragment mount slots: `<slot id="fragment-id" data-each="items"></slot>`. `data-bind` is not valid on mount slots.
 
+### Layouts
+
+Use layouts for repeated whole-page structure, not fragments. Fragments mount components; layouts wrap pages.
+
+```html
+<!-- page -->
+<html lang="en">
+  <head>
+    <link rel="statica/layout" href="layouts/base.html" />
+    <title>Home</title>
+  </head>
+  <body>
+    <nav slot="nav"><a href="/">Home</a></nav>
+    <h1>Hello</h1>
+  </body>
+</html>
+```
+
+```html
+<!-- layouts/base.html -->
+<html lang="en">
+  <head><slot name="head"></slot></head>
+  <body>
+    <header><slot name="nav">Fallback nav</slot></header>
+    <main><slot></slot></main>
+  </body>
+</html>
+```
+
+Rules:
+
+- One layout link per page.
+- Page `<head>` children except the layout link project into `slot name="head"`.
+- Page body children without `slot` project into the default layout slot.
+- Body elements with `slot="name"` project into matching named slots and lose the `slot` attribute in output.
+- `<template slot="name">` projects its children without keeping the template wrapper.
+- Layout-local `statica/data` and `statica/fragment` hrefs resolve from the layout file before the merged document continues through the pipeline.
+- If the layout `<html>` has no `data-bind`, statica carries over the page `<html data-bind>`; if the layout declares its own, the layout contract wins.
+- Binding validation runs after layout projection. Ensure the merged document's `<html data-bind>` contract covers projected page placeholders.
+
 ### Page types
 
 **Static page** — plain `index.html`, one output.
@@ -368,6 +410,7 @@ my-site/
 │   ├── posts/
 │   └── i18n/{locale}.json
 ├── ui/                # fragment templates
+├── layouts/           # page layout shells
 ├── posts/[slug]/index.html
 ├── blog/[page]/index.html
 └── public/            # static assets (copied to out_dir)

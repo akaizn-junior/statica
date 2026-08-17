@@ -277,6 +277,39 @@ Fragment mounts pass the current context. `data-each` loops over an array and pa
 
 Fragment scripts are scoped by default. Inside a fragment `<script>`, `document.querySelector`, `document.querySelectorAll`, and `document.getElementById` search only that fragment instance.
 
+### Layouts
+
+Layouts are build-time document shells. A page declares one layout with `<link rel="statica/layout">`; statica loads that layout, projects page content into layout slots, then continues normal data, fragment, binding, asset, and minify steps.
+
+```html
+<!-- layouts/base.html -->
+<html lang="en">
+  <head>
+    <slot name="head"></slot>
+  </head>
+  <body>
+    <header><slot name="nav">Fallback nav</slot></header>
+    <main><slot></slot></main>
+  </body>
+</html>
+```
+
+```html
+<!-- index.html -->
+<html lang="en">
+  <head>
+    <link rel="statica/layout" href="layouts/base.html" />
+    <title>Home</title>
+  </head>
+  <body>
+    <nav slot="nav"><a href="/">Home</a></nav>
+    <h1>Hello</h1>
+  </body>
+</html>
+```
+
+Page `<head>` children project into `<slot name="head">`. Page body children without `slot` project into the default layout slot. Body elements with `slot="name"` project into matching named slots; `<template slot="name">` projects its children without keeping the template wrapper.
+
 ### Aliases
 
 Aliases allow short prefixes instead of repeating long local paths or URLs. They are configured in `statica.toml`, and the default leading symbol is `@`.

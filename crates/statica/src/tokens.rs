@@ -3,6 +3,7 @@
 pub(crate) const REL_DATA: &str = "statica/data";
 pub(crate) const REL_FRAGMENT: &str = "statica/fragment";
 pub(crate) const REL_FONT: &str = "statica/font";
+pub(crate) const REL_LAYOUT: &str = "statica/layout";
 pub(crate) const TYPE_SEARCH: &str = "statica/search";
 pub(crate) const TYPE_SLOT: &str = "statica/slot";
 pub(crate) const META_PREFIX: &str = "statica:";

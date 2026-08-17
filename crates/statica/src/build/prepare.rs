@@ -35,12 +35,13 @@ pub(super) fn prepare_pages(
         let html =
             fs::read_to_string(page.path.as_path()).map_err(|e| Error::read(file.clone(), e))?;
         let mut doc = parse::parse_document(&html).map_err(|e| e.in_file(&file, &html))?;
-        bind::transform_page_styles(&mut doc.children);
         let dir = page
             .path
             .as_path()
             .parent()
             .unwrap_or_else(|| Path::new("."));
+        crate::layout::apply_page_layout(&mut doc, site_root, dir, aliases, Some((&file, &html)))?;
+        bind::transform_page_styles(&mut doc.children);
         let data = funnel::load_data_from_document(
             &doc,
             site_root,
