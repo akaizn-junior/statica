@@ -1,6 +1,6 @@
 # statica guide
 
-**Just HTML.** A blazingly fast static site generator that builds on just HTML
+**Just HTML.** A blazingly fast static site generator for valid HTML.
 
 For install and starting a new site, use [../README.md](../README.md).
 
@@ -29,32 +29,39 @@ Repository examples use the same visual baseline as the scaffold: real statica l
 my-site/
 ├── statica.toml
 ├── index.html
+├── 404/index.html
 ├── content/
-│   ├── posts.json
+│   ├── posts/
 │   └── i18n/en.json
 ├── ui/
 │   └── post-card.html
 ├── posts/[slug]/index.html
 ├── blog/[page]/index.html
 └── public/
+    └── logo.svg
 ```
 
-Every `index.html` is a page. Folder path is the route.
+`public/`, `assets/`, and `static/` are copied by default through `asset_dirs`. Every `index.html` is a page. Folder path is the route.
 
 ```text
-index.html                 -> .website/index.html
-about/index.html           -> .website/about/index.html
-404/index.html             -> .website/404/index.html
-posts/[slug]/index.html    -> .website/posts/{slug}/index.html
-blog/[page]/index.html     -> .website/blog/1/, .website/blog/2/, ...
+index.html                 → .website/index.html
+about/index.html           → .website/about/index.html
+404/index.html             → .website/404/index.html
+posts/[slug]/index.html    → .website/posts/{item.slug}/index.html
+blog/[page]/index.html     → .website/blog/1/, .website/blog/2/, ...
+[locale]/about/index.html  → .website/en/about/, .website/pt/about/  ([i18n])
 ```
 
 ## Data
 
-Load build-time data with `statica/data`.
+Load build-time data with `<link rel="statica/data">`. `href` points to a file or explicit glob, and `id` names the data in the page or fragment scope.
 
 ```html
-<link rel="statica/data" href="../content/posts.json" id="posts" />
+<!-- index.html -->
+<link rel="statica/data" href="content/posts.json" id="posts" />
+<link rel="statica/data" href="content/posts/*.md" id="post_files" />
+<link rel="statica/data" href="content/vehicles.csv" id="vehicles" />
+<link rel="statica/data" href="content/notes.txt" id="notes" type="text/plain" />
 ```
 
 Sources can be JSON, JSONL/NDJSON, CSV, plain text, Markdown, or globs. Data `href` must point to a file or explicit glob, not a directory. Data is loaded at build time. Output is static HTML.
@@ -62,6 +69,7 @@ Sources can be JSON, JSONL/NDJSON, CSV, plain text, Markdown, or globs. Data `hr
 Data `href` is a normal dynamic attribute: `${...}` placeholders are expanded before the source is loaded or globbed. Placeholders must be dotted paths that exist in the link's own scope. On pages, canonical roots such as `i18n` must be declared on `<html data-bind>`. In fragments, a data link can use the fragment template's bound values only when the link is inside that `<template>`.
 
 ```html
+<!-- [locale]/index.html -->
 <html data-bind="{i18n}">
   <head>
     <link rel="statica/data" href="../content/posts.${i18n.locale}.json" id="posts" />
@@ -72,7 +80,7 @@ Data `href` is a normal dynamic attribute: `${...}` placeholders are expanded be
 The data type is inferred from the file extension. You can also declare it with `type`:
 
 ```html
-<link rel="statica/data" href="../content/notes" id="notes" type="text/plain" />
+<link rel="statica/data" href="content/notes" id="notes" type="text/plain" />
 ```
 
 Format shapes:
@@ -214,12 +222,16 @@ blog/[page]/index.html
 
 ```html
 <html lang="en" data-bind="{page}">
+  <head>
+    <link rel="statica/data" href="../../content/posts/*.md" id="posts" />
+    <link rel="statica/fragment" type="text/html" href="../../ui/post-card.html" id="post-card" />
+  </head>
   <body>
     <p>
       Page <span data-t="${page.pagination.page}"></span> of
       <span data-t="${page.pagination.total_pages}"></span>
     </p>
-    <slot id="post-list"></slot>
+    <slot id="post-card" data-each="page.pagination.items"></slot>
     <a href="${page.pagination.prev_href}">Previous</a>
     <a href="${page.pagination.next_href}">Next</a>
   </body>
@@ -228,11 +240,17 @@ blog/[page]/index.html
 
 ```toml
 [[pagination]]
+route = ""
 page_size = 10
+limit = 0
+offset = 0
 sort_by = "published_at"
 sort_desc = true
+max_pages = 0
 index = true
 ```
+
+`route` scopes the pagination rule to one route root such as `blog`; an empty route applies to every `[page]` route. `limit` caps the source items after sorting, `offset` skips items before paging, `max_pages` caps emitted page folders, and `index = true` also writes page 1 at the parent path.
 
 `page.pagination` includes `items`, `page`, `page_number`, `total_pages`, `total_items`, `source_total`, `per_page`, `limit`, `offset`, `has_prev`, `has_next`, `prev`, `next`, `path`, `href`, `prev_href`, `next_href`, `first_href`, `last_href`, and `pages`.
 
@@ -252,8 +270,10 @@ Do not put `[page]` and another collection route under the same route tree, such
 Fragments have three matching parts: import, mount, template.
 
 ```html
-<link rel="statica/fragment" type="text/html" href="../ui/post-card.html" id="post-card" />
-<slot id="post-card"></slot>
+<!-- page -->
+<link rel="statica/data" href="content/posts/*.md" id="posts" />
+<link rel="statica/fragment" type="text/html" href="ui/post-card.html" id="post-card" />
+<slot id="post-card" data-each="posts"></slot>
 ```
 
 ```html
@@ -398,6 +418,14 @@ contact = "xyzabc"
 
 statica writes `action` and `method="POST"`. It does not inject client JavaScript.
 
+Build-time env vars can provide form endpoints and ids without hard-coding them in committed config. statica loads inline `[env]` values, then `.env` and `.dev.vars` from the config directory when `[env].load_files` is true; existing process env vars win.
+
+```toml
+[env]
+load_files = true
+FORMS_CONTACT_ID = "xyzabc"
+```
+
 ## Search
 
 Add a generated search modal with one authoring input.
@@ -456,6 +484,33 @@ The generated index is an array of page records:
 statica indexes emitted HTML pages, excluding script, style, template,
 noscript, dialog content, and the generated 404 page.
 
+## Sitemap And RSS
+
+Sitemap and RSS output need `site_url` so statica can write absolute URLs for the deployed site.
+
+```toml
+site_url = "https://example.com"
+
+[sitemap]
+enabled = true
+filename = "sitemap.xml"
+urls_per_file = 50000
+
+[rss]
+enabled = true
+filename = "rss.xml"
+title = "Blog"
+description = "Latest posts"
+language = "en"
+limit = 50
+title_field = "headline"
+description_field = "summary"
+date_field = "published_at"
+collections = ["posts"]
+```
+
+`[sitemap].urls_per_file` splits large sites into numbered sitemap files plus an index. RSS reads collection records and maps fields with `title_field`, `description_field`, and `date_field`; an empty `collections` list includes every collection.
+
 ## i18n
 
 Use `[locale]` in the route and enable `[i18n]`.
@@ -470,9 +525,10 @@ enabled = true
 default = "en"
 locales = ["en", "pt"]
 dir = "content/i18n"
+fallback = ""
 ```
 
-Catalogs live at `content/i18n/{locale}.json`.
+Catalogs live at `content/i18n/{locale}.json`. `fallback` names the catalog used for missing keys; an empty fallback uses the default locale.
 
 ```html
 <html data-bind="{i18n}">
@@ -497,7 +553,7 @@ statica expands dynamic attribute placeholders before loading the data source, s
 
 ## Aliases
 
-Aliases live in `statica.toml`.
+Aliases allow short prefixes instead of repeating long local paths or URLs. They live in `statica.toml`, and the default leading symbol is `@`.
 
 ```toml
 [aliases]
@@ -509,14 +565,18 @@ Google = "https://fonts.googleapis.com/css2"
 [aliases.paths]
 static = "./static"
 fonts = "./assets/fonts"
+ui = "./ui"
 ```
 
-Use them as regular paths.
+Use aliases anywhere statica resolves authoring paths, such as fonts, scripts, styles, fragments, data funnels, and assets.
 
 ```html
 <link rel="statica/font" href="@Google/?family=Outfit&display=swap" />
 <script type="module" src="@static/app.js"></script>
+<link rel="statica/fragment" href="@ui/post-card.html" id="post-card" />
 ```
+
+`[aliases.urls]` entries resolve to absolute URLs. `[aliases.paths]` entries resolve to local paths relative to `statica.toml`. The text after the alias name is preserved as the tail, so `@static/app.js` resolves against the `static` alias base.
 
 ## Assets
 
@@ -536,6 +596,13 @@ js = true
 images = true
 fonts = false
 
+[process.image]
+widths = [480, 768, 1024, 1366, 1920]
+formats = ["webp"]
+quality = 85
+sizes = "100vw"
+responsive = true
+
 [minify]
 enabled = false
 html = true
@@ -545,11 +612,13 @@ js = true
 
 `[process]` handles copied assets. `[minify]` runs a final pass over emitted files in `out_dir`.
 
-## 404 Flow
+When `[process].enabled` and `[process].images` are on, statica optimizes copied raster images, writes responsive width variants, adds configured formats such as WebP, and rewrites local `<img>` tags to responsive `<picture>` markup when `[process.image].responsive` is true. Use `[process.image]` to control target widths, extra formats, JPEG quality, and the default `sizes` value.
 
-Builds always leave the output directory with a 404 target. Define `404/index.html` when the project needs a custom missing-page experience; otherwise statica writes a default `.website/404/index.html`.
+```html
+<img src="/images/hero.jpg" alt="Hero image" sizes="(width >= 60rem) 50vw, 100vw" />
+```
 
-For local preview, `statica serve` and `statica watch` use that built 404 target as the missing-path fallback and set the response status to `404`. Static hosts may have their own 404 discovery rules, but the generated files are plain HTML and can be deployed as-is.
+The original image width is always included when smaller than a configured target width. Responsive processing applies to local raster image assets copied through `asset_dirs`; SVGs and remote images are left as authored.
 
 ## Web Manifest
 
@@ -573,6 +642,37 @@ copy_assets = true
 asset_dirs = ["public", "assets", "static"]
 ignore_dirs = [".website", "dist", "target", ".git"]
 site_url = ""
+manifest = false
+
+[aliases]
+symbol = "@"
+
+[aliases.urls]
+Google = "https://fonts.googleapis.com/css2"
+
+[aliases.paths]
+static = "./static"
+ui = "./ui"
+
+[process]
+enabled = false
+css = true
+js = true
+images = true
+fonts = false
+
+[process.image]
+widths = [480, 768, 1024, 1366, 1920]
+formats = ["webp"]
+quality = 85
+sizes = "100vw"
+responsive = true
+
+[minify]
+enabled = false
+html = true
+css = true
+js = true
 
 [preview]
 host = "0.0.0.0"
@@ -600,6 +700,39 @@ collections = []
 [search]
 enabled = false
 output = "search.json"
+limit = 10
+filters = []
+url_field = "url"
+
+# [[pagination]]
+# route = ""
+# page_size = 10
+# limit = 0
+# offset = 0
+# sort_by = "published_at"
+# sort_desc = true
+# max_pages = 0
+# index = true
+
+[forms]
+enabled = false
+provider = "formspree"
+endpoint = "https://formspree.io/f/{id}"
+endpoint_env = "FORMS_ENDPOINT"
+
+# [forms.ids]
+# contact = "your-form-id"
+
+[i18n]
+enabled = false
+default = "en"
+locales = ["en"]
+dir = "content/i18n"
+fallback = ""
+
+[env]
+load_files = true
+# FORMS_CONTACT_ID = "your-form-id"
 
 [performance]
 render_mode = "auto"
@@ -631,3 +764,13 @@ statica watch --preview host=127.0.0.1,port=9000
 `--report-json [PATH]` writes the build report as JSON. It includes counts, warnings, outputs, route rows, phase timings, and total duration. Omit `PATH` or pass `-` to write to stdout; pass a file path for CI artifacts or benchmark logs. In `watch`, statica writes the report after the initial build and every rebuild.
 
 `statica watch` rebuilds conservatively. Direct edits to an existing page `index.html` re-emit only that page route when `[process]` and `[minify]` are disabled. Edits to shared inputs such as linked data, fragments, assets, config-driven processing, deleted files, or minified builds use a full rebuild so generated output stays consistent.
+
+## Deploy
+
+`statica build` writes plain static files to `.website/` by default. Deploy that output directory to any static host.
+
+```bash
+statica build
+```
+
+Set `site_url` when enabling sitemap or RSS output so generated absolute URLs match the deployed origin.

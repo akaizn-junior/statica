@@ -121,6 +121,7 @@ Google = "https://fonts.googleapis.com/css2"
 
 [aliases.paths]
 static = "./static"
+ui = "./ui"
 
 [process]
 enabled = false
@@ -285,7 +286,7 @@ Use aliases anywhere statica resolves authoring paths, such as fonts, scripts, s
 ```html
 <link rel="statica/font" href="@Google/?family=Outfit&display=swap" />
 <script type="module" src="@static/app.js"></script>
-<link rel="statica/fragment" href="@static/ui/post-card.html" id="post-card" />
+<link rel="statica/fragment" href="@ui/post-card.html" id="post-card" />
 ```
 
 `[aliases.urls]` entries resolve to absolute URLs. `[aliases.paths]` entries resolve to local paths relative to `statica.toml`. The text after the alias name is preserved as the tail, so `@static/app.js` resolves against the `static` alias base.

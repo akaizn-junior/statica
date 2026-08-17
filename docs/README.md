@@ -1,6 +1,6 @@
 # statica documentation
 
-**Just HTML.** A blazingly fast static site generator that builds on just HTML
+**Just HTML.** A blazingly fast static site generator for valid HTML.
 
 | Doc | Contents |
 | --- | -------- |
