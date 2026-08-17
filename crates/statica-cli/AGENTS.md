@@ -10,6 +10,7 @@ The `statica-cli` crate is the user-facing CLI:
 - Load config from TOML, `.env`, `.dev.vars`, and CLI SPEC flags
 - Map everything to `statica::BuildOptions`
 - Watch, serve, scaffold (`new`), man page generation
+- Scaffold layout-first starter projects: `layouts/base.html` for shared page shell, `[locale]/index.html` for localized route content, `content/i18n/` for catalogs, `public/` for copied assets
 - Treat `statica [PATH]` as the default build + watch + serve command; `statica build [PATH]` is the explicit one-off build form
 
 Core pipeline code belongs in `statica`, not here.
@@ -66,3 +67,7 @@ Unit tests co-located in `config.rs`, `env.rs`, `cmd/util.rs`. Test SPEC parsing
 ### Changing command behavior
 
 Keep path semantics cwd-based. If the change affects user-visible output, update clap help first so the man pages regenerate from the same source.
+
+### Changing the scaffold
+
+Keep `statica new` aligned with README, `docs/guide.md`, and `examples/blog`: layout shell in `layouts/base.html`, route content in `**/index.html`, data in `content/`, and assets in `public/`. Update `cmd/new.rs` tests when expected starter output changes.

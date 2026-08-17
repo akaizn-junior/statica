@@ -23,6 +23,8 @@ npm create statica@latest <NAME>
 
 Repository examples use the same visual baseline as the scaffold: real statica logo assets in `public/`, statica green accents, daisyUI-friendly controls, and valid HTML fragments/data links. Copy from `examples/blog` when you need a complete authoring reference.
 
+Both the scaffold and `examples/blog` are layout-first: shared document shell in `layouts/base.html`, route-specific content in `**/index.html`, reusable components in `ui/`, and data funnels in `content/`.
+
 ## Project Layout
 
 ```text
@@ -44,6 +46,8 @@ my-site/
 ```
 
 `public/`, `assets/`, and `static/` are copied by default through `asset_dirs`. Every `index.html` is a page. Folder path is the route.
+
+Keep full-page structure in `layouts/`. Keep smaller repeated HTML components in `ui/` fragments. Layouts and fragments compose cleanly, but they solve different problems.
 
 ```text
 index.html                 → .website/index.html

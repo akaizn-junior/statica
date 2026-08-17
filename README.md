@@ -44,7 +44,7 @@ cargo install --path crates/statica-cli --force
 
 ## Quick start
 
-`statica new` creates a small feature-rich starter.
+`statica new` creates a small localized starter with a shared layout, i18n catalogs, the statica badge, and copyable valid HTML.
 
 ```bash
 npm create statica@latest my-site
@@ -75,6 +75,8 @@ my-site/
 ```
 
 `public/`, `assets/`, and `static/` are copied by default through `asset_dirs`.
+
+New projects keep reusable page chrome in `layouts/base.html`, route-specific content in `**/index.html`, reusable component templates in `ui/`, and funnel data in `content/`.
 
 ## CLI
 
@@ -311,6 +313,8 @@ Layouts are build-time document shells. A page declares one layout with `<link r
 ```
 
 Page `<head>` children project into `<slot name="head">`. Page body children without `slot` project into the default layout slot. Body elements with `slot="name"` project into matching named slots; `<template slot="name">` projects its children without keeping the template wrapper.
+
+The generated starter and `examples/blog` use this shape: `layouts/base.html` owns shared metadata, global styles, navigation, search, and footer; route pages import it and keep only page-specific head entries and body content.
 
 ### Aliases
 

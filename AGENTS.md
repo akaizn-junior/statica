@@ -101,6 +101,7 @@ When creating or editing HTML sites that statica builds — whether in `examples
 - **Data is build-time only.** Production output is static HTML/CSS/JS. Do not add runtime fetches for content that statica should funnel.
 - **Fragments are build-time components.** A fragment is a `<template id="...">` imported and mounted by matching `id`. Fragment CSS/JS is scoped at build time.
 - **Layouts are build-time document shells.** A page may declare one `<link rel="statica/layout" href="...">`; the layout owns the final `<html>`, `<head>`, and `<body>` shell and receives page content through default and named slots.
+- **Scaffolds and examples are layout-first.** New sites and `examples/blog` keep shared page chrome in `layouts/base.html`, route-specific content in `**/index.html`, reusable components in `ui/`, and funnel data in `content/`.
 - **Context is explicit.** Pages may use canonical roots only after `<html data-bind="...">` asks for them. Fragments never receive canonical page context.
 - **Aliases are explicit.** Define aliases under `[aliases.paths]` or `[aliases.urls]` before using `@Name/tail`. Use `@ui/...` for fragment templates when `ui = "./ui"` is configured; do not pretend `@static/ui/...` exists unless the project actually stores fragments there.
 - **Assets are static outputs.** `public/`, `assets/`, and `static/` are copied by default through `asset_dirs`. `[process.image]` controls responsive raster image variants and `<picture>` rewriting when image processing is enabled.
@@ -397,6 +398,7 @@ Prefer Formspree for statica forms unless the user or existing project specifies
 - Funnel `href`, fragment `href`, and asset paths are **relative to the HTML file** that declares them.
 - Aliases in `statica.toml` use `@Name/tail` syntax (e.g. `@Google/?family=…`, `@static/app.js`).
 - Put reusable fragment templates in `ui/` and configure `ui = "./ui"` if examples use `@ui/post-card.html`.
+- Put reusable page shells in `layouts/`; use relative layout links from route pages, e.g. `href="../../layouts/base.html"`.
 - `[aliases.urls]` entries must be absolute URLs. `[aliases.paths]` entries must be local paths relative to `statica.toml`.
 
 ### Site layout convention
@@ -409,8 +411,8 @@ my-site/
 ├── content/           # funnel sources (JSON, JSONL, CSV, text, Markdown)
 │   ├── posts/
 │   └── i18n/{locale}.json
-├── ui/                # fragment templates
 ├── layouts/           # page layout shells
+├── ui/                # fragment templates
 ├── posts/[slug]/index.html
 ├── blog/[page]/index.html
 └── public/            # static assets (copied to out_dir)
@@ -451,7 +453,7 @@ When editing `crates/statica` or `crates/statica-cli`, read the nested AGENTS.md
 | Crate | Owns |
 | ----- | ---- |
 | `statica-cli` | `statica.toml`, env files, CLI flags, watch/serve/scaffold, man pages |
-| `statica` | Pipeline: discover → pre → parse → funnel → expand → bind → scope → emit |
+| `statica` | Pipeline: discover → pre → parse → layout → funnel → expand → bind → scope → emit → minify |
 
 **Core never reads config files.** The CLI maps TOML + flags → `BuildOptions` and calls `statica::build(&opts)`.
 

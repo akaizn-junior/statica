@@ -11,13 +11,14 @@ Rust library: the statica build pipeline. Read [../../AGENTS.md](../../AGENTS.md
 Documented in [`src/lib.rs`](src/lib.rs):
 
 ```
-discover → pre → parse → funnel → expand → bind → scope → emit → minify
+discover → pre → parse → layout → funnel → expand → bind → scope → emit → minify
 ```
 
 | Module | Purpose |
 | ------ | ------- |
 | `discover` | Find `**/index.html`, detect `[param]` routes |
 | `parse/` | pre → html5ever → normalize → owned AST |
+| `layout` | Merge page documents into `<link rel="statica/layout">` shells |
 | `funnel/` | Load `<link rel="statica/data">` (JSON, JSONL/NDJSON, CSV, text, Markdown) |
 | `bind/` | Slots, `${…}` attrs, `data-each`, fragments, i18n, forms |
 | `scope/` | Hash-scoped CSS/JS for fragments |
@@ -56,7 +57,7 @@ Re-export from `lib.rs`. Keep the surface minimal:
 
 ### Adding or changing pipeline behavior
 
-1. Identify the correct stage — binding logic belongs in `bind/`, not `emit`
+1. Identify the correct stage — layout projection belongs in `layout`, binding logic belongs in `bind/`, not `emit`
 2. Add unit tests in the module
 3. Add integration test in `build_fixture.rs` with minimal HTML fixture
 4. Update `examples/blog` when the behavior should be dogfooded
