@@ -1,6 +1,6 @@
 # statica
 
-**Just HTML.** A blazingly fast static site generator that builds on just HTML
+**Just HTML.** A blazingly fast static site generator for valid HTML.
 
 Full reference: [docs/guide.md](docs/guide.md)
 
@@ -44,13 +44,35 @@ cargo install --path crates/statica-cli --force
 
 ## Quick start
 
-`statica new` creates a small feature rich starter.
+`statica new` creates a small feature-rich starter.
 
 ```bash
 npm create statica@latest my-site
 cd my-site
 statica                 # build, watch, and serve cwd
 ```
+
+## Project layout
+
+statica routes are folders, content is linked at build time, and reusable HTML lives in fragments.
+
+```text
+my-site/
+├── statica.toml
+├── index.html
+├── 404/index.html
+├── content/
+│   ├── posts/
+│   └── i18n/en.json
+├── ui/
+│   └── post-card.html
+├── posts/[slug]/index.html
+├── blog/[page]/index.html
+└── public/
+    └── logo.svg
+```
+
+`public/`, `assets/`, and `static/` are copied by default through `asset_dirs`.
 
 ## CLI
 
@@ -72,6 +94,7 @@ statica build --sitemap 'filename=sitemap.xml,urls_per_file=50000'
 statica build --process 'css=true,js=false,images=true'
 statica build --minify 'html=true,css=true,js=true'
 statica build --process --minify
+statica build --search 'output=assets/search.json'
 statica build --pagination 'page_size=10,sort_desc=true,index=true'
 statica build --i18n 'locales=en|pt,default=en'
 statica build --render-mode serial
@@ -86,13 +109,38 @@ Optional. Missing file → defaults. See [docs/guide.md](docs/guide.md) for the 
 ```toml
 project = ""                 # relative to this file; empty = here
 out_dir = ".website"
+asset_dirs = ["public", "assets", "static"]
 site_url = ""                # needed for sitemap / RSS
+manifest = false
+
+[aliases]
+symbol = "@"
+
+[aliases.urls]
+Google = "https://fonts.googleapis.com/css2"
+
+[aliases.paths]
+static = "./static"
 
 [process]
 enabled = false
 css = true
 js = true
 images = true
+fonts = false
+
+[process.image]
+widths = [480, 768, 1024, 1366, 1920]
+formats = ["webp"]
+quality = 85
+sizes = "100vw"
+responsive = true
+
+[minify]
+enabled = false
+html = true
+css = true
+js = true
 
 [sitemap]
 enabled = false
@@ -120,6 +168,10 @@ render_threads = 0
 host = "0.0.0.0"
 port = 4321
 
+[forms]
+enabled = false
+provider = "formspree"
+
 [i18n]
 enabled = false
 locales = ["en"]
@@ -145,32 +197,88 @@ Use `--report-json [PATH]` to write the build report as JSON for benchmarks, CI,
 
 statica source is valid HTML. It uses normal `<template>`, `<slot>`, and `<link>` elements as build-time authoring primitives, so keep them where HTML allows them.
 
+### Pages and routes
+
+Every `index.html` is a page. Folder names become routes, and bracket folders expand from build-time data.
+
 ```text
 index.html                 → .website/index.html
 404/index.html             → .website/404/index.html
 posts/[slug]/index.html    → .website/posts/{item.slug}/index.html
 blog/[page]/index.html     → .website/blog/1/, blog/2/, …  ([[pagination]])
+[locale]/about/index.html  → .website/en/about/, .website/pt/about/  ([i18n])
 ```
+
+Static pages emit once. Collection pages use a bracket param such as `[slug]` and a linked data array; the current record is `item`. Pagination pages use `[page]` plus `[[pagination]]`; page metadata and items live under `page.pagination`.
 
 ### 404
 
 If the site does not define `404.html` or `404/index.html`, statica writes a default `.website/404/index.html`. Custom 404 pages are normal source pages and always win. `statica serve` returns the 404 page with HTTP status `404` for missing paths.
 
+### Data funnels
+
+Data funnels load content at build time with `<link rel="statica/data">`. `href` points to a file or explicit glob, and `id` names the data in the page or fragment scope.
+
+```html
+<link rel="statica/data" href="content/posts/*.md" id="posts" />
+<link rel="statica/data" href="content/vehicles.csv" id="vehicles" />
+<link rel="statica/data" href="content/notes.txt" id="notes" type="text/plain" />
+```
+
+Supported sources are JSON, JSONL/NDJSON, CSV, plain text, Markdown, and globs of those files. Data is loaded during the build; production pages should not fetch site content at runtime.
+
+Dynamic data `href` values use the same scoped attribute rules, so locale data can use paths like `href="../content/posts.${i18n.locale}.json"` after binding `{i18n}`.
+
+### Binding basics
+
+Use `data-bind` to declare scope, `data-t` to replace text, and `${...}` inside attributes.
+
+```html
+<html lang="en" data-bind="{item}">
+  <head>
+    <title data-t="${item.headline}">Post</title>
+  </head>
+  <body>
+    <h1 data-t="${item.headline}">Post</h1>
+    <a href="/posts/${item.slug}/">Read</a>
+  </body>
+</html>
+```
+
+- Scalar page text → `data-t="${item.field}"`, or literal text with `data-t="Plain text"`
+- Attributes → `${item.slug}` / `${page.pagination.next_href}` / `${i18n.locale}`
+- Page `data-bind` declares canonical roots such as `{item}`, `{page}`, `{data}`, or `{i18n}` before use
+- Data link IDs are directly available by `id`; they cannot be named `data`, `item`, `page`, or `i18n`
+- Placeholders must be dotted identifier paths; statica does not evaluate JavaScript expressions
+
+### Fragments
+
+Fragments are build-time HTML components. Import a fragment file, mount it with a matching `<slot id>`, and define a `<template>` with the same `id`.
+
+```html
+<!-- page -->
+<link rel="statica/data" href="content/posts/*.md" id="posts" />
+<link rel="statica/fragment" type="text/html" href="ui/post-card.html" id="post-card" />
+<slot id="post-card" data-each="posts"></slot>
+```
+
+```html
+<!-- ui/post-card.html -->
+<template id="post-card" data-bind="{slug, headline}">
+  <article>
+    <h2 data-t="${headline}">Post</h2>
+    <a href="/posts/${slug}/">Read</a>
+  </article>
+</template>
+```
+
+Fragment mounts pass the current context. `data-each` loops over an array and passes each item. Fragments never receive canonical page context automatically; pass values through the mount context or link fragment-local data.
+
+Fragment scripts are scoped by default. Inside a fragment `<script>`, `document.querySelector`, `document.querySelectorAll`, and `document.getElementById` search only that fragment instance.
+
 ### Aliases
 
-Aliases allow the usage of short prefixes instead of repeating long local paths or URLs. They are configured in `statica.toml`, and the default leading symbol is `@`.
-
-```toml
-[aliases]
-symbol = "@"
-
-[aliases.urls]
-Google = "https://fonts.googleapis.com/css2"
-
-[aliases.paths]
-static = "./static"
-fonts = "./assets/fonts"
-```
+Aliases allow short prefixes instead of repeating long local paths or URLs. They are configured in `statica.toml`, and the default leading symbol is `@`.
 
 Use aliases anywhere statica resolves authoring paths, such as fonts, scripts, styles, fragments, data funnels, and assets.
 
@@ -182,21 +290,79 @@ Use aliases anywhere statica resolves authoring paths, such as fonts, scripts, s
 
 `[aliases.urls]` entries resolve to absolute URLs. `[aliases.paths]` entries resolve to local paths relative to `statica.toml`. The text after the alias name is preserved as the tail, so `@static/app.js` resolves against the `static` alias base.
 
-### Binding basics
+### CSS, JS, images, and assets
 
-- Scalar page text → `data-t="${item.field}"`, or literal text with `data-t="Plain text"`
-- Attributes → `${item.slug}` / `${page.pagination.next_href}` / `${i18n.locale}`
-- Dynamic data `href` values use the same scoped attribute rules, so locale data uses paths like `href="../content/posts.${i18n.locale}.json"` after binding `{i18n}`
-- Fragment mount: `<slot id="fragment-id"></slot>` passes the current item/context
-- Fragment loop: `<slot id="fragment-id" data-each="items"></slot>` passes each item
-- Fragment scripts are scoped by default; inside a fragment `<script>`, `document.querySelector`, `document.querySelectorAll`, and `document.getElementById` search only that fragment instance
-- Page `data-bind` declares canonical roots such as `{item}`, `{page}`, `{data}`, or `{i18n}` before use
-- Data link IDs are directly available by `id`; they cannot be named `data`, `item`, `page`, or `i18n`
-- Collection: linked data + `[slug]`; current record is `item`
-- Pagination: linked data + `[page]`; page chunk is `page.pagination`
-- Fragments never receive canonical page context; pass values through the mount context or link fragment-local data
+Inline `<style>` in pages and fragments is always transformed with lightningcss. Linked `.css` under `asset_dirs` is transformed when `[process].css` is enabled.
 
-Keep content funnels build-time. Production output should not fetch site data at runtime unless you are intentionally adding unrelated client behavior.
+```html
+<link rel="stylesheet" href="/app.css" />
+<script type="module" src="/app.js"></script>
+<img src="/logo.svg" alt="statica" />
+```
+
+When `[process].enabled` and `[process].images` are on, statica optimizes copied raster images, writes responsive width variants, adds configured formats such as WebP, and rewrites local `<img>` tags to responsive `<picture>` markup when `[process.image].responsive` is true. Use `[process.image]` to control widths, formats, JPEG quality, and the default `sizes` value.
+
+Use `<link rel="statica/font">` for font stylesheets. Google Fonts URLs get the expected preconnect hints once per page.
+
+### Search
+
+Add a generated browser-side search modal with one authoring input.
+
+```html
+<input type="statica/search" placeholder="Search" />
+```
+
+statica emits `/search.json` and small runtime files under `/statica/`. Configure the index with `[search]`, or use `--search 'output=assets/search.json'` from the CLI.
+
+### Forms
+
+Mark static forms with `statica`, then configure a provider endpoint. Formspree is the default provider.
+
+```html
+<form statica name="contact" method="post">
+  <input name="email" type="email" required />
+  <textarea name="message" required></textarea>
+  <button type="submit">Send</button>
+</form>
+```
+
+```toml
+[forms]
+enabled = true
+provider = "formspree"
+endpoint = "https://formspree.io/f/{id}"
+
+[forms.ids]
+contact = "your-form-id"
+```
+
+### i18n
+
+Use a `[locale]` route segment and enable `[i18n]`. Catalogs live at `content/i18n/{locale}.json` by default.
+
+```toml
+[i18n]
+enabled = true
+locales = ["en", "pt"]
+default = "en"
+```
+
+```html
+<html lang="en" data-bind="{i18n}">
+  <span data-t="${i18n.nav.home}">Home</span>
+  <a href="/${i18n.locale}/">Home</a>
+</html>
+```
+
+Pages must bind `{i18n}` before using catalog values. Fragments do not receive `i18n` automatically.
+
+## Deploy
+
+`statica build` writes plain static files to `.website/` by default. Deploy that output directory to any static host.
+
+```bash
+statica build
+```
 
 ## License
 
