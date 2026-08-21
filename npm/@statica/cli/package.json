@@ -1,7 +1,7 @@
 {
   "name": "@statica/cli",
   "version": "0.51.2",
-  "description": "statica — Powered HTML (CLI launcher for npm)",
+  "description": "statica — Just HTML (CLI launcher for npm)",
   "license": "MIT",
   "type": "commonjs",
   "homepage": "https://github.com/akaizn-junior/statica",

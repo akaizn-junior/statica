@@ -1,6 +1,6 @@
 # @statica/cli
 
-**statica** — **Powered HTML**
+**statica** — **Just HTML**
 
 npm port of the Rust `statica` CLI — same binary as `cargo install statica-cli`.
 
