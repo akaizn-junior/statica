@@ -64,8 +64,8 @@
   },
   "install": {
     "eyebrow": "Instalar",
-    "title": "Instala statica na tua plataforma.",
-    "body": "Usa npm, Homebrew ou Cargo para obter a mesma CLI nativa do statica, depois cria e executa um site a partir de qualquer shell.",
+    "title": "Instala statica com Homebrew.",
+    "body": "Homebrew é a forma principal de instalar a CLI nativa do statica. npm e Cargo continuam disponíveis quando fizerem mais sentido no teu fluxo.",
     "github": "Dá uma estrela ao statica no GitHub ↗",
     "guide": "Ler o guia completo →"
   },
@@ -107,19 +107,19 @@
   ],
   "install_items": [
     {
-      "label": "npm",
-      "command": "npm i -g @statica/cli",
-      "copy": "Copiar comando",
-      "copied": "Copiado"
-    },
-    {
       "label": "homebrew",
       "command": "brew tap akaizn-junior/statica && brew install statica",
       "copy": "Copiar comando",
       "copied": "Copiado"
     },
     {
-      "label": "cargo",
+      "label": "alternativa npm",
+      "command": "npm i -g @statica/cli",
+      "copy": "Copiar comando",
+      "copied": "Copiado"
+    },
+    {
+      "label": "alternativa cargo",
       "command": "cargo install statica-cli --locked",
       "copy": "Copiar comando",
       "copied": "Copiado"

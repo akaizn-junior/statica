@@ -181,6 +181,11 @@ body {
 }
 
 .install-card { height: 100%; }
+.install-grid .install-card:first-child {
+  border-color: color-mix(in oklab, var(--color-primary) 78%, transparent);
+  background: color-mix(in oklab, var(--color-primary) 12%, var(--color-base-200));
+  box-shadow: 0 20px 55px color-mix(in oklab, var(--color-primary) 18%, transparent);
+}
 .install-code { margin-top: auto; min-height: 110px; }
 .install-code pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .copy-icon { width: 1.1rem; height: 1.1rem; }
